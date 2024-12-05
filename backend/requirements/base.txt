@@ -1,0 +1,24 @@
+# Flask and Extensions
+Flask==3.0.2
+flask-cors==4.0.0
+flask-jwt-extended==4.6.0
+flask-login==0.6.3
+flask-migrate==4.0.5
+flask-sqlalchemy==3.1.1
+
+# Database
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# GraphQL
+strawberry-graphql[debug]==0.217.1
+
+# AI Services
+anthropic==0.39.0
+openai==1.55.0
+
+# Utils
+python-dotenv==1.0.1
+Pillow==10.2.0  # For image processing
+boto3==1.34.47  # For S3 storage
+requests==2.31.0
