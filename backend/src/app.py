@@ -35,9 +35,13 @@ def create_app(config_name=None):
         return User.query.get(int(user_id))
 
     # Register blueprints
+    from agents import agents_bp
     from auth import auth_bp
+    from content import content_bp
 
+    app.register_blueprint(agents_bp, url_prefix="/agents")
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(content_bp, url_prefix="/content")
 
     # Register CLI commands
     app.cli.add_command(user_cli)
