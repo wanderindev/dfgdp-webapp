@@ -8,7 +8,7 @@ class AIGenerationMixin:
 
     tokens_used = db.Column(db.Integer, nullable=True)
     model_id = db.Column(db.Integer, db.ForeignKey("ai_models.id"), nullable=True)
-    generation_started_at = db.Column(db.DateTime, nullable=True)
+    generation_started_at = db.Column(db.DateTime(timezone=True), nullable=True)
     last_generation_error = db.Column(db.Text, nullable=True)
 
 

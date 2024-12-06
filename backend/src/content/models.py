@@ -82,7 +82,7 @@ class Tag(db.Model, TimestampMixin):
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
 
 article_tags = db.Table(
@@ -116,7 +116,7 @@ class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     category = db.relationship("Category", backref="suggestions")
     research = db.relationship("Research", backref="suggestion", uselist=False)
@@ -136,7 +136,7 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
 
 class Article(db.Model, TimestampMixin, AIGenerationMixin):
@@ -160,8 +160,8 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin):
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
-    published_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    published_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     category = db.relationship("Category", backref="articles")
     research = db.relationship("Research", backref="article")
@@ -258,10 +258,10 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin):
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
-    approved_at = db.Column(db.DateTime, nullable=True)
+    approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
-    scheduled_for = db.Column(db.DateTime, nullable=True)
-    posted_at = db.Column(db.DateTime, nullable=True)
+    scheduled_for = db.Column(db.DateTime(timezone=True), nullable=True)
+    posted_at = db.Column(db.DateTime(timezone=True), nullable=True)
     post_url = db.Column(db.String(255), nullable=True)
 
     article = db.relationship("Article", backref="social_media_posts")
