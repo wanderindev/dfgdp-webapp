@@ -131,3 +131,7 @@ dist
 
 # jetbrains
 .idea/
+
+# python
+__pycache__/
+
