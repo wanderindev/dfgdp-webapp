@@ -1,6 +1,7 @@
 from .models import User, db
 
 
+# noinspection PyArgumentList
 def create_admin_user(email, full_name, password):
     """Create an admin user if it doesn't exist."""
     if User.query.filter_by(email=email).first():

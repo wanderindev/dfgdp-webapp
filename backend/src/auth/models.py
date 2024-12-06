@@ -21,11 +21,6 @@ class User(UserMixin, db.Model):
     )
     last_login_at = db.Column(db.DateTime)
 
-    def __init__(self, email, full_name, **kwargs):
-        super().__init__(**kwargs)
-        self.email = email
-        self.full_name = full_name
-
     def set_password(self, password):
         """Set the user's password."""
         self.password_hash = generate_password_hash(password)

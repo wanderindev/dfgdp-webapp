@@ -1,5 +1,4 @@
 import json
-from flask_login import current_user
 
 
 def test_login_success(client, test_user, db_session):

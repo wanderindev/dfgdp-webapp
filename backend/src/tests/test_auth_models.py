@@ -1,6 +1,7 @@
 from auth.models import User
 
 
+# noinspection PyArgumentList
 def test_user_creation(db_session):
     """Test creating a new user."""
     user = User(email="new@example.com", full_name="New User")
