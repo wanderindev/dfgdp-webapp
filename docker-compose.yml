@@ -42,7 +42,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=travel_blog
     ports:
-      - "5432:5432"
+      - "5431:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
