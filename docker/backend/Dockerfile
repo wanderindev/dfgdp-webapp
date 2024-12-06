@@ -15,8 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set environment variables
-ENV FLASK_APP=src/app.py
-ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV FLASK_APP=src/run.py
+ENV PYTHONPATH=/app/backend
 
 # Expose port
 EXPOSE 5000

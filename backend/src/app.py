@@ -1,8 +1,11 @@
 import os
+
 from flask import Flask
-from flask_login import LoginManager
 from flask_cors import CORS
 
+from cli import (
+    user_cli,
+)
 from config import config
 from extensions import db, migrate, jwt, redis_client, login_manager
 
@@ -25,20 +28,27 @@ def create_app(config_name=None):
     # Initialize Redis
     redis_client.from_url(app.config["REDIS_URL"])
 
+    @login_manager.user_loader
+    def load_user(user_id):
+        from auth.models import User
+
+        return User.query.get(int(user_id))
+
     # Register blueprints
     from auth import auth_bp
-    from api import api_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
-    app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Register CLI commands
+    app.cli.add_command(user_cli)
 
     # Configure logging
     if not app.debug:
         import logging
         from logging.handlers import RotatingFileHandler
 
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
+        if not os.path.exists("logs"):
+            os.mkdir("logs")
 
         file_handler = RotatingFileHandler(
             "logs/app.log", maxBytes=10240, backupCount=10

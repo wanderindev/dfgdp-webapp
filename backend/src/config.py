@@ -4,6 +4,7 @@ from datetime import timedelta
 
 class BaseConfig:
     """Base configuration."""
+
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
     # Security
@@ -13,11 +14,11 @@ class BaseConfig:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/travel_blog",
+        "postgresql://postgres:postgres@db:5432/dfgdp_webapp",
     )
 
     # Redis
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6373/0")
 
     # API Keys
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -34,8 +35,8 @@ class BaseConfig:
 
     # Upload Settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-    ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+    ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 
     # S3 Settings (for production)
     S3_BUCKET = os.getenv("S3_BUCKET")
@@ -46,6 +47,7 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration."""
+
     DEBUG = True
     SQLALCHEMY_ECHO = True
     REMEMBER_COOKIE_SECURE = False  # Allow testing without HTTPS
@@ -53,14 +55,16 @@ class DevelopmentConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     """Testing configuration."""
+
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@localhost:5432/travel_blog_test"
+    SQLALCHEMY_DATABASE_URI = "postgresql://postgres:postgres@db:5432/dfgdp_webapp_test"
     WTF_CSRF_ENABLED = False
     REMEMBER_COOKIE_SECURE = False
 
 
 class ProductionConfig(BaseConfig):
     """Production configuration."""
+
     DEBUG = False
     REMEMBER_COOKIE_SECURE = True
 
@@ -71,10 +75,10 @@ class ProductionConfig(BaseConfig):
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 
     # Production-specific settings
-    PREFERRED_URL_SCHEME = 'https'
+    PREFERRED_URL_SCHEME = "https"
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SAMESITE = "Lax"
 
 
 config = {

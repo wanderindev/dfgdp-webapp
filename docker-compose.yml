@@ -5,14 +5,15 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/backend/Dockerfile
+    image: dfgdp-webapp-backend:latest
     ports:
-      - "5000:5000"
+      - "5073:5000"
     volumes:
       - ./backend:/app
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/travel_blog
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/dfgdp_webapp
       - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-here
       - JWT_SECRET_KEY=your-jwt-secret-here
@@ -24,6 +25,7 @@ services:
     build:
       context: ./frontend
       dockerfile: ../docker/frontend/Dockerfile.dev
+    image: dfgdp-webapp-frontend:latest
     ports:
       - "5173:5173"
     volumes:
@@ -40,16 +42,16 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=travel_blog
+      - POSTGRES_DB=dfgdp_webapp
     ports:
-      - "5431:5432"
+      - "5473:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "6373:6379"
 
 volumes:
   postgres_data:

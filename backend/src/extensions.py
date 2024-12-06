@@ -14,12 +14,6 @@ redis_client = Redis()
 login_manager = LoginManager()
 
 # Configure login manager
-login_manager.login_view = 'auth.login'
-login_manager.login_message = 'Please log in to access this page.'
-login_manager.login_message_category = 'info'
-
-# This will be used to load users from the database
-@login_manager.user_loader
-def load_user(user_id):
-    from auth.models import User
-    return User.query.get(int(user_id))
+login_manager.login_view = "auth.login"
+login_manager.login_message = "Please log in to access this page."
+login_manager.login_message_category = "info"
