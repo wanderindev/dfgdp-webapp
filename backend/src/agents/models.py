@@ -1,8 +1,11 @@
 import enum
-from typing import Optional, Dict, Any
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any, Type
 
 from flask import current_app
+from sqlalchemy import func
 
+from agents.clients import BaseAIClient, OpenAIClient, AnthropicClient
 from extensions import db
 from mixins.mixins import TimestampMixin
 
@@ -44,6 +47,7 @@ class AIModel(db.Model, TimestampMixin):
         return None
 
 
+# noinspection PyArgumentList,PyPep8Naming
 class Agent(db.Model, TimestampMixin):
     """Configuration for different AI agents"""
 
@@ -126,6 +130,31 @@ class Agent(db.Model, TimestampMixin):
 
         return True, None
 
+    def get_client(self) -> BaseAIClient:
+        """Get the appropriate AI client for this agent."""
+        # Map providers to client classes
+        client_map: Dict[Provider, Type[BaseAIClient]] = {
+            Provider.OPENAI: OpenAIClient,
+            Provider.ANTHROPIC: AnthropicClient,
+        }
+
+        ClientClass = client_map.get(self.model.provider)
+        if not ClientClass:
+            raise ValueError(
+                f"No client implementation for provider {self.model.provider}"
+            )
+
+        return ClientClass(
+            model=self.model.model_id,
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+        )
+
+    async def generate_content(self, prompt: str, **kwargs) -> str:
+        """Generate content using this agent's configuration."""
+        client = self.get_client()
+        return await client.generate(prompt, **kwargs)
+
 
 class PromptTemplate(db.Model, TimestampMixin):
     """Store editable prompt templates for agents"""
@@ -165,3 +194,36 @@ class PromptTemplate(db.Model, TimestampMixin):
             raise ValueError(f"Missing required template variable: {str(e)}")
         except Exception as e:
             raise ValueError(f"Template rendering error: {str(e)}")
+
+
+class Usage(db.Model, TimestampMixin):
+    """Track API usage and costs"""
+
+    __tablename__ = "api_usage"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.Enum(Provider), nullable=False)
+    model_id = db.Column(db.String(50), nullable=False)
+    input_tokens = db.Column(db.Integer, nullable=False)
+    output_tokens = db.Column(db.Integer, nullable=False)
+    cost = db.Column(db.Float, nullable=False)
+    timestamp = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    @classmethod
+    def get_usage_summary(cls, start_date: datetime, end_date: datetime) -> Dict:
+        """Get usage summary for a date range."""
+        return (
+            db.session.query(
+                cls.provider,
+                func.sum(cls.input_tokens).label("total_input_tokens"),
+                func.sum(cls.output_tokens).label("total_output_tokens"),
+                func.sum(cls.cost).label("total_cost"),
+            )
+            .filter(cls.timestamp.between(start_date, end_date))
+            .group_by(cls.provider)
+            .all()
+        )
