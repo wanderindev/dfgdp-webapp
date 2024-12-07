@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 
 from sqlalchemy import func
 
-from agents.models import AIGenerationMixin
 from extensions import db
 
 
@@ -37,6 +36,15 @@ class TimestampMixin:
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+
+
+class AIGenerationMixin:
+    """Mixin for tracking AI content generation metadata"""
+
+    tokens_used = db.Column(db.Integer, nullable=True)
+    model_id = db.Column(db.Integer, db.ForeignKey("ai_models.id"), nullable=True)
+    generation_started_at = db.Column(db.DateTime, nullable=True)
+    last_generation_error = db.Column(db.Text, nullable=True)
 
 
 class Taxonomy(db.Model, TimestampMixin):

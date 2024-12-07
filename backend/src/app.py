@@ -3,9 +3,8 @@ import os
 from flask import Flask
 from flask_cors import CORS
 
-from cli import (
-    user_cli,
-)
+from agents.commands import agents_cli
+from auth.commands import user_cli
 from config import config
 from extensions import db, migrate, jwt, redis_client, login_manager
 
@@ -45,6 +44,7 @@ def create_app(config_name=None):
 
     # Register CLI commands
     app.cli.add_command(user_cli)
+    app.cli.add_command(agents_cli)
 
     # Configure logging
     if not app.debug:

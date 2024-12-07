@@ -1,8 +1,8 @@
-"""Add content models
+"""Add content and agent models
 
-Revision ID: ebcd7a6225db
+Revision ID: 282fd2b92ed3
 Revises: ce8af62939d6
-Create Date: 2024-12-06 22:08:44.674997
+Create Date: 2024-12-07 01:10:33.366606
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'ebcd7a6225db'
+revision = '282fd2b92ed3'
 down_revision = 'ce8af62939d6'
 branch_labels = None
 depends_on = None
@@ -21,7 +21,7 @@ def upgrade():
     op.create_table('ai_models',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
-    sa.Column('provider', sa.String(length=50), nullable=False),
+    sa.Column('provider', sa.Enum('OPENAI', 'ANTHROPIC', name='provider'), nullable=False),
     sa.Column('model_id', sa.String(length=50), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
@@ -52,6 +52,21 @@ def upgrade():
     sa.UniqueConstraint('name'),
     sa.UniqueConstraint('slug')
     )
+    op.create_table('agents',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('type', sa.Enum('CONTENT_MANAGER', 'RESEARCHER', 'WRITER', 'SOCIAL_MEDIA', name='agenttype'), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('model_id', sa.Integer(), nullable=False),
+    sa.Column('temperature', sa.Float(), nullable=False),
+    sa.Column('max_tokens', sa.Integer(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['model_id'], ['ai_models.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('name')
+    )
     op.create_table('categories',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('taxonomy_id', sa.Integer(), nullable=False),
@@ -70,7 +85,7 @@ def upgrade():
     sa.Column('slug', sa.String(length=50), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='contentstatus'), nullable=False),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['approved_by_id'], ['users.id'], ),
@@ -88,7 +103,7 @@ def upgrade():
     sa.Column('level', sa.Enum('ELEMENTARY', 'MIDDLE_SCHOOL', 'HIGH_SCHOOL', 'COLLEGE', 'GENERAL', name='articlelevel'), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='contentstatus'), nullable=False),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('tokens_used', sa.Integer(), nullable=True),
@@ -100,13 +115,26 @@ def upgrade():
     sa.ForeignKeyConstraint(['model_id'], ['ai_models.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('prompt_templates',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('agent_id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('template', sa.Text(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['agent_id'], ['agents.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('agent_id', 'name', name='unique_template_name_per_agent')
+    )
     op.create_table('research',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('suggestion_id', sa.Integer(), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='contentstatus'), nullable=False),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('tokens_used', sa.Integer(), nullable=True),
@@ -131,8 +159,8 @@ def upgrade():
     sa.Column('level', sa.Enum('ELEMENTARY', 'MIDDLE_SCHOOL', 'HIGH_SCHOOL', 'COLLEGE', 'GENERAL', name='articlelevel'), nullable=False),
     sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='contentstatus'), nullable=False),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
-    sa.Column('published_at', sa.DateTime(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('published_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('tokens_used', sa.Integer(), nullable=True),
@@ -169,9 +197,9 @@ def upgrade():
     sa.Column('image_url', sa.String(length=255), nullable=True),
     sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='contentstatus'), nullable=False),
     sa.Column('approved_by_id', sa.Integer(), nullable=True),
-    sa.Column('approved_at', sa.DateTime(), nullable=True),
-    sa.Column('scheduled_for', sa.DateTime(), nullable=True),
-    sa.Column('posted_at', sa.DateTime(), nullable=True),
+    sa.Column('approved_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('scheduled_for', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('posted_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('post_url', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
@@ -195,9 +223,11 @@ def downgrade():
     op.drop_table('article_relationships')
     op.drop_table('articles')
     op.drop_table('research')
+    op.drop_table('prompt_templates')
     op.drop_table('article_suggestions')
     op.drop_table('tags')
     op.drop_table('categories')
+    op.drop_table('agents')
     op.drop_table('taxonomies')
     op.drop_table('social_media_accounts')
     op.drop_table('ai_models')
