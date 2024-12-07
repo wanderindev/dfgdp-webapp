@@ -124,3 +124,40 @@ def test_research(db_session, test_suggestion):
     db_session.add(research)
     db_session.commit()
     return research
+
+
+# noinspection PyArgumentList
+@pytest.fixture
+def test_social_media_account(db_session):
+    """Create a test social media account."""
+    from content.models import SocialMediaAccount, Platform
+
+    account = SocialMediaAccount(
+        platform=Platform.INSTAGRAM,
+        username="testaccount",
+        account_id="123456",
+        credentials={"access_token": "dummy_token"},
+    )
+    db_session.add(account)
+    db_session.commit()
+    return account
+
+
+# noinspection PyArgumentList
+@pytest.fixture
+def test_article(db_session, test_research, test_category):
+    """Create a test article."""
+    from content.models import Article, ArticleLevel
+
+    article = Article(
+        research=test_research,
+        category=test_category,
+        title="Test Article",
+        slug="test-article",
+        content="Test content",
+        excerpt="Test excerpt",
+        level=ArticleLevel.HIGH_SCHOOL,
+    )
+    db_session.add(article)
+    db_session.commit()
+    return article

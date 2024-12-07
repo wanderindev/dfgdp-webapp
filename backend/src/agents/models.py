@@ -3,8 +3,8 @@ from typing import Optional, Dict, Any
 
 from flask import current_app
 
-from content.models import TimestampMixin
 from extensions import db
+from mixins.mixins import TimestampMixin
 
 
 class AgentType(enum.Enum):
@@ -12,6 +12,7 @@ class AgentType(enum.Enum):
     RESEARCHER = "researcher"
     WRITER = "writer"
     SOCIAL_MEDIA = "social_media"
+    TRANSLATOR = "translator"
 
 
 class Provider(enum.Enum):

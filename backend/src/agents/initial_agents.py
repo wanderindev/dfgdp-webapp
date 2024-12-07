@@ -78,4 +78,19 @@ INITIAL_AGENTS = [
             }
         ],
     },
+    {
+        "name": "Translator",
+        "type": AgentType.TRANSLATOR,  # Need to add this to enum
+        "description": "Translates content while preserving formatting and special tokens",
+        "model": "Claude 3.5 Sonnet",
+        "temperature": 0.3,  # Lower temperature for more consistent translations
+        "max_tokens": 4096,
+        "prompts": [
+            {
+                "name": "translate_content",
+                "description": "Template for translating content while preserving format",
+                "template": "",  # We'll add the template content later
+            }
+        ],
+    },
 ]

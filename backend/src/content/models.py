@@ -1,9 +1,10 @@
 import enum
-from datetime import datetime, timezone
 
 from sqlalchemy import func
 
 from extensions import db
+from mixins.mixins import AIGenerationMixin, TimestampMixin
+from mixins.mixins import TranslatableMixin
 
 
 # Enums
@@ -25,29 +26,7 @@ class Platform(enum.Enum):
     INSTAGRAM = "instagram"
 
 
-# Base class for common fields
-class TimestampMixin:
-    created_at = db.Column(
-        db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
-    )
-    updated_at = db.Column(
-        db.DateTime,
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-
-class AIGenerationMixin:
-    """Mixin for tracking AI content generation metadata"""
-
-    tokens_used = db.Column(db.Integer, nullable=True)
-    model_id = db.Column(db.Integer, db.ForeignKey("ai_models.id"), nullable=True)
-    generation_started_at = db.Column(db.DateTime, nullable=True)
-    last_generation_error = db.Column(db.Text, nullable=True)
-
-
-class Taxonomy(db.Model, TimestampMixin):
+class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
     """Main content hierarchy"""
 
     __tablename__ = "taxonomies"
@@ -60,7 +39,7 @@ class Taxonomy(db.Model, TimestampMixin):
     categories = db.relationship("Category", backref="taxonomy", lazy=True)
 
 
-class Category(db.Model, TimestampMixin):
+class Category(db.Model, TimestampMixin, TranslatableMixin):
     """Sub-categories within taxonomies"""
 
     __tablename__ = "categories"
@@ -78,7 +57,7 @@ class Category(db.Model, TimestampMixin):
     )
 
 
-class Tag(db.Model, TimestampMixin):
+class Tag(db.Model, TimestampMixin, TranslatableMixin):
     """Content tags with approval workflow"""
 
     __tablename__ = "tags"
@@ -147,7 +126,7 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
     approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
 
-class Article(db.Model, TimestampMixin, AIGenerationMixin):
+class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
     """Main article content"""
 
     __tablename__ = "articles"
@@ -247,7 +226,7 @@ class SocialMediaAccount(db.Model, TimestampMixin):
     )
 
 
-class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin):
+class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
     """Generated social media content"""
 
     __tablename__ = "social_media_posts"
