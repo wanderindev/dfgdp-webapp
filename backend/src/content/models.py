@@ -56,10 +56,14 @@ class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
-    slug = db.Column(db.String(100), nullable=False, unique=True)
     description = db.Column(db.Text, nullable=False)
 
     categories = db.relationship("Category", backref="taxonomy", lazy=True)
+
+    @property
+    def slug(self) -> str:
+        """Generate slug from name"""
+        return slugify(self.name)
 
 
 class Category(db.Model, TimestampMixin, TranslatableMixin):
@@ -70,12 +74,16 @@ class Category(db.Model, TimestampMixin, TranslatableMixin):
     id = db.Column(db.Integer, primary_key=True)
     taxonomy_id = db.Column(db.Integer, db.ForeignKey("taxonomies.id"), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    slug = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=False)
+
+    @property
+    def slug(self) -> str:
+        """Generate slug from name"""
+        return slugify(self.name)
 
     __table_args__ = (
         db.UniqueConstraint(
-            "taxonomy_id", "slug", name="unique_category_slug_per_taxonomy"
+            "taxonomy_id", "name", name="unique_category_name_per_taxonomy"
         ),
     )
 
@@ -88,18 +96,22 @@ class Tag(db.Model, TimestampMixin, TranslatableMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False, unique=True)
-    slug = db.Column(db.String(50), nullable=False, unique=True)
     status = db.Column(
         db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
     )
     approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     approved_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
+    @property
+    def slug(self) -> str:
+        """Generate slug from name"""
+        return slugify(self.name)
+
     @staticmethod
     def create_tag(name: str) -> Optional["Tag"]:
         """Create a new tag in pending state."""
         try:
-            tag = Tag(name=name, slug=slugify(name), status=ContentStatus.PENDING)
+            tag = Tag(name=name, status=ContentStatus.PENDING)
             db.session.add(tag)
             db.session.commit()
             return tag
@@ -383,7 +395,6 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
     feature_image_id = db.Column(db.Integer, db.ForeignKey("media.id"), nullable=True)
 
     title = db.Column(db.String(255), nullable=False)
-    slug = db.Column(db.String(255), nullable=False, unique=True)
     content = db.Column(db.Text, nullable=False)
     excerpt = db.Column(db.Text, nullable=True)
     ai_summary = db.Column(db.Text, nullable=True)
@@ -407,6 +418,11 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
         secondaryjoin=id == article_relationships.c.related_article_id,
         backref="referenced_by",
     )
+
+    @property
+    def slug(self) -> str:
+        """Generate slug from title"""
+        return slugify(self.title)
 
     @property
     def word_count(self) -> int:

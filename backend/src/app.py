@@ -4,7 +4,8 @@ from flask import Flask
 from flask_cors import CORS
 
 from agents.commands import agents_cli
-from auth.commands import user_cli
+from auth.commands import auth_cli
+from content.commands import content_cli
 from config import config
 from extensions import db, migrate, jwt, redis_client, login_manager
 
@@ -45,8 +46,9 @@ def create_app(config_name=None):
     app.register_blueprint(translations_bp, url_prefix="/translations")
 
     # Register CLI commands
-    app.cli.add_command(user_cli)
+    app.cli.add_command(auth_cli)
     app.cli.add_command(agents_cli)
+    app.cli.add_command(content_cli)
 
     # Configure logging
     if not app.debug:

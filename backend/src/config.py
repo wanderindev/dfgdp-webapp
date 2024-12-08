@@ -53,7 +53,7 @@ class DevelopmentConfig(BaseConfig):
     """Development configuration."""
 
     DEBUG = True
-    SQLALCHEMY_ECHO = True
+    SQLALCHEMY_ECHO = False
     REMEMBER_COOKIE_SECURE = False  # Allow testing without HTTPS
 
 

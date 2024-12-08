@@ -2,10 +2,10 @@ import click
 from flask.cli import AppGroup
 
 # Create a command group
-user_cli = AppGroup("user")
+auth_cli = AppGroup("auth")
 
 
-@user_cli.command("create-admin")
+@auth_cli.command("create-admin")
 @click.option("--email", required=True, help="Email of the user")
 @click.option("--full_name", required=True, help="Full name of the user")
 @click.option("--password", required=True, help="Password of the user")
