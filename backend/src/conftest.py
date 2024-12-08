@@ -1,6 +1,12 @@
+from typing import Generator, Any
+
 import pytest
+from flask import Flask
+from flask.testing import FlaskClient
+from sqlalchemy.orm import Session
 
 from app import create_app
+from auth.models import User
 from content.models import (
     Taxonomy,
     Category,
@@ -8,16 +14,18 @@ from content.models import (
     Research,
     ArticleLevel,
     ContentStatus,
+    Article,
+    SocialMediaAccount,
 )
 from extensions import db
 
 
-def pytest_configure(config):
+def pytest_configure(config: Any) -> None:
     config.addinivalue_line("markers", "asyncio: mark test as async/asyncio test")
 
 
 @pytest.fixture(scope="session")
-def app():
+def app() -> Flask:
     """Create application for the tests."""
     app = create_app("testing")
     return app
@@ -25,7 +33,7 @@ def app():
 
 # noinspection PyTestUnpassedFixture
 @pytest.fixture(scope="function")
-def db_session(app):
+def db_session(app: Flask) -> Generator[Session, None, None]:
     """Create a fresh database session for each test."""
     with app.app_context():
         db.create_all()
@@ -35,14 +43,14 @@ def db_session(app):
 
 
 @pytest.fixture
-def client(app):
+def client(app: Flask) -> FlaskClient:
     """Test client for our Flask application."""
     return app.test_client()
 
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_user(db_session):
+def test_user(db_session: Session) -> Generator[User, None, None]:
     """Create a test user."""
     from auth.models import User
     from content.models import Tag
@@ -64,7 +72,7 @@ def test_user(db_session):
 
 
 @pytest.fixture(autouse=True)
-def app_context(app):
+def app_context(app: Flask) -> Generator[None, None, None]:
     """Create app context for each test."""
     with app.app_context():
         yield
@@ -72,7 +80,7 @@ def app_context(app):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_taxonomy(db_session):
+def test_taxonomy(db_session: Session) -> Taxonomy:
     """Create a test taxonomy."""
     taxonomy = Taxonomy(
         name="Test Taxonomy",
@@ -86,7 +94,7 @@ def test_taxonomy(db_session):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_category(db_session, test_taxonomy):
+def test_category(db_session: Session, test_taxonomy: Taxonomy) -> Category:
     """Create a test category."""
     category = Category(
         taxonomy_id=test_taxonomy.id,
@@ -101,7 +109,7 @@ def test_category(db_session, test_taxonomy):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_suggestion(db_session, test_category):
+def test_suggestion(db_session: Session, test_category: Category) -> ArticleSuggestion:
     """Create a test article suggestion."""
     suggestion = ArticleSuggestion(
         category=test_category,
@@ -118,7 +126,7 @@ def test_suggestion(db_session, test_category):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_research(db_session, test_suggestion):
+def test_research(db_session: Session, test_suggestion: ArticleSuggestion) -> Research:
     """Create a test research."""
     research = Research(
         suggestion=test_suggestion,
@@ -132,7 +140,7 @@ def test_research(db_session, test_suggestion):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_social_media_account(db_session):
+def test_social_media_account(db_session: Session) -> SocialMediaAccount:
     """Create a test social media account."""
     from content.models import SocialMediaAccount, Platform
 
@@ -149,7 +157,9 @@ def test_social_media_account(db_session):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_article(db_session, test_research, test_category):
+def test_article(
+    db_session: Session, test_research: Research, test_category: Category
+) -> Article:
     """Create a test article."""
     from content.models import Article, ArticleLevel
 

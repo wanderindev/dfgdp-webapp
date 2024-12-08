@@ -1,9 +1,10 @@
 import enum
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Type
+from typing import Optional, Dict, Any, Type, Tuple, List
 
 from flask import current_app
 from sqlalchemy import func
+from sqlalchemy.orm import Mapped, relationship
 
 from agents.clients import BaseAIClient, OpenAIClient, AnthropicClient
 from extensions import db
@@ -28,15 +29,15 @@ class AIModel(db.Model, TimestampMixin):
 
     __tablename__ = "ai_models"
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    provider = db.Column(db.Enum(Provider), nullable=False)
-    model_id = db.Column(db.String(50), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    is_active = db.Column(db.Boolean, default=True)
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    name: Mapped[str] = db.Column(db.String(100), nullable=False)
+    provider: Mapped[Provider] = db.Column(db.Enum(Provider), nullable=False)
+    model_id: Mapped[str] = db.Column(db.String(50), nullable=False)
+    description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
+    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
 
     # Relationship to agents using this model
-    agents = db.relationship("Agent", backref="model")
+    agents: Mapped[List["Agent"]] = relationship("Agent", backref="model")
 
     def get_api_key(self) -> Optional[str]:
         """Get the appropriate API key based on the provider."""
@@ -47,27 +48,30 @@ class AIModel(db.Model, TimestampMixin):
         return None
 
 
-# noinspection PyArgumentList,PyPep8Naming
 class Agent(db.Model, TimestampMixin):
     """Configuration for different AI agents"""
 
     __tablename__ = "agents"
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False, unique=True)
-    type = db.Column(db.Enum(AgentType), nullable=False)
-    description = db.Column(db.Text, nullable=True)
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    name: Mapped[str] = db.Column(db.String(100), nullable=False, unique=True)
+    type: Mapped[AgentType] = db.Column(db.Enum(AgentType), nullable=False)
+    description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
 
     # AI Model relationship
-    model_id = db.Column(db.Integer, db.ForeignKey("ai_models.id"), nullable=False)
+    model_id: Mapped[int] = db.Column(
+        db.Integer, db.ForeignKey("ai_models.id"), nullable=False
+    )
 
     # Configuration
-    temperature = db.Column(db.Float, nullable=False, default=0.7)
-    max_tokens = db.Column(db.Integer, nullable=False)
-    is_active = db.Column(db.Boolean, default=True)
+    temperature: Mapped[float] = db.Column(db.Float, nullable=False, default=0.7)
+    max_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
+    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
 
     # Relationship to prompt templates
-    prompts = db.relationship("PromptTemplate", backref="agent", lazy=True)
+    prompts: Mapped[List["PromptTemplate"]] = relationship(
+        "PromptTemplate", backref="agent", lazy=True
+    )
 
     def get_template(self, name: str) -> Optional["PromptTemplate"]:
         """Get an active template by name."""
@@ -75,7 +79,7 @@ class Agent(db.Model, TimestampMixin):
             agent_id=self.id, name=name, is_active=True
         ).first()
 
-    def render_template(self, template_name: str, **kwargs) -> Optional[str]:
+    def render_template(self, template_name: str, **kwargs: Any) -> Optional[str]:
         """
         Render a template with the provided variables.
 
@@ -109,7 +113,7 @@ class Agent(db.Model, TimestampMixin):
             "api_key": self.model.get_api_key(),
         }
 
-    def validate_config(self) -> tuple[bool, Optional[str]]:
+    def validate_config(self) -> Tuple[bool, Optional[str]]:
         """
         Validate agent configuration is complete and valid.
 
@@ -138,6 +142,7 @@ class Agent(db.Model, TimestampMixin):
             Provider.ANTHROPIC: AnthropicClient,
         }
 
+        # noinspection PyPep8Naming
         ClientClass = client_map.get(self.model.provider)
         if not ClientClass:
             raise ValueError(
@@ -150,7 +155,7 @@ class Agent(db.Model, TimestampMixin):
             max_tokens=self.max_tokens,
         )
 
-    async def generate_content(self, prompt: str, **kwargs) -> str:
+    async def generate_content(self, prompt: str, **kwargs: Any) -> str:
         """Generate content using this agent's configuration."""
         client = self.get_client()
         return await client.generate(prompt, **kwargs)
@@ -161,18 +166,20 @@ class PromptTemplate(db.Model, TimestampMixin):
 
     __tablename__ = "prompt_templates"
 
-    id = db.Column(db.Integer, primary_key=True)
-    agent_id = db.Column(db.Integer, db.ForeignKey("agents.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    template = db.Column(db.Text, nullable=False)
-    is_active = db.Column(db.Boolean, default=True)
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    agent_id: Mapped[int] = db.Column(
+        db.Integer, db.ForeignKey("agents.id"), nullable=False
+    )
+    name: Mapped[str] = db.Column(db.String(100), nullable=False)
+    description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
+    template: Mapped[str] = db.Column(db.Text, nullable=False)
+    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
 
     __table_args__ = (
         db.UniqueConstraint("agent_id", "name", name="unique_template_name_per_agent"),
     )
 
-    def render(self, **kwargs) -> str:
+    def render(self, **kwargs: Any) -> str:
         """
         Render the template with the provided variables.
 
@@ -201,20 +208,22 @@ class Usage(db.Model, TimestampMixin):
 
     __tablename__ = "api_usage"
 
-    id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.Enum(Provider), nullable=False)
-    model_id = db.Column(db.String(50), nullable=False)
-    input_tokens = db.Column(db.Integer, nullable=False)
-    output_tokens = db.Column(db.Integer, nullable=False)
-    cost = db.Column(db.Float, nullable=False)
-    timestamp = db.Column(
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    provider: Mapped[Provider] = db.Column(db.Enum(Provider), nullable=False)
+    model_id: Mapped[str] = db.Column(db.String(50), nullable=False)
+    input_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
+    output_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
+    cost: Mapped[float] = db.Column(db.Float, nullable=False)
+    timestamp: Mapped[datetime] = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
 
     @classmethod
-    def get_usage_summary(cls, start_date: datetime, end_date: datetime) -> Dict:
+    def get_usage_summary(
+        cls, start_date: datetime, end_date: datetime
+    ) -> List[Tuple[Provider, int, int, float]]:
         """Get usage summary for a date range."""
         return (
             db.session.query(

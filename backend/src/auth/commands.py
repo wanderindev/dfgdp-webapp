@@ -1,15 +1,17 @@
+from typing import NoReturn
+
 import click
 from flask.cli import AppGroup
 
 # Create a command group
-auth_cli = AppGroup("auth")
+auth_cli: AppGroup = AppGroup("auth")
 
 
 @auth_cli.command("create-admin")
 @click.option("--email", required=True, help="Email of the user")
 @click.option("--full_name", required=True, help="Full name of the user")
 @click.option("--password", required=True, help="Password of the user")
-def create_admin(email, full_name, password):
+def create_admin(email: str, full_name: str, password: str) -> NoReturn:
     """Create an admin user."""
     from auth.utils import create_admin_user
 

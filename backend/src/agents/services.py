@@ -1,18 +1,21 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from flask import current_app
 
+from agents.clients.base import BaseAIClient
+from agents.clients.anthropic_client import AnthropicClient
+from agents.clients.openai_client import OpenAIClient
 from agents.models import Agent, AgentType
-from .models import db, Provider
 from translations.models import Translation, ApprovedLanguage
+from .models import db, Provider
 
 
 # noinspection PyArgumentList
 class TranslationService:
     """Service for handling content translations"""
 
-    def __init__(self):
-        self.agent = Agent.query.filter_by(
+    def __init__(self) -> None:
+        self.agent: Optional[Agent] = Agent.query.filter_by(
             type=AgentType.TRANSLATOR, is_active=True
         ).first()
 
@@ -39,6 +42,9 @@ class TranslationService:
 
         Returns:
             Dictionary of field names and success status
+
+        Raises:
+            ValueError: If target language is not approved or default language is not configured
         """
         try:
             # Validate target language
@@ -49,16 +55,18 @@ class TranslationService:
                     f"Language {target_language} not approved for translation"
                 )
 
-            results = {}
+            results: Dict[str, bool] = {}
 
             # Get source language (default language)
-            source_lang = ApprovedLanguage.get_default_language()
+            source_lang: Optional[
+                ApprovedLanguage
+            ] = ApprovedLanguage.get_default_language()
             if not source_lang:
                 raise ValueError("No default language configured")
 
             for field in fields:
                 # Get original content
-                original = Translation.query.filter_by(
+                original: Optional[Translation] = Translation.query.filter_by(
                     entity_type=entity_type,
                     entity_id=entity_id,
                     field=field,
@@ -74,17 +82,17 @@ class TranslationService:
 
                 try:
                     # Choose appropriate template based on field type
-                    template_name = (
+                    template_name: str = (
                         "translate_metadata"
                         if field in ["title", "level", "tags"]
                         else "translate_content"
                     )
 
                     # Get appropriate content
-                    content = original.content if original else field
+                    content: str = original.content if original else field
 
                     # Generate translation
-                    translated_content = await self._generate_translation(
+                    translated_content: str = await self._generate_translation(
                         content=content,
                         source_language=source_lang.code,
                         target_language=target_language,
@@ -102,7 +110,7 @@ class TranslationService:
                         language=target_language,
                         content=translated_content,
                         is_generated=True,
-                        generated_by_id=self.agent.model_id,
+                        generated_by_id=self.agent.model_id if self.agent else None,
                     )
                     db.session.add(translation)
                     results[field] = True
@@ -131,14 +139,22 @@ class TranslationService:
         special_instructions: str,
         template_name: str,
     ) -> str:
-        """Generate translation using the AI agent."""
+        """
+        Generate translation using the AI agent.
+
+        Raises:
+            ValueError: If agent configuration is invalid or prompt rendering fails
+        """
+        if not self.agent:
+            raise ValueError("No translator agent available")
+
         # Validate agent configuration
         is_valid, error = self.agent.validate_config()
         if not is_valid:
             raise ValueError(f"Invalid agent configuration: {error}")
 
         # Render prompt template
-        prompt = self.agent.render_template(
+        prompt: Optional[str] = self.agent.render_template(
             template_name,
             source_language=source_language,
             target_language=target_language,
@@ -152,22 +168,29 @@ class TranslationService:
             raise ValueError("Failed to render translation prompt")
 
         # Use appropriate client based on agent model
-        client = self._get_client()
+        client: BaseAIClient = self._get_client()
 
         # Generate translation
-        response = await client.generate(prompt)
+        response: str = await client.generate(prompt)
 
         return response.strip()
 
-    def _get_client(self):
-        """Get appropriate API client based on agent model."""
-        if self.agent.model.provider == Provider.ANTHROPIC:
-            from agents.clients.base import AnthropicClient
+    def _get_client(self) -> BaseAIClient:
+        """
+        Get appropriate API client based on agent model.
 
+        Returns:
+            BaseAIClient: An instance of the appropriate AI client
+
+        Raises:
+            ValueError: If the provider is not supported
+        """
+        if not self.agent:
+            raise ValueError("No translator agent available")
+
+        if self.agent.model.provider == Provider.ANTHROPIC:
             return AnthropicClient()
         elif self.agent.model.provider == Provider.OPENAI:
-            from agents.clients.base import OpenAIClient
-
             return OpenAIClient()
         else:
             raise ValueError(f"Unsupported provider: {self.agent.model.provider}")

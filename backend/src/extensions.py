@@ -6,12 +6,12 @@ from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 
 # Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
-cors = CORS()
-redis_client = Redis()
-login_manager = LoginManager()
+db: SQLAlchemy = SQLAlchemy()
+migrate: Migrate = Migrate()
+jwt: JWTManager = JWTManager()
+cors: CORS = CORS()
+redis_client: Redis = Redis()
+login_manager: LoginManager = LoginManager()
 
 # Configure login manager
 login_manager.login_view = "auth.login"

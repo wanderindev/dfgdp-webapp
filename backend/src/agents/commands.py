@@ -1,3 +1,5 @@
+from typing import NoReturn
+
 import click
 from flask.cli import AppGroup
 from sqlalchemy.exc import IntegrityError
@@ -7,12 +9,12 @@ from .initial_agents import INITIAL_AI_MODELS, INITIAL_AGENTS
 from .models import AIModel, Agent, PromptTemplate
 
 # Create the CLI group
-agents_cli = AppGroup("agents")
+agents_cli: AppGroup = AppGroup("agents")
 
 
 # noinspection PyArgumentList
 @agents_cli.command("init")
-def init_agents():
+def init_agents() -> NoReturn:
     """Initialize AI models and agents with default configurations."""
     try:
         # First, create AI models

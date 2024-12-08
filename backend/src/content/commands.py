@@ -13,7 +13,7 @@ content_cli = AppGroup("content")
 
 # noinspection PyArgumentList
 @content_cli.command("init-taxonomies")
-def init_taxonomies():
+def init_taxonomies() -> None:
     """Initialize taxonomies and categories with default configurations."""
     try:
         # First, create taxonomies
@@ -60,7 +60,7 @@ def init_taxonomies():
 
 
 @content_cli.command("list")
-def list_content_hierarchy():
+def list_content_hierarchy() -> None:
     """List all taxonomies and their categories."""
     taxonomies = Taxonomy.query.all()
 

@@ -1,16 +1,18 @@
 import os
+from typing import Optional
 
 from flask import Flask
 from flask_cors import CORS
+from flask_login import UserMixin
 
 from agents.commands import agents_cli
 from auth.commands import auth_cli
-from content.commands import content_cli
 from config import config
+from content.commands import content_cli
 from extensions import db, migrate, jwt, redis_client, login_manager
 
 
-def create_app(config_name=None):
+def create_app(config_name: Optional[str] = None) -> Flask:
     """Application factory function"""
     if config_name is None:
         config_name = os.getenv("FLASK_ENV", "development")
@@ -29,7 +31,7 @@ def create_app(config_name=None):
     redis_client.from_url(app.config["REDIS_URL"])
 
     @login_manager.user_loader
-    def load_user(user_id):
+    def load_user(user_id: str) -> Optional[UserMixin]:
         from auth.models import User
 
         return User.query.get(int(user_id))

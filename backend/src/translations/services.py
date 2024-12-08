@@ -1,11 +1,16 @@
 import json
 from datetime import datetime, timezone
-from typing import Any, List
+from typing import Any, List, TypeVar, Union, Optional
+
+from sqlalchemy.orm import DeclarativeMeta
 
 from .models import ApprovedLanguage, db, Translation
 
+# Define a type variable for models that can be translated
+T = TypeVar("T", bound=DeclarativeMeta)
 
-def get_translation(obj: Any, field: str, language: str = None) -> Any:
+
+def get_translation(obj: T, field: str, language: Optional[str] = None) -> Any:
     """Get translation for a field in specified language."""
     if language is None:
         default_lang = ApprovedLanguage.get_default_language()
@@ -32,12 +37,12 @@ def get_translation(obj: Any, field: str, language: str = None) -> Any:
 
 # noinspection PyArgumentList
 def set_translation(
-    obj: Any,
+    obj: T,
     field: str,
     language: str,
-    content: Any,
+    content: Union[str, dict, list],
     is_generated: bool = True,
-    model_id: int = None,
+    model_id: Optional[int] = None,
 ) -> None:
     """Set translation for a field in specified language."""
     if not isinstance(content, str):
@@ -70,7 +75,7 @@ def set_translation(
         db.session.add(translation)
 
 
-def get_available_translations(obj: Any, field: str) -> List[str]:
+def get_available_translations(obj: T, field: str) -> List[str]:
     """Get list of available language codes for a field."""
     translations = Translation.query.filter_by(
         entity_type=obj.__tablename__, entity_id=obj.id, field=field

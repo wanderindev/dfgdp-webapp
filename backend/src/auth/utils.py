@@ -1,8 +1,10 @@
+from typing import Tuple
+
 from .models import User, db
 
 
 # noinspection PyArgumentList
-def create_admin_user(email, full_name, password):
+def create_admin_user(email: str, full_name: str, password: str) -> Tuple[bool, str]:
     """Create an admin user if it doesn't exist."""
     if User.query.filter_by(email=email).first():
         return False, "User already exists"
