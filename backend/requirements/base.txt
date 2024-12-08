@@ -27,3 +27,4 @@ python-dotenv==1.0.1
 Pillow==10.2.0  # For image processing
 boto3==1.34.47  # For S3 storage
 requests==2.31.0
+python-dotenv==1.0.1

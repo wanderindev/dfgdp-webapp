@@ -12,6 +12,10 @@ from content.models import (
 from extensions import db
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "asyncio: mark test as async/asyncio test")
+
+
 @pytest.fixture(scope="session")
 def app():
     """Create application for the tests."""
