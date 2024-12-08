@@ -28,24 +28,27 @@ def init_taxonomies() -> None:
 
         # Then create categories
         for category_data in INITIAL_CATEGORIES:
+            # Make a copy of the data to avoid modifying the original
+            category_dict = category_data.copy()
+
             # Get the referenced taxonomy
-            taxonomy = Taxonomy.query.filter_by(name=category_data["taxonomy"]).first()
+            taxonomy = Taxonomy.query.filter_by(name=category_dict["taxonomy"]).first()
             if not taxonomy:
-                click.echo(f"Error: Taxonomy {category_data['taxonomy']} not found")
+                click.echo(f"Error: Taxonomy {category_dict['taxonomy']} not found")
                 continue
 
             # Remove taxonomy name from data and add taxonomy_id
-            category_data.pop("taxonomy")
-            category_data["taxonomy_id"] = taxonomy.id
+            category_dict.pop("taxonomy")
+            category_dict["taxonomy_id"] = taxonomy.id
 
             # Check if category already exists
             if not Category.query.filter_by(
-                taxonomy_id=taxonomy.id, name=category_data["name"]
+                taxonomy_id=taxonomy.id, name=category_dict["name"]
             ).first():
-                category = Category(**category_data)
+                category = Category(**category_dict)
                 db.session.add(category)
                 click.echo(
-                    f"Created category: {category_data['name']} (slug: {category.slug})"
+                    f"Created category: {category_dict['name']} (slug: {category.slug})"
                 )
 
         db.session.commit()

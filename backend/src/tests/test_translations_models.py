@@ -97,7 +97,6 @@ def test_translatable_mixin_with_article(
         category=test_category,
         research=test_research,  # Use the fixture instead of research_id=1
         title="Original Title",
-        slug="original-title",
         content="Original Content",
         level=ArticleLevel.HIGH_SCHOOL,
     )
@@ -133,7 +132,7 @@ def test_translatable_mixin_with_taxonomy(db_session):
     db_session.add_all([english, spanish])
 
     # Create taxonomy
-    taxonomy = Taxonomy(name="History", slug="history", description="Historical events")
+    taxonomy = Taxonomy(name="History", description="Historical events")
     db_session.add(taxonomy)
     db_session.commit()
 
@@ -160,7 +159,6 @@ def test_translatable_mixin_with_category(db_session, test_taxonomy):
     category = Category(
         taxonomy=test_taxonomy,
         name="Ancient Greece",
-        slug="ancient-greece",
         description="Ancient Greek history",
     )
     db_session.add(category)
@@ -188,7 +186,7 @@ def test_translatable_mixin_with_tag(db_session):
     db_session.add_all([english, spanish])
 
     # Create tag
-    tag = Tag(name="Philosophy", slug="philosophy", status=ContentStatus.APPROVED)
+    tag = Tag(name="Philosophy", status=ContentStatus.APPROVED)
     db_session.add(tag)
     db_session.commit()
 

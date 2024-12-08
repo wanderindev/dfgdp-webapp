@@ -1,9 +1,12 @@
+import io
+from pathlib import Path
 from typing import Generator, Any
 
 import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 from sqlalchemy.orm import Session
+from werkzeug.datastructures import FileStorage
 
 from app import create_app
 from auth.models import User
@@ -84,7 +87,6 @@ def test_taxonomy(db_session: Session) -> Taxonomy:
     """Create a test taxonomy."""
     taxonomy = Taxonomy(
         name="Test Taxonomy",
-        slug="test-taxonomy",
         description="Test taxonomy description",
     )
     db_session.add(taxonomy)
@@ -99,7 +101,6 @@ def test_category(db_session: Session, test_taxonomy: Taxonomy) -> Category:
     category = Category(
         taxonomy_id=test_taxonomy.id,
         name="Test Category",
-        slug="test-category",
         description="Test category description",
     )
     db_session.add(category)
@@ -167,7 +168,6 @@ def test_article(
         research=test_research,
         category=test_category,
         title="Test Article",
-        slug="test-article",
         content="Test content",
         excerpt="Test excerpt",
         level=ArticleLevel.HIGH_SCHOOL,
@@ -175,3 +175,27 @@ def test_article(
     db_session.add(article)
     db_session.commit()
     return article
+
+
+@pytest.fixture
+def mock_file():
+    """Create a mock file for testing."""
+    file_content = b"test content"
+    return FileStorage(
+        stream=io.BytesIO(file_content),
+        filename="test.jpg",
+        content_type="image/jpeg",
+    )
+
+
+@pytest.fixture
+def upload_folder(app):
+    """Create and clean up a temporary upload folder."""
+    folder = Path(app.config["UPLOAD_FOLDER"])
+    folder.mkdir(exist_ok=True)
+    yield folder
+    # Cleanup
+    for file in folder.glob("*"):
+        file.unlink()
+    if folder.exists():
+        folder.rmdir()

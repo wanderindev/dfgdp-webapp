@@ -6,9 +6,9 @@ from typing import Optional, List, Any
 
 from flask import current_app
 from slugify import slugify
-from sqlalchemy import event, func, foreign, remote
+from sqlalchemy import event, func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, relationship, backref
 from werkzeug.utils import secure_filename
 
 from extensions import db
@@ -146,9 +146,17 @@ article_tags = db.Table(
 
 article_relationships = db.Table(
     "article_relationships",
-    db.Column("article_id", db.Integer, db.ForeignKey("articles.id"), primary_key=True),
     db.Column(
-        "related_article_id", db.Integer, db.ForeignKey("articles.id"), primary_key=True
+        "article_id",
+        db.Integer,
+        db.ForeignKey("articles.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    db.Column(
+        "related_article_id",
+        db.Integer,
+        db.ForeignKey("articles.id", ondelete="CASCADE"),
+        primary_key=True,
     ),
 )
 
@@ -254,7 +262,7 @@ class Media(db.Model, TimestampMixin):
                 md += f"\n*{self.caption}*"
             return md
         elif self.media_type == MediaType.VIDEO and self.source == MediaSource.YOUTUBE:
-            return f"[![{self.alt_text or self.title or 'Video thumbnail'}]({self.thumbnail_url})]({self.external_url})"
+            return f"[{self.alt_text or self.title or 'Video'}]({self.external_url})"
         else:
             return (
                 f"[Download {self.title or self.original_filename}]({self.public_url})"
@@ -452,11 +460,11 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
     related_articles: Mapped[List["Article"]] = relationship(
         "Article",
         secondary=article_relationships,
-        primaryjoin=(id == foreign(article_relationships.c.article_id)),
-        secondaryjoin=(id == remote(article_relationships.c.related_article_id)),
-        backref="referenced_by",
+        primaryjoin=(id == article_relationships.c.article_id),
+        secondaryjoin=(id == article_relationships.c.related_article_id),
+        backref=backref("referenced_by", lazy="dynamic"),
+        lazy="dynamic",
     )
-    referenced_by: Mapped[List["Article"]]
 
     @property
     def slug(self) -> str:
@@ -493,9 +501,9 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
         pending_tags = len(self.tags) - approved_tags
         score += (approved_tags * 0.5) + (pending_tags * 0.2)
 
-        # Related articles
-        score += len(self.related_articles) * 0.3
-        score += len(self.referenced_by) * 0.4  # Being referenced worth more
+        # Related articles - use count() for dynamic relationships
+        score += self.related_articles.count() * 0.3
+        score += self.referenced_by.count() * 0.4  # Being referenced worth more
 
         return score
 

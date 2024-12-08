@@ -265,7 +265,7 @@ def test_usage_creation(db_session):
     assert usage.cost == 0.0015
 
 
-# noinspection PyArgumentList
+# noinspection PyArgumentList,PyUnresolvedReferences
 def test_usage_summary(db_session):
     """Test getting usage summary for a date range."""
     # Create some usage records
@@ -408,3 +408,154 @@ async def test_agent_generate_content(db_session):
             temperature=agent.temperature,
             max_tokens=agent.max_tokens,
         )
+
+
+# noinspection PyArgumentList
+def test_ai_model_get_api_key(app, db_session):
+    """Test getting API keys for different providers."""
+    # Test OpenAI
+    openai_model = AIModel(
+        name="GPT-4",
+        provider=Provider.OPENAI,
+        model_id="gpt-4",
+        description="Test model",
+    )
+    db_session.add(openai_model)
+
+    with app.app_context():
+        app.config["OPENAI_API_KEY"] = "test-openai-key"
+        assert openai_model.get_api_key() == "test-openai-key"
+
+    # Test Anthropic
+    anthropic_model = AIModel(
+        name="Claude",
+        provider=Provider.ANTHROPIC,
+        model_id="claude-3",
+        description="Test model",
+    )
+    db_session.add(anthropic_model)
+
+    with app.app_context():
+        app.config["ANTHROPIC_API_KEY"] = "test-anthropic-key"
+        assert anthropic_model.get_api_key() == "test-anthropic-key"
+
+    # Test unknown provider
+    with patch(
+        "agents.models.Provider"
+    ) as mock_provider:  # Changed from content.models to agents.models
+        mock_provider.OPENAI = Provider.OPENAI
+        mock_provider.ANTHROPIC = Provider.ANTHROPIC
+        mock_provider.UNKNOWN = "unknown"
+
+        unknown_model = AIModel(
+            name="Unknown",
+            provider="unknown",
+            model_id="test",
+            description="Test model",
+        )
+        assert unknown_model.get_api_key() is None
+
+
+# noinspection PyArgumentList
+def test_agent_get_config(app, db_session):
+    """Test getting agent configuration."""
+    model = AIModel(
+        name="GPT-4",
+        provider=Provider.OPENAI,
+        model_id="gpt-4",
+        description="Test model",
+    )
+    db_session.add(model)
+    db_session.commit()
+
+    agent = Agent(
+        name="Test Agent",
+        type=AgentType.RESEARCHER,
+        model=model,
+        temperature=0.7,
+        max_tokens=1000,
+    )
+    db_session.add(agent)
+    db_session.commit()
+
+    with app.app_context():
+        app.config["OPENAI_API_KEY"] = "test-key"
+        config = agent.get_config()
+
+        assert config["name"] == "Test Agent"
+        assert config["type"] == AgentType.RESEARCHER.value
+        assert config["model_name"] == "GPT-4"
+        assert config["model_provider"] == Provider.OPENAI.value
+        assert config["temperature"] == 0.7
+        assert config["max_tokens"] == 1000
+        assert config["api_key"] == "test-key"
+
+
+# noinspection PyArgumentList
+def test_agent_validate_config(app, db_session):
+    """Test agent configuration validation."""
+    model = AIModel(
+        name="GPT-4",
+        provider=Provider.OPENAI,
+        model_id="gpt-4",
+        description="Test model",
+    )
+    db_session.add(model)
+    db_session.commit()
+
+    agent = Agent(
+        name="Test Agent",
+        type=AgentType.RESEARCHER,
+        model=model,
+        temperature=0.7,
+        max_tokens=1000,
+    )
+    db_session.add(agent)
+
+    # Add a prompt template
+    template = PromptTemplate(
+        agent=agent,
+        name="test_template",
+        description="Test template",
+        template="Test {variable}",
+        is_active=True,
+    )
+    db_session.add(template)
+    db_session.commit()
+
+    # Test valid configuration
+    with app.app_context():
+        app.config["OPENAI_API_KEY"] = "test-key"
+        is_valid, error = agent.validate_config()
+        assert is_valid is True
+        assert error is None
+
+    # Test inactive agent
+    agent.is_active = False
+    is_valid, error = agent.validate_config()
+    assert is_valid is False
+    assert error == "Agent is not active"
+    agent.is_active = True
+
+    # Test inactive model
+    model.is_active = False
+    is_valid, error = agent.validate_config()
+    assert is_valid is False
+    assert error == f"Model {model.name} is not active"
+    model.is_active = True
+
+    # Test missing API key
+    with app.app_context():
+        app.config["OPENAI_API_KEY"] = None
+        is_valid, error = agent.validate_config()
+        assert is_valid is False
+        assert error == f"Missing API key for {model.provider.value}"
+
+    # Test no active prompts
+    template.is_active = False
+    db_session.commit()
+    with app.app_context():
+        app.config["OPENAI_API_KEY"] = "test-key"
+        is_valid, error = agent.validate_config()
+        assert is_valid is False
+        assert error == "No active prompt templates found"

@@ -3,7 +3,7 @@ from typing import Any, List, TypeVar, Union, Optional
 
 from sqlalchemy.orm import DeclarativeMeta, Mapped
 
-from translations.models import db
+from extensions import db
 
 # Create a type that represents classes that use this mixin
 SelfT = TypeVar("SelfT", bound=Union[DeclarativeMeta, "TranslatableMixin"])
