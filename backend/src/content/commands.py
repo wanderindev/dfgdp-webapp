@@ -1,11 +1,15 @@
+import asyncio
+
 import click
 from flask.cli import AppGroup
 from sqlalchemy.exc import IntegrityError
 
 from extensions import db
+from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
 from .initial_taxonomies import INITIAL_TAXONOMIES
 from .models import Taxonomy, Category
+from .services import ContentManagerService
 
 # Create the CLI group
 content_cli = AppGroup("content")
@@ -78,3 +82,76 @@ def list_content_hierarchy() -> None:
 
         for category in taxonomy.categories:
             click.echo(f"  - {category.name}: {category.description}")
+
+
+def validate_level(_ctx, _param, value):
+    """Validate the level parameter"""
+    if value not in ARTICLE_LEVELS:
+        valid_levels = ", ".join(ARTICLE_LEVELS.keys())
+        raise click.BadParameter(f"Invalid level. Must be one of: {valid_levels}")
+    return value
+
+
+@content_cli.command("generate-suggestions")
+@click.argument("category_id", type=int)
+@click.argument(
+    "level", type=click.Choice(list(ARTICLE_LEVELS.keys()), case_sensitive=False)
+)
+@click.option(
+    "--count",
+    "-n",
+    default=3,
+    help="Number of suggestions to generate",
+    type=click.IntRange(1, 10),
+)
+def generate_suggestions(category_id: int, level: str, count: int) -> None:
+    """
+    Generate article suggestions for a category.
+
+    Arguments:
+        category_id: ID of the category to generate suggestions for
+        level: Article level (elementary, middle_school, high_school, college, general)
+        count: Number of suggestions to generate (default: 3)
+    """
+    # Verify category exists
+    category = Category.query.get(category_id)
+    if not category:
+        click.echo(f"Error: Category {category_id} not found", err=True)
+        return
+
+    click.echo(f"Generating {count} suggestions for category: {category.name}")
+    click.echo(f"Level: {ARTICLE_LEVELS[level].description}")
+
+    try:
+        # Initialize service
+        service = ContentManagerService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation
+        with click.progressbar(length=count, label="Generating suggestions") as bar:
+            suggestions = loop.run_until_complete(
+                service.generate_suggestions(
+                    category_id=category_id, level=level, num_suggestions=count
+                )
+            )
+            bar.update(count)
+
+        # Display results
+        click.echo("\nGenerated suggestions:")
+        for i, suggestion in enumerate(suggestions, 1):
+            click.echo(f"\n{i}. {suggestion.title}")
+            click.echo("   " + "-" * len(suggestion.title))
+            click.echo(f"   Main topic: {suggestion.main_topic}")
+            click.echo("   Sub-topics:")
+            for sub_topic in suggestion.sub_topics:
+                click.echo(f"   - {sub_topic}")
+            click.echo(f"   Point of view: {suggestion.point_of_view}")
+
+        click.echo(f"\nSuccessfully generated {len(suggestions)} suggestions.")
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)

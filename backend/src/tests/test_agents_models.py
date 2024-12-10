@@ -318,8 +318,8 @@ def test_usage_summary(db_session):
 async def test_agent_get_client(db_session):
     """Test agent's get_client method."""
     # Mock both client classes
-    with patch("agents.clients.openai_client.AsyncOpenAI") as mock_openai, patch(
-        "agents.clients.anthropic_client.AsyncAnthropic"
+    with patch("agents.clients.openai_client.OpenAI") as mock_openai, patch(
+        "agents.clients.anthropic_client.Anthropic"
     ) as mock_anthropic:
         # Create AI model
         model = AIModel(

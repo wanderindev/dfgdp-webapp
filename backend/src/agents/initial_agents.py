@@ -1,4 +1,5 @@
 from .models import Provider, AgentType
+from .initial_prompts import INITIAL_PROMPTS
 
 INITIAL_AI_MODELS = [
     {
@@ -29,7 +30,7 @@ INITIAL_AGENTS = [
             {
                 "name": "content_suggestion",
                 "description": "Template for generating new article suggestions",
-                "template": "",
+                "template": INITIAL_PROMPTS["content_manager_prompt"],
             }
         ],
     },
