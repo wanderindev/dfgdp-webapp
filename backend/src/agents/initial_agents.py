@@ -1,5 +1,5 @@
-from .models import Provider, AgentType
 from .initial_prompts import INITIAL_PROMPTS
+from .models import Provider, AgentType
 
 INITIAL_AI_MODELS = [
     {
@@ -8,6 +8,10 @@ INITIAL_AI_MODELS = [
         "model_id": "gpt-4o",
         "description": "GPT-4o is the most advanced GPT from openAI",
         "is_active": True,
+        "input_rate": 2.50,
+        "output_rate": 10.00,
+        "batch_input_rate": 1.25,  # 50% of input_rate
+        "batch_output_rate": 5.00,  # 50% of output_rate
     },
     {
         "name": "Claude 3.5 Sonnet",
@@ -15,6 +19,10 @@ INITIAL_AI_MODELS = [
         "model_id": "claude-3-5-sonnet-latest",
         "description": "Claude 3.5 Sonnet has the highest level of intelligence and capability from Anthropic",
         "is_active": True,
+        "input_rate": 3.00,
+        "output_rate": 15.00,
+        "batch_input_rate": 1.50,  # 50% of input_rate
+        "batch_output_rate": 7.50,  # 50% of output_rate
     },
 ]
 
@@ -45,7 +53,7 @@ INITIAL_AGENTS = [
             {
                 "name": "research",
                 "description": "Template for conducting article research",
-                "template": "",  # We'll add the template content later
+                "template": INITIAL_PROMPTS["researcher_prompt"],
             }
         ],
     },

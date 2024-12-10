@@ -36,6 +36,12 @@ class AIModel(db.Model, TimestampMixin):
     description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
     is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
 
+    # Usage cost tracking
+    input_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    batch_input_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    output_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    batch_output_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
+
     # Relationship to agents using this model
     agents: Mapped[List["Agent"]] = relationship("Agent", backref="model")
 
