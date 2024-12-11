@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Type, Tuple, List
 
 from flask import current_app
-from sqlalchemy import func
+from sqlalchemy import func, text, Index
 from sqlalchemy.orm import Mapped, relationship
 
 from agents.clients import BaseAIClient, OpenAIClient, AnthropicClient
@@ -11,17 +11,17 @@ from extensions import db
 from mixins.mixins import TimestampMixin
 
 
-class AgentType(enum.Enum):
-    CONTENT_MANAGER = "content_manager"
-    RESEARCHER = "researcher"
-    WRITER = "writer"
-    SOCIAL_MEDIA = "social_media"
-    TRANSLATOR = "translator"
+class AgentType(str, enum.Enum):
+    CONTENT_MANAGER = "CONTENT_MANAGER"
+    RESEARCHER = "RESEARCHER"
+    WRITER = "WRITER"
+    SOCIAL_MEDIA = "SOCIAL_MEDIA"
+    TRANSLATOR = "TRANSLATOR"
 
 
-class Provider(enum.Enum):
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
+class Provider(str, enum.Enum):
+    OPENAI = "OPENAI"
+    ANTHROPIC = "ANTHROPIC"
 
 
 class AIModel(db.Model, TimestampMixin):
@@ -30,20 +30,35 @@ class AIModel(db.Model, TimestampMixin):
     __tablename__ = "ai_models"
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    name: Mapped[str] = db.Column(db.String(100), nullable=False)
-    provider: Mapped[Provider] = db.Column(db.Enum(Provider), nullable=False)
+    name: Mapped[str] = db.Column(db.String(100), nullable=False, unique=True)
+    provider: Mapped[Provider] = db.Column(
+        db.Enum(Provider, name="provider_type"), nullable=False
+    )
     model_id: Mapped[str] = db.Column(db.String(50), nullable=False)
     description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
-    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
+    is_active: Mapped[bool] = db.Column(
+        db.Boolean, nullable=False, server_default=text("true")
+    )
 
     # Usage cost tracking
-    input_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
-    batch_input_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
-    output_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
-    batch_output_rate: Mapped[float] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    input_rate: Mapped[Optional[float]] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    batch_input_rate: Mapped[Optional[float]] = db.Column(
+        db.DECIMAL(10, 2), nullable=True
+    )
+    output_rate: Mapped[Optional[float]] = db.Column(db.DECIMAL(10, 2), nullable=True)
+    batch_output_rate: Mapped[Optional[float]] = db.Column(
+        db.DECIMAL(10, 2), nullable=True
+    )
 
     # Relationship to agents using this model
-    agents: Mapped[List["Agent"]] = relationship("Agent", backref="model")
+    agents: Mapped[List["Agent"]] = relationship(
+        "Agent", backref="model", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    __table_args__ = (
+        Index("idx_aimodel_provider", "provider"),
+        Index("idx_aimodel_active", "is_active"),
+    )
 
     def get_api_key(self) -> Optional[str]:
         """Get the appropriate API key based on the provider."""
@@ -61,22 +76,38 @@ class Agent(db.Model, TimestampMixin):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(100), nullable=False, unique=True)
-    type: Mapped[AgentType] = db.Column(db.Enum(AgentType), nullable=False)
+    type: Mapped[AgentType] = db.Column(
+        db.Enum(AgentType, name="agent_type"), nullable=False
+    )
     description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
 
     # AI Model relationship
     model_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("ai_models.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("ai_models.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
 
     # Configuration
     temperature: Mapped[float] = db.Column(db.Float, nullable=False, default=0.7)
     max_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
-    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
+    is_active: Mapped[bool] = db.Column(
+        db.Boolean, nullable=False, server_default=text("true")
+    )
 
     # Relationship to prompt templates
     prompts: Mapped[List["PromptTemplate"]] = relationship(
-        "PromptTemplate", backref="agent", lazy=True
+        "PromptTemplate",
+        backref="agent",
+        lazy=True,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index("idx_agent_type", "type"),
+        Index("idx_agent_active", "is_active"),
     )
 
     def get_template(self, name: str) -> Optional["PromptTemplate"]:
@@ -111,9 +142,9 @@ class Agent(db.Model, TimestampMixin):
         """Get complete agent configuration including model details."""
         return {
             "name": self.name,
-            "type": self.type.value,
+            "type": self.type,
             "model_name": self.model.name,
-            "model_provider": self.model.provider.value,
+            "model_provider": self.model.provider,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "api_key": self.model.get_api_key(),
@@ -133,7 +164,7 @@ class Agent(db.Model, TimestampMixin):
             return False, f"Model {self.model.name} is not active"
 
         if not self.model.get_api_key():
-            return False, f"Missing API key for {self.model.provider.value}"
+            return False, f"Missing API key for {self.model.provider}"
 
         if not any(p.is_active for p in self.prompts):
             return False, "No active prompt templates found"
@@ -142,13 +173,11 @@ class Agent(db.Model, TimestampMixin):
 
     def get_client(self) -> BaseAIClient:
         """Get the appropriate AI client for this agent."""
-        # Map providers to client classes
         client_map: Dict[Provider, Type[BaseAIClient]] = {
             Provider.OPENAI: OpenAIClient,
             Provider.ANTHROPIC: AnthropicClient,
         }
 
-        # noinspection PyPep8Naming
         ClientClass = client_map.get(self.model.provider)
         if not ClientClass:
             raise ValueError(
@@ -174,15 +203,21 @@ class PromptTemplate(db.Model, TimestampMixin):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     agent_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("agents.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("agents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = db.Column(db.String(100), nullable=False)
     description: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
     template: Mapped[str] = db.Column(db.Text, nullable=False)
-    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
+    is_active: Mapped[bool] = db.Column(
+        db.Boolean, nullable=False, server_default=text("true")
+    )
 
     __table_args__ = (
-        db.UniqueConstraint("agent_id", "name", name="unique_template_name_per_agent"),
+        db.UniqueConstraint("agent_id", "name", name="uq_prompt_templates_agent_name"),
+        Index("idx_prompt_template_active", "is_active"),
     )
 
     def render(self, **kwargs: Any) -> str:
@@ -215,7 +250,9 @@ class Usage(db.Model, TimestampMixin):
     __tablename__ = "api_usage"
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    provider: Mapped[Provider] = db.Column(db.Enum(Provider), nullable=False)
+    provider: Mapped[Provider] = db.Column(
+        db.Enum(Provider, name="provider_type"), nullable=False
+    )
     model_id: Mapped[str] = db.Column(db.String(50), nullable=False)
     input_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
     output_tokens: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -224,6 +261,11 @@ class Usage(db.Model, TimestampMixin):
         db.DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (
+        Index("idx_usage_timestamp", "timestamp"),
+        Index("idx_usage_provider_model", "provider", "model_id"),
     )
 
     @classmethod

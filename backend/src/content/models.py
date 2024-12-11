@@ -6,9 +6,9 @@ from typing import Optional, List, Any
 
 from flask import current_app
 from slugify import slugify
-from sqlalchemy import event, func
+from sqlalchemy import event, func, text, Index
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, relationship, backref
+from sqlalchemy.orm import Mapped, relationship, backref, AppenderQuery
 from werkzeug.utils import secure_filename
 
 from extensions import db
@@ -17,37 +17,37 @@ from mixins.mixins import TranslatableMixin
 
 
 # Enums
-class ArticleLevel(enum.Enum):
-    ELEMENTARY = "elementary"
-    MIDDLE_SCHOOL = "middle_school"
-    HIGH_SCHOOL = "high_school"
-    COLLEGE = "college"
-    GENERAL = "general"
+class ArticleLevel(str, enum.Enum):
+    ELEMENTARY = "ELEMENTARY"
+    MIDDLE_SCHOOL = "MIDDLE_SCHOOL"
+    HIGH_SCHOOL = "HIGH_SCHOOL"
+    COLLEGE = "COLLEGE"
+    GENERAL = "GENERAL"
 
 
-class ContentStatus(enum.Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
+class ContentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
 
 
-class Platform(enum.Enum):
-    INSTAGRAM = "instagram"
+class Platform(str, enum.Enum):
+    INSTAGRAM = "INSTAGRAM"
 
 
-class MediaType(enum.Enum):
-    IMAGE = "image"
-    VIDEO = "video"
-    DOCUMENT = "document"
-    PDF = "pdf"
-    SPREADSHEET = "spreadsheet"
-    OTHER = "other"
+class MediaType(str, enum.Enum):
+    IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
+    DOCUMENT = "DOCUMENT"
+    PDF = "PDF"
+    SPREADSHEET = "SPREADSHEET"
+    OTHER = "OTHER"
 
 
-class MediaSource(enum.Enum):
-    LOCAL = "local"
-    YOUTUBE = "youtube"
-    S3 = "s3"
+class MediaSource(str, enum.Enum):
+    LOCAL = "LOCAL"
+    YOUTUBE = "YOUTUBE"
+    S3 = "S3"
 
 
 class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
@@ -60,7 +60,16 @@ class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
     description: Mapped[str] = db.Column(db.Text, nullable=False)
 
     categories: Mapped[List["Category"]] = relationship(
-        "Category", backref="taxonomy", lazy=True
+        "Category",
+        backref="taxonomy",
+        lazy=True,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index("idx_taxonomy_name", "name"),
+        {"comment": "Main content categorization hierarchy"},
     )
 
     @property
@@ -76,21 +85,24 @@ class Category(db.Model, TimestampMixin, TranslatableMixin):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     taxonomy_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("taxonomies.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("taxonomies.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     name: Mapped[str] = db.Column(db.String(100), nullable=False)
     description: Mapped[str] = db.Column(db.Text, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint("taxonomy_id", "name", name="uq_category_taxonomy_name"),
+        Index("idx_category_name", "name"),
+        {"comment": "Sub-categories within taxonomies"},
+    )
 
     @property
     def slug(self) -> str:
         """Generate slug from name"""
         return slugify(self.name)
-
-    __table_args__ = (
-        db.UniqueConstraint(
-            "taxonomy_id", "name", name="unique_category_name_per_taxonomy"
-        ),
-    )
 
 
 # noinspection PyArgumentList
@@ -102,18 +114,25 @@ class Tag(db.Model, TimestampMixin, TranslatableMixin):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(50), nullable=False, unique=True)
     status: Mapped[ContentStatus] = db.Column(
-        db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
     )
     approved_by_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=True
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = db.Column(
         db.DateTime(timezone=True), nullable=True
     )
 
+    __table_args__ = (
+        Index("idx_tag_status", "status"),
+        Index("idx_tag_name", "name"),
+        {"comment": "Content categorization tags with approval workflow"},
+    )
+
     @property
     def slug(self) -> str:
-        """Generate slug from name"""
         return slugify(self.name)
 
     @staticmethod
@@ -138,10 +157,23 @@ class Tag(db.Model, TimestampMixin, TranslatableMixin):
         return cls.create_tag(name)
 
 
+# Association tables with explicit naming and constraints
 article_tags = db.Table(
     "article_tags",
-    db.Column("article_id", db.Integer, db.ForeignKey("articles.id"), primary_key=True),
-    db.Column("tag_id", db.Integer, db.ForeignKey("tags.id"), primary_key=True),
+    db.Column(
+        "article_id",
+        db.Integer,
+        db.ForeignKey("articles.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    db.Column(
+        "tag_id",
+        db.Integer,
+        db.ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Index("idx_article_tags_article", "article_id"),
+    Index("idx_article_tags_tag", "tag_id"),
 )
 
 article_relationships = db.Table(
@@ -158,6 +190,8 @@ article_relationships = db.Table(
         db.ForeignKey("articles.id", ondelete="CASCADE"),
         primary_key=True,
     ),
+    Index("idx_article_relationships_article", "article_id"),
+    Index("idx_article_relationships_related", "related_article_id"),
 )
 
 
@@ -168,26 +202,48 @@ class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     category_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("categories.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("categories.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     title: Mapped[str] = db.Column(db.String(255), nullable=False)
     main_topic: Mapped[str] = db.Column(db.Text, nullable=False)
-    sub_topics: Mapped[List[str]] = db.Column(db.ARRAY(db.String(255)), nullable=False)
+    sub_topics: Mapped[List[str]] = db.Column(
+        db.ARRAY(db.String(255)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
+    )
     point_of_view: Mapped[str] = db.Column(db.Text, nullable=False)
-    level: Mapped[ArticleLevel] = db.Column(db.Enum(ArticleLevel), nullable=False)
+    level: Mapped[ArticleLevel] = db.Column(
+        db.Enum(ArticleLevel, name="article_level_type"), nullable=False
+    )
     status: Mapped[ContentStatus] = db.Column(
-        db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
     )
     approved_by_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=True
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = db.Column(
         db.DateTime(timezone=True), nullable=True
     )
 
-    category: Mapped["Category"] = relationship("Category", backref="suggestions")
+    category: Mapped["Category"] = relationship(
+        "Category", backref=backref("suggestions", cascade="all, delete-orphan")
+    )
     research: Mapped[Optional["Research"]] = relationship(
-        "Research", backref="suggestion", uselist=False
+        "Research",
+        backref=backref("suggestion", uselist=False),
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
+
+    __table_args__ = (
+        Index("idx_article_suggestion_status", "status"),
+        Index("idx_article_suggestion_level", "level"),
+        {"comment": "Article suggestions pending research and development"},
     )
 
 
@@ -198,18 +254,173 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     suggestion_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("article_suggestions.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("article_suggestions.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
     )
     content: Mapped[str] = db.Column(db.Text, nullable=False)
     status: Mapped[ContentStatus] = db.Column(
-        db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
     )
     approved_by_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=True
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = db.Column(
         db.DateTime(timezone=True), nullable=True
     )
+
+    __table_args__ = (
+        Index("idx_research_status", "status"),
+        {"comment": "Research content for article suggestions"},
+    )
+
+
+class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
+    """Main article content"""
+
+    __tablename__ = "articles"
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    research_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey("research.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    category_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey("categories.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    feature_image_id: Mapped[Optional[int]] = db.Column(
+        db.Integer, db.ForeignKey("media.id", ondelete="SET NULL"), nullable=True
+    )
+
+    title: Mapped[str] = db.Column(db.String(255), nullable=False)
+    content: Mapped[str] = db.Column(db.Text, nullable=False)
+    excerpt: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
+    ai_summary: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
+    level: Mapped[ArticleLevel] = db.Column(
+        db.Enum(ArticleLevel, name="article_level_type"), nullable=False
+    )
+
+    status: Mapped[ContentStatus] = db.Column(
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
+    )
+    approved_by_id: Mapped[Optional[int]] = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_at: Mapped[Optional[datetime]] = db.Column(
+        db.DateTime(timezone=True), nullable=True
+    )
+    published_at: Mapped[Optional[datetime]] = db.Column(
+        db.DateTime(timezone=True), nullable=True
+    )
+
+    category: Mapped["Category"] = relationship("Category", backref="articles")
+    research: Mapped["Research"] = relationship("Research", backref="article")
+    tags: Mapped[List["Tag"]] = relationship(
+        "Tag", secondary=article_tags, backref="articles"
+    )
+
+    related_articles: Mapped[AppenderQuery["Article"]] = relationship(
+        "Article",
+        secondary=article_relationships,
+        primaryjoin=(id == article_relationships.c.article_id),
+        secondaryjoin=(id == article_relationships.c.related_article_id),
+        backref=backref("referenced_by", lazy="dynamic"),
+        lazy="dynamic",
+    )
+
+    __table_args__ = (
+        Index("idx_article_status", "status"),
+        Index("idx_article_level", "level"),
+        Index("idx_article_published", "published_at"),
+        {"comment": "Main article content with translations and relationships"},
+    )
+
+    @property
+    def slug(self) -> str:
+        """Generate slug from title"""
+        return slugify(self.title)
+
+    @property
+    def word_count(self) -> int:
+        """Calculate word count from content"""
+        return len(self.content.split()) if self.content else 0
+
+    @property
+    def relevance_score(self) -> float:
+        """Calculate article relevance score"""
+        score = 0.0
+
+        # Base score from status
+        if self.status == ContentStatus.APPROVED:
+            score += 2.0
+
+        # Category relevance
+        category_count = (
+            db.session.query(func.count(Article.id))
+            .filter(Article.category_id == self.category_id)
+            .scalar()
+        )
+        if category_count is not None:  # Add type safety
+            score += min(category_count * 0.5, 5.0)  # Cap at 5.0
+
+        # Tags count (approved tags weight more)
+        approved_tags = sum(
+            1 for tag in self.tags if tag.status == ContentStatus.APPROVED
+        )
+        pending_tags = len(self.tags) - approved_tags
+        score += (approved_tags * 0.5) + (pending_tags * 0.2)
+
+        # Related articles - use count() for dynamic relationships
+        score += len(self.related_articles.all()) * 0.3
+        score += self.referenced_by.count() * 0.4  # Being referenced worth more
+
+        return score
+
+    def tag_article(self, tag_names: List[str]) -> List[Tag]:
+        """Tag the article with provided tag names. Creates new tags if they don't exist."""
+        applied_tags = []
+
+        for name in tag_names:
+            tag = Tag.get_or_create(name)
+            if tag and tag not in self.tags:
+                self.tags.append(tag)
+                applied_tags.append(tag)
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            return []
+
+        return applied_tags
+
+    def upload_feature_image(self, file) -> Optional["Media"]:
+        """Upload and set feature image for article"""
+        media = Media.create_from_upload(
+            file,
+            title=f"Feature image for {self.title}",
+            alt_text=f"Feature image for {self.title}",
+        )
+        if media:
+            self.feature_image_id = media.id
+            try:
+                db.session.commit()
+                return media
+            except Exception:
+                db.session.rollback()
+                media.delete()
+        return None
 
 
 # noinspection PyArgumentList
@@ -224,23 +435,45 @@ class Media(db.Model, TimestampMixin):
     file_path: Mapped[str] = db.Column(db.String(512), nullable=False)
     file_size: Mapped[int] = db.Column(db.Integer, nullable=False)  # Size in bytes
     mime_type: Mapped[str] = db.Column(db.String(127), nullable=False)
-    media_type: Mapped[MediaType] = db.Column(db.Enum(MediaType), nullable=False)
-    source: Mapped[MediaSource] = db.Column(db.Enum(MediaSource), nullable=False)
+    media_type: Mapped[MediaType] = db.Column(
+        db.Enum(MediaType, name="media_type_type"), nullable=False
+    )
+    source: Mapped[MediaSource] = db.Column(
+        db.Enum(MediaSource, name="media_source_type"), nullable=False
+    )
 
     # Optional metadata
     title: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
     caption: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
     alt_text: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
-    external_url: Mapped[Optional[str]] = db.Column(
-        db.String(512), nullable=True
-    )  # For YouTube videos
+    external_url: Mapped[Optional[str]] = db.Column(db.String(512), nullable=True)
 
     # Relationships
     feature_for_articles: Mapped[List["Article"]] = relationship(
-        "Article", backref="feature_image", foreign_keys="Article.feature_image_id"
+        "Article",
+        backref=backref(
+            "feature_image",
+            uselist=False,
+        ),
+        foreign_keys="Article.feature_image_id",
+        passive_deletes=True,
     )
+
     feature_for_posts: Mapped[List["SocialMediaPost"]] = relationship(
-        "SocialMediaPost", backref="image", foreign_keys="SocialMediaPost.image_id"
+        "SocialMediaPost",
+        backref=backref(
+            "image",
+            uselist=False,
+        ),
+        foreign_keys="SocialMediaPost.image_id",
+        passive_deletes=True,
+    )
+
+    __table_args__ = (
+        Index("idx_media_type", "media_type"),
+        Index("idx_media_source", "source"),
+        Index("idx_media_mime_type", "mime_type"),
+        {"comment": "Media files with metadata and relationships"},
     )
 
     @property
@@ -415,132 +648,18 @@ class Media(db.Model, TimestampMixin):
         return f"{name}_{timestamp}{ext}"
 
 
-class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
-    """Main article content"""
-
-    __tablename__ = "articles"
-
-    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    research_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("research.id"), nullable=False
-    )
-    category_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("categories.id"), nullable=False
-    )
-    feature_image_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("media.id"), nullable=True
-    )
-
-    title: Mapped[str] = db.Column(db.String(255), nullable=False)
-    content: Mapped[str] = db.Column(db.Text, nullable=False)
-    excerpt: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
-    ai_summary: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
-    feature_image_url: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
-    level: Mapped[ArticleLevel] = db.Column(db.Enum(ArticleLevel), nullable=False)
-
-    status: Mapped[ContentStatus] = db.Column(
-        db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
-    )
-    approved_by_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=True
-    )
-    approved_at: Mapped[Optional[datetime]] = db.Column(
-        db.DateTime(timezone=True), nullable=True
-    )
-    published_at: Mapped[Optional[datetime]] = db.Column(
-        db.DateTime(timezone=True), nullable=True
-    )
-
-    category: Mapped["Category"] = relationship("Category", backref="articles")
-    research: Mapped["Research"] = relationship("Research", backref="article")
-    tags: Mapped[List["Tag"]] = relationship(
-        "Tag", secondary=article_tags, backref="articles"
-    )
-
-    related_articles: Mapped[List["Article"]] = relationship(
-        "Article",
-        secondary=article_relationships,
-        primaryjoin=(id == article_relationships.c.article_id),
-        secondaryjoin=(id == article_relationships.c.related_article_id),
-        backref=backref("referenced_by", lazy="dynamic"),
-        lazy="dynamic",
-    )
-
-    @property
-    def slug(self) -> str:
-        """Generate slug from title"""
-        return slugify(self.title)
-
-    @property
-    def word_count(self) -> int:
-        """Calculate word count from content"""
-        return len(self.content.split()) if self.content else 0
-
-    @property
-    def relevance_score(self) -> float:
-        """Calculate article relevance score"""
-        score = 0.0
-
-        # Base score from status
-        if self.status == ContentStatus.APPROVED:
-            score += 2.0
-
-        # Category relevance
-        category_count = (
-            db.session.query(func.count(Article.id))
-            .filter(Article.category_id == self.category_id)
-            .scalar()
-        )
-        if category_count is not None:  # Add type safety
-            score += min(category_count * 0.5, 5.0)  # Cap at 5.0
-
-        # Tags count (approved tags weight more)
-        approved_tags = sum(
-            1 for tag in self.tags if tag.status == ContentStatus.APPROVED
-        )
-        pending_tags = len(self.tags) - approved_tags
-        score += (approved_tags * 0.5) + (pending_tags * 0.2)
-
-        # Related articles - use count() for dynamic relationships
-        score += self.related_articles.count() * 0.3
-        score += self.referenced_by.count() * 0.4  # Being referenced worth more
-
-        return score
-
-    def tag_article(self, tag_names: List[str]) -> List[Tag]:
-        """Tag the article with provided tag names. Creates new tags if they don't exist."""
-        applied_tags = []
-
-        for name in tag_names:
-            tag = Tag.get_or_create(name)
-            if tag and tag not in self.tags:
-                self.tags.append(tag)
-                applied_tags.append(tag)
-
+@event.listens_for(Media, "after_delete")
+def delete_media_file(_mapper: Any, _connection: Any, target: Media) -> None:
+    """Clean up file when media record is deleted"""
+    if target.source == MediaSource.LOCAL:
         try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
-            return []
-
-        return applied_tags
-
-    def upload_feature_image(self, file) -> Optional[Media]:
-        """Upload and set feature image for article"""
-        media = Media.create_from_upload(
-            file,
-            title=f"Feature image for {self.title}",
-            alt_text=f"Feature image for {self.title}",
-        )
-        if media:
-            self.feature_image_id = media.id
-            try:
-                db.session.commit()
-                return media
-            except Exception:
-                db.session.rollback()
-                media.delete()
-        return None
+            file_path = Path(target.file_path)
+            if file_path.exists():
+                file_path.unlink()
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to delete file {target.file_path}: {str(e)}"
+            )
 
 
 class SocialMediaAccount(db.Model, TimestampMixin):
@@ -549,16 +668,33 @@ class SocialMediaAccount(db.Model, TimestampMixin):
     __tablename__ = "social_media_accounts"
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    platform: Mapped[Platform] = db.Column(db.Enum(Platform), nullable=False)
+    platform: Mapped[Platform] = db.Column(
+        db.Enum(Platform, name="platform_type"), nullable=False
+    )
     username: Mapped[str] = db.Column(db.String(100), nullable=False)
     account_id: Mapped[str] = db.Column(db.String(100), nullable=False)
-    is_active: Mapped[bool] = db.Column(db.Boolean, default=True)
+    is_active: Mapped[bool] = db.Column(
+        db.Boolean, nullable=False, server_default=text("true")
+    )
+    credentials: Mapped[dict] = db.Column(
+        db.JSON, nullable=False, comment="Encrypted credentials for the platform"
+    )
 
-    # Store encrypted credentials securely
-    credentials: Mapped[dict] = db.Column(db.JSON, nullable=False)
+    # Relationships
+    posts: Mapped[List["SocialMediaPost"]] = relationship(
+        "SocialMediaPost",
+        backref="account",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     __table_args__ = (
-        db.UniqueConstraint("platform", "username", name="unique_account_per_platform"),
+        db.UniqueConstraint(
+            "platform", "username", name="uq_social_media_accounts_platform_username"
+        ),
+        Index("idx_social_media_account_platform", "platform"),
+        Index("idx_social_media_account_active", "is_active"),
+        {"comment": "Social media platform accounts configuration"},
     )
 
 
@@ -569,25 +705,35 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     article_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("articles.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("articles.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     account_id: Mapped[int] = db.Column(
-        db.Integer, db.ForeignKey("social_media_accounts.id"), nullable=False
+        db.Integer,
+        db.ForeignKey("social_media_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     image_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("media.id"), nullable=True
+        db.Integer, db.ForeignKey("media.id", ondelete="SET NULL"), nullable=True
     )
 
     content: Mapped[str] = db.Column(db.Text, nullable=False)
     hashtags: Mapped[List[str]] = db.Column(
-        db.ARRAY(db.String(100)), nullable=False, default=list
+        db.ARRAY(db.String(100)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
     )
 
     status: Mapped[ContentStatus] = db.Column(
-        db.Enum(ContentStatus), nullable=False, default=ContentStatus.PENDING
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
     )
     approved_by_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("users.id"), nullable=True
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     approved_at: Mapped[Optional[datetime]] = db.Column(
         db.DateTime(timezone=True), nullable=True
@@ -602,8 +748,12 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     post_url: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
 
     article: Mapped["Article"] = relationship("Article", backref="social_media_posts")
-    account: Mapped["SocialMediaAccount"] = relationship(
-        "SocialMediaAccount", backref="posts"
+
+    __table_args__ = (
+        Index("idx_social_media_post_status", "status"),
+        Index("idx_social_media_post_scheduled", "scheduled_for"),
+        Index("idx_social_media_post_posted", "posted_at"),
+        {"comment": "Social media posts with scheduling and tracking"},
     )
 
     @property
@@ -627,14 +777,3 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
                 db.session.rollback()
                 media.delete()
         return None
-
-
-@event.listens_for(Media, "after_delete")
-def delete_media_file(_mapper: Any, _connection: Any, target: Media) -> None:
-    if target.source == MediaSource.LOCAL:
-        try:
-            file_path = Path(target.file_path)
-            if file_path.exists():
-                file_path.unlink()
-        except Exception:
-            current_app.logger.error(f"Failed to delete file: {target.file_path}")
