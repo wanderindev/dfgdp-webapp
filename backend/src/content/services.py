@@ -198,7 +198,9 @@ class ResearcherService:
             raise ValueError(f"Category {suggestion.category_id} not found")
 
         # Prepare research parameters
-        research_params = ResearcherService._prepare_research_params(suggestion, category)
+        research_params = ResearcherService._prepare_research_params(
+            suggestion, category
+        )
 
         # Get and validate prompt template
         template = self.agent.get_template("research")
