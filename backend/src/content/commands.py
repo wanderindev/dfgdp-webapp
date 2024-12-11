@@ -8,8 +8,8 @@ from extensions import db
 from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
 from .initial_taxonomies import INITIAL_TAXONOMIES
-from .models import Taxonomy, Category
-from .services import ContentManagerService
+from .models import Taxonomy, Category, ArticleSuggestion
+from .services import ContentManagerService, ResearcherService
 
 # Create the CLI group
 content_cli = AppGroup("content")
@@ -150,6 +150,60 @@ def generate_suggestions(category_id: int, level: str, count: int) -> None:
             click.echo(f"   Point of view: {suggestion.point_of_view}")
 
         click.echo(f"\nSuccessfully generated {len(suggestions)} suggestions.")
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+@content_cli.command("generate-research")
+@click.argument("suggestion_id", type=int)
+def generate_research(suggestion_id: int) -> None:
+    """
+    Generate research content for an article suggestion.
+
+    Arguments:
+        suggestion_id: ID of the suggestion to research
+    """
+    # Verify suggestion exists
+    suggestion = ArticleSuggestion.query.get(suggestion_id)
+    if not suggestion:
+        click.echo(f"Error: ArticleSuggestion {suggestion_id} not found", err=True)
+        return
+
+    click.echo(f"Generating research for article suggestion: {suggestion.title}")
+    click.echo(f"Level: {suggestion.level.value}")
+
+    try:
+        # Initialize service
+        service = ResearcherService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        with click.progressbar(length=1, label="Generating research") as bar:
+            research = loop.run_until_complete(
+                service.generate_research(suggestion_id=suggestion_id)
+            )
+            bar.update(1)
+
+        # Display results
+        click.echo("\nResearch generated successfully!")
+        click.echo(f"Word count: {len(research.content.split())}")
+        click.echo(f"Tokens used: {research.tokens_used}")
+
+        # Show preview of first 200 characters
+        preview = (
+            research.content[:200] + "..."
+            if len(research.content) > 200
+            else research.content
+        )
+        click.echo("\nPreview:")
+        click.echo("-" * 40)
+        click.echo(preview)
+        click.echo("-" * 40)
 
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)

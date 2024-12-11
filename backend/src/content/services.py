@@ -1,13 +1,13 @@
 import json
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
 
 from agents.clients import AnthropicClient, OpenAIClient
 from agents.models import Agent, AgentType, Provider
-from content.models import Article, ArticleSuggestion, Category
+from content.models import Article, ArticleSuggestion, Category, ContentStatus, Research
 from extensions import db
 from .constants import ARTICLE_LEVELS
 from .models import ArticleLevel
@@ -146,3 +146,151 @@ class ContentManagerService:
             db.session.rollback()
             current_app.logger.error(f"Error generating suggestions: {e}")
             raise
+
+
+# noinspection PyArgumentList,PyProtectedMember
+class ResearcherService:
+    """Service for generating research content using AI"""
+
+    def __init__(self) -> None:
+        # Get the active researcher agent
+        self.agent: Optional[Agent] = Agent.query.filter_by(
+            type=AgentType.RESEARCHER, is_active=True
+        ).first()
+
+        if not self.agent:
+            raise ValueError("No active researcher agent found")
+
+        # Verify agent uses Anthropic
+        if self.agent.model.provider != Provider.ANTHROPIC:
+            raise ValueError("Researcher agent must use Anthropic model")
+
+        # Initialize Anthropic client
+        self.client = AnthropicClient(
+            model=self.agent.model.model_id,
+            temperature=self.agent.temperature,
+            max_tokens=self.agent.max_tokens,
+        )
+
+        self.client._init_client()
+
+    async def generate_research(self, suggestion_id: int) -> Research:
+        """
+        Generate research content for an article suggestion.
+
+        Args:
+            suggestion_id: ID of the ArticleSuggestion to research
+
+        Returns:
+            Created Research object
+
+        Raises:
+            ValueError: If parameters are invalid or API call fails
+        """
+        # Get suggestion and validate
+        suggestion = ArticleSuggestion.query.get(suggestion_id)
+        if not suggestion:
+            raise ValueError(f"ArticleSuggestion {suggestion_id} not found")
+
+        # Get category and taxonomy information
+        category = Category.query.get(suggestion.category_id)
+        if not category:
+            raise ValueError(f"Category {suggestion.category_id} not found")
+
+        # Prepare research parameters
+        research_params = ResearcherService._prepare_research_params(suggestion, category)
+
+        # Get and validate prompt template
+        template = self.agent.get_template("research")
+        if not template:
+            raise ValueError("Research template not found")
+
+        try:
+            # Format sub-topics list for the template
+            sub_topics_formatted = "\n".join(
+                f"- {topic}" for topic in suggestion.sub_topics
+            )
+
+            # Generate research content
+            prompt = template.render(
+                **research_params, sub_topics_list=sub_topics_formatted
+            )
+
+            # Start generation timer
+            generation_started_at = datetime.now(timezone.utc)
+
+            # Generate content using Anthropic
+            response = self.client._generate_content(prompt)
+
+            content = self.client._extract_content(response)
+
+            # Clean markdown wrapper if present
+            if content.startswith("```markdown\n") and content.endswith("```"):
+                content = content[12:-3]  # Remove wrapper
+            elif content.startswith("```\n") and content.endswith("```"):
+                content = content[4:-3]  # Remove wrapper
+
+            # Track usage
+            total_tokens = self.client._track_usage(response)
+
+            # Create research record
+            research = Research(
+                suggestion_id=suggestion_id,
+                content=content,
+                status=ContentStatus.PENDING,
+                model_id=self.agent.model_id,
+                tokens_used=total_tokens,
+                generation_started_at=generation_started_at,
+            )
+
+            db.session.add(research)
+            db.session.commit()
+
+            return research
+
+        except IntegrityError as e:
+            db.session.rollback()
+            current_app.logger.error(f"Database error: {e}")
+            raise ValueError("Failed to save research")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error generating research: {e}")
+            raise
+
+    @staticmethod
+    def _prepare_research_params(
+        suggestion: ArticleSuggestion, category: Category
+    ) -> Dict[str, Any]:
+        """
+        Prepare parameters for research prompt template.
+
+        Args:
+            suggestion: ArticleSuggestion object
+            category: Category object
+
+        Returns:
+            Dictionary of parameters for template
+        """
+        # Get maximum words for the level
+        level_specs = ARTICLE_LEVELS.get(suggestion.level.value)
+        if not level_specs:
+            raise ValueError(f"Invalid article level: {suggestion.level}")
+
+        return {
+            "suggestion": {
+                "title": suggestion.title,
+                "main_topic": suggestion.main_topic,
+                "sub_topics": suggestion.sub_topics,
+                "point_of_view": suggestion.point_of_view,
+                "level": "college",
+            },
+            "context": {
+                "taxonomy": category.taxonomy.name,
+                "taxonomy_description": category.taxonomy.description,
+                "category": category.name,
+                "category_description": category.description,
+            },
+            "constraints": {
+                "format": "markdown",
+            },
+        }
