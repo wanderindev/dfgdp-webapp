@@ -1,8 +1,9 @@
-from typing import Any, Dict
+from typing import Any
 
 from anthropic import Anthropic
 from anthropic.types import Message
 from flask import current_app
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from extensions import db
 from .base import BaseAIClient
@@ -18,9 +19,14 @@ class AnthropicClient(BaseAIClient):
         """Initialize Anthropic client"""
         self.client = Anthropic(api_key=current_app.config["ANTHROPIC_API_KEY"])
 
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=2, min=4, max=20),
+        retry_error_callback=lambda retry_state: retry_state.outcome.result(),
+    )
     def _generate_content(self, prompt: str, **kwargs: Any) -> Message:
         """
-        Generate content using Anthropic API
+        Generate content using Anthropic API with retry logic
 
         Args:
             prompt: The input prompt text
@@ -30,19 +36,25 @@ class AnthropicClient(BaseAIClient):
             Message: The Anthropic API response
 
         Raises:
-            Exception: If the API call fails
+            Exception: If the API call fails after retries
         """
         try:
             response = self.client.messages.create(
-                model=self.model,  # Use model from parent
-                max_tokens=self.max_tokens,  # Use max_tokens from parent
-                temperature=self.temperature,  # Use temperature from parent
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
                 messages=[{"role": "user", "content": prompt}],
+                stop_sequences=[],
                 **kwargs,
             )
             return response
 
         except Exception as e:
+            if "overloaded_error" in str(e):
+                current_app.logger.warning(
+                    f"Anthropic API overloaded, retrying: {str(e)}"
+                )
+                raise  # This will trigger retry
             current_app.logger.error(f"Anthropic API error: {str(e)}")
             raise
 
@@ -74,9 +86,9 @@ class AnthropicClient(BaseAIClient):
 
         return total_tokens
 
-    def _calculate_cost(self, input_tokens, output_tokens: Any) -> float:
+    def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """
-        Calculate the cost of API usage
+        Calculate the cost of API usage using rates from the database
 
         Args:
             input_tokens: The number of input tokens used
@@ -85,17 +97,16 @@ class AnthropicClient(BaseAIClient):
         Returns:
             float: The calculated cost in USD
         """
+        from ..models import AIModel
 
-        # Claude 3 pricing per 1K tokens (as of March 2024)
-        model_rates: Dict[str, Dict[str, float]] = {
-            "claude-3-5-sonnet-latest": {"input": 0.003, "output": 0.015},
-        }
-        rates = model_rates.get(self.model)
-        if not rates:
+        # Get model rates from database
+        model = AIModel.query.filter_by(model_id=self.model).first()
+        if not model:
             return 0.0
 
-        return (input_tokens * rates["input"] / 1000) + (
-            output_tokens * rates["output"] / 1000
+        # Calculate cost using rates per million tokens
+        return (input_tokens * float(model.input_rate) / 1000000) + (
+            output_tokens * float(model.output_rate) / 1000000
         )
 
     def _extract_content(self, response: Message) -> str:

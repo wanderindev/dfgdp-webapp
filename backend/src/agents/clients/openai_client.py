@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from flask import current_app
 from openai import OpenAI
@@ -36,11 +36,16 @@ class OpenAIClient(BaseAIClient):
             return self.client.chat.completions.create(
                 model=self.model,  # Use model from parent
                 messages=[
-                    {"role": "system", "content": "You are a helpful AI assistant."},
+                    {
+                        "role": "assistant",
+                        "content": "You are a thorough researcher for a historical and cultural education platform.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=self.temperature,  # Use temperature from parent
-                max_tokens=self.max_tokens,  # Use max_tokens from parent
+                temperature=self.temperature,
+                max_completion_tokens=self.max_tokens,
+                presence_penalty=0.3,
+                frequency_penalty=0.3,
                 **kwargs,
             )
         except Exception as e:
@@ -77,7 +82,7 @@ class OpenAIClient(BaseAIClient):
 
     def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
         """
-        Calculate the cost of API usage
+        Calculate the cost of API usage using rates from the database
 
         Args:
             input_tokens: The number of input tokens used
@@ -86,16 +91,16 @@ class OpenAIClient(BaseAIClient):
         Returns:
             float: The calculated cost in USD
         """
-        # OpenAI pricing per 1K tokens (as of March 2024)
-        model_rates: Dict[str, Dict[str, float]] = {
-            "GPT-4o": {"input": 0.0025, "output": 0.01},
-        }
-        rates = model_rates.get(self.model)
-        if not rates:
+        from ..models import AIModel
+
+        # Get model rates from database
+        model = AIModel.query.filter_by(model_id=self.model).first()
+        if not model:
             return 0.0
 
-        return (input_tokens * rates["input"] / 1000) + (
-            output_tokens * rates["output"] / 1000
+        # Calculate cost using rates per million tokens
+        return (input_tokens * float(model.input_rate) / 1000000) + (
+            output_tokens * float(model.output_rate) / 1000000
         )
 
     def _extract_content(self, response: ChatCompletion) -> str:
