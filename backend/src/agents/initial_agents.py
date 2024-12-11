@@ -46,9 +46,9 @@ INITIAL_AGENTS = [
         "name": "Researcher",
         "type": AgentType.RESEARCHER,
         "description": "Conducts in-depth research for articles",
-        "model": "GPT-4o",
-        "temperature": 0.4,
-        "max_tokens": 4096,
+        "model": "Claude 3.5 Sonnet",
+        "temperature": 0.8,
+        "max_tokens": 8192,
         "prompts": [
             {
                 "name": "research",
@@ -62,8 +62,8 @@ INITIAL_AGENTS = [
         "type": AgentType.WRITER,
         "description": "Writes articles based on research",
         "model": "Claude 3.5 Sonnet",
-        "temperature": 0.7,
-        "max_tokens": 4096,
+        "temperature": 0.95,
+        "max_tokens": 8192,
         "prompts": [
             {
                 "name": "article_writing",
@@ -77,7 +77,7 @@ INITIAL_AGENTS = [
         "type": AgentType.SOCIAL_MEDIA,
         "description": "Generates social media content from articles",
         "model": "Claude 3.5 Sonnet",
-        "temperature": 0.85,
+        "temperature": 0.95,
         "max_tokens": 2048,
         "prompts": [
             {
@@ -89,11 +89,11 @@ INITIAL_AGENTS = [
     },
     {
         "name": "Translator",
-        "type": AgentType.TRANSLATOR,  # Need to add this to enum
+        "type": AgentType.TRANSLATOR,
         "description": "Translates content while preserving formatting and special tokens",
         "model": "Claude 3.5 Sonnet",
-        "temperature": 0.3,  # Lower temperature for more consistent translations
-        "max_tokens": 4096,
+        "temperature": 0.3,
+        "max_tokens": 8092,
         "prompts": [
             {
                 "name": "translate_content",

@@ -56,4 +56,85 @@ EXAMPLE SUGGESTION:
 }}
 
 Generate your response now:""",
+    "researcher_prompt": """You are an expert academic researcher writing a comprehensive 4000-5000 word research document for a historical and cultural education platform. This document must be complete in a single response.
+
+CONTEXT AND SCOPE
+Taxonomy: {context[taxonomy]}
+Taxonomy Description: {context[taxonomy_description]}
+Category: {context[category]}
+Category Description: {context[category_description]}
+
+RESEARCH TOPIC
+Title: {suggestion[title]}
+Main Topic: {suggestion[main_topic]}
+Sub-topics:
+{sub_topics_list}
+Point of View: {suggestion[point_of_view]}
+Academic Level: {suggestion[level]}
+
+DOCUMENT REQUIREMENTS
+This must be a complete academic research document with the following structure. Each section must be written in full narrative paragraphs, avoiding bullet points unless absolutely necessary.
+
+## Introduction 
+Write 5 substantial paragraphs that:
+- Set the historical context
+- Establish the topic's significance
+- Present current research state
+- Outline key debates
+- Preview the document's structure
+
+## Main Topic Development
+Write 6-7 detailed paragraphs that:
+- Present comprehensive analysis
+- Discuss key theories
+- Explain methodological approaches
+- Analyze significant findings
+
+## [First Sub-topic]
+Write 6 detailed paragraphs exploring:
+- Key concepts and principles
+- Supporting evidence
+- Critical analysis
+- Practical applications
+- Regional variations
+- Historical development
+
+[Repeat the above paragraph structure for each sub-topic]
+
+## Contemporary Relevance
+Write 3 substantial paragraphs addressing:
+- Modern implications
+- Current research directions
+- Future applications
+
+## Conclusion
+Write 4 detailed paragraphs that:
+- Synthesize key findings
+- Present implications
+- Suggest future research
+- Connect to broader themes
+
+## Sources and Further Reading
+List at least 5 academic sources with full citations.
+
+FORMAT
+Use markdown formatting:
+- Standard headers (##, ###)
+- Bold for key terms
+- Italic for emphasis
+- Block quotes for notable quotes
+- Section breaks with ---
+
+WRITING STYLE
+- Use full narrative paragraphs
+- Develop each point thoroughly
+- Connect ideas with smooth transitions
+- Support claims with evidence
+- Maintain scholarly tone
+- Avoid bullet points in main text
+- Each paragraph should be substantial (150-200 words)
+
+This must be a complete, self-contained academic document generated in a single response. Do not truncate or split your response. Do not indicate continuation or ask for permission to continue.
+
+Begin the research document now:""",
 }
