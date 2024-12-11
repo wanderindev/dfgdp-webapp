@@ -8,7 +8,7 @@ from flask import current_app
 from slugify import slugify
 from sqlalchemy import event, func, text, Index
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Mapped, relationship, backref, AppenderQuery
+from sqlalchemy.orm import Mapped, relationship, backref
 from werkzeug.utils import secure_filename
 
 from extensions import db
@@ -330,13 +330,12 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
         "Tag", secondary=article_tags, backref="articles"
     )
 
-    related_articles: Mapped[AppenderQuery["Article"]] = relationship(
+    related_articles: Mapped[List["Article"]] = relationship(
         "Article",
         secondary=article_relationships,
         primaryjoin=(id == article_relationships.c.article_id),
         secondaryjoin=(id == article_relationships.c.related_article_id),
-        backref=backref("referenced_by", lazy="dynamic"),
-        lazy="dynamic",
+        backref=backref("referenced_by", lazy="select"),
     )
 
     __table_args__ = (
@@ -371,7 +370,7 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
             .filter(Article.category_id == self.category_id)
             .scalar()
         )
-        if category_count is not None:  # Add type safety
+        if category_count is not None:
             score += min(category_count * 0.5, 5.0)  # Cap at 5.0
 
         # Tags count (approved tags weight more)
@@ -381,9 +380,9 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
         pending_tags = len(self.tags) - approved_tags
         score += (approved_tags * 0.5) + (pending_tags * 0.2)
 
-        # Related articles - use count() for dynamic relationships
-        score += len(self.related_articles.all()) * 0.3
-        score += self.referenced_by.count() * 0.4  # Being referenced worth more
+        # Related articles
+        score += len(self.related_articles) * 0.3
+        score += len(self.referenced_by) * 0.4  # Being referenced worth more
 
         return score
 

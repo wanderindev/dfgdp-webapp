@@ -25,7 +25,6 @@ class ApprovedLanguage(db.Model, TimestampMixin):
 
     translations: Mapped[List["Translation"]] = relationship(
         "Translation",
-        backref="language",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
