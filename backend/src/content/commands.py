@@ -110,7 +110,7 @@ def generate_suggestions(category_id: int, level: str, count: int) -> None:
 
     Arguments:
         category_id: ID of the category to generate suggestions for
-        level: Article level (elementary, middle_school, high_school, college, general)
+        level: Article level (ELEMENTARY, MIDDLE_SCHOOL, HIGH_SCHOOL, COLLEGE, GENERAL)
         count: Number of suggestions to generate (default: 3)
     """
     # Verify category exists

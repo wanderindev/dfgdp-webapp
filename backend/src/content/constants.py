@@ -28,7 +28,7 @@ class ArticleLevelSpecs(NamedTuple):
 
 # Article level specifications
 ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
-    "elementary": ArticleLevelSpecs(
+    "ELEMENTARY": ArticleLevelSpecs(
         min_words=500,
         max_words=800,
         description="Elementary Level (grades 1-6)",
@@ -40,7 +40,7 @@ ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
         ),
         audience="Young students (grades 1-6)",
     ),
-    "middle_school": ArticleLevelSpecs(
+    "MIDDLE_SCHOOL": ArticleLevelSpecs(
         min_words=800,
         max_words=1200,
         description="Middle School Level (grades 7-9)",
@@ -52,7 +52,7 @@ ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
         ),
         audience="Middle school students (grades 7-9)",
     ),
-    "high_school": ArticleLevelSpecs(
+    "HIGH_SCHOOL": ArticleLevelSpecs(
         min_words=1200,
         max_words=2000,
         description="High School Level (grades 9-12)",
@@ -65,7 +65,7 @@ ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
         ),
         audience="High school students (grades 9-12)",
     ),
-    "college": ArticleLevelSpecs(
+    "COLLEGE": ArticleLevelSpecs(
         min_words=2000,
         max_words=3000,
         description="College Level",
@@ -79,7 +79,7 @@ ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
         ),
         audience="College students and academics",
     ),
-    "general": ArticleLevelSpecs(
+    "GENERAL": ArticleLevelSpecs(
         min_words=1000,
         max_words=1500,
         description="General Audience",
