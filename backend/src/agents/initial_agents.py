@@ -63,12 +63,12 @@ INITIAL_AGENTS = [
         "description": "Writes articles based on research",
         "model": "Claude 3.5 Sonnet",
         "temperature": 0.95,
-        "max_tokens": 8192,
+        "max_tokens": 4096,
         "prompts": [
             {
                 "name": "article_writing",
                 "description": "Template for writing articles",
-                "template": "",  # We'll add the template content later
+                "template": INITIAL_PROMPTS["writer_prompt"],
             }
         ],
     },

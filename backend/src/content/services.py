@@ -361,3 +361,211 @@ class ResearcherService:
                 "format": "markdown",
             },
         }
+
+
+# noinspection PyArgumentList,PyProtectedMember
+class WriterService:
+    """Service for generating articles from research using AI"""
+
+    def __init__(self) -> None:
+        # Get the active writer agent
+        self.agent: Optional[Agent] = Agent.query.filter_by(
+            type=AgentType.WRITER, is_active=True
+        ).first()
+
+        if not self.agent:
+            raise ValueError("No active writer agent found")
+
+        # Initialize Anthropic client
+        self.client = AnthropicClient(
+            model=self.agent.model.model_id,
+            temperature=self.agent.temperature,
+            max_tokens=self.agent.max_tokens,
+        )
+
+        self.client._init_client()
+
+    async def generate_article(self, research_id: int) -> Article:
+        """
+        Generate an article based on research content.
+
+        Args:
+            research_id: ID of the Research to use as source
+
+        Returns:
+            Created Article object
+
+        Raises:
+            ValueError: If parameters are invalid or API call fails
+        """
+        # Get research and validate
+        research = Research.query.get(research_id)
+        if not research:
+            raise ValueError(f"Research {research_id} not found")
+
+        if research.status != ContentStatus.APPROVED:
+            raise ValueError(f"Research {research_id} is not approved")
+
+        # Get suggestion and category information
+        suggestion = research.suggestion
+        if not suggestion:
+            raise ValueError(f"No suggestion found for research {research_id}")
+
+        category = suggestion.category
+        if not category:
+            raise ValueError(f"No category found for suggestion {suggestion.id}")
+
+        # Get level specifications
+        level_specs = ARTICLE_LEVELS.get(suggestion.level.value)
+        if not level_specs:
+            raise ValueError(f"Invalid article level: {suggestion.level}")
+
+        try:
+            generation_started_at = datetime.now(timezone.utc)
+            message_history = []
+
+            # Prepare template variables
+            template_vars = {
+                "context": {
+                    "taxonomy": category.taxonomy.name,
+                    "taxonomy_description": category.taxonomy.description,
+                    "category": category.name,
+                    "category_description": category.description,
+                },
+                "title": suggestion.title,
+                "level": suggestion.level.value,
+                "level_description": level_specs.description,
+                "min_words": level_specs.min_words,
+                "max_words": level_specs.max_words,
+                "research_content": research.content,
+            }
+
+            # Get and validate prompt template
+            template = self.agent.get_template("article_writing")
+            if not template:
+                raise ValueError("Article writing template not found")
+
+            # Generate article content
+            initial_prompt = template.render(**template_vars)
+            message_history.append({"role": "user", "content": initial_prompt})
+
+            content_response = self.client._generate_content(
+                prompt=initial_prompt,
+                message_history=[],
+            )
+
+            if not content_response:
+                raise ValueError("Empty response from API")
+
+            article_content = WriterService._clean_article_content(
+                self.client._extract_content(content_response)
+            )
+            total_tokens = self.client._track_usage(content_response)
+
+            # Add article content to message history
+            message_history.append({"role": "assistant", "content": article_content})
+
+            # Generate excerpt
+            excerpt_prompt = (
+                "Based on the article content you just generated and keeping in mind "
+                "the blog's focus on Panama's cultural identity, generate an engaging "
+                "excerpt of maximum 480 characters that will make readers want to read "
+                "the full article. Write the excerpt as plain text without quotes."
+            )
+
+            message_history.append({"role": "user", "content": excerpt_prompt})
+            excerpt_response = self.client._generate_content(
+                prompt=excerpt_prompt,
+                message_history=message_history[:2],  # Initial prompt and article only
+            )
+
+            if not excerpt_response:
+                raise ValueError("Empty excerpt response")
+
+            excerpt = WriterService._clean_excerpt(
+                self.client._extract_content(excerpt_response)
+            )
+            total_tokens += self.client._track_usage(excerpt_response)
+
+            # Generate AI summary
+            summary_prompt = (
+                "Generate a brief technical summary of the article content "
+                "(maximum 100 words) that captures its key topics and arguments. "
+                "This summary will be used by the content management system to "
+                "track article coverage and suggest new topics. Write the summary "
+                "as plain text without any prefix or keywords section."
+            )
+
+            message_history.append({"role": "user", "content": summary_prompt})
+            summary_response = self.client._generate_content(
+                prompt=summary_prompt,
+                message_history=message_history[:2],
+            )
+
+            if not summary_response:
+                raise ValueError("Empty summary response")
+
+            ai_summary = WriterService._clean_summary(
+                self.client._extract_content(summary_response)
+            )
+            total_tokens += self.client._track_usage(summary_response)
+
+            # Create article
+            article = Article(
+                research_id=research_id,
+                category_id=category.id,
+                title=suggestion.title,
+                content=article_content,
+                excerpt=excerpt,
+                ai_summary=ai_summary,
+                level=suggestion.level,
+                status=ContentStatus.PENDING,
+                model_id=self.agent.model_id,
+                tokens_used=total_tokens,
+                generation_started_at=generation_started_at,
+            )
+
+            db.session.add(article)
+            db.session.commit()
+            return article
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error generating article: {e}")
+            raise
+
+    @staticmethod
+    def _clean_article_content(content: str) -> str:
+        """Clean up article content by removing anything after the end marker."""
+        if "[END_ARTICLE]" in content:
+            content = content.split("[END_ARTICLE]")[0].strip()
+        return content
+
+    @staticmethod
+    def _clean_summary(summary: str) -> str:
+        """Clean up AI summary by removing technical prefix."""
+        summary = summary.strip()
+        # Remove various possible prefixes
+        prefixes = [
+            "TECHNICAL SUMMARY [100 words]:",
+            "TECHNICAL SUMMARY:",
+            "AI SUMMARY:",
+            "SUMMARY:",
+        ]
+        for prefix in prefixes:
+            if summary.startswith(prefix):
+                summary = summary[len(prefix) :].strip()
+        return summary
+
+    @staticmethod
+    def _clean_excerpt(excerpt: str) -> str:
+        """Clean up excerpt text."""
+        excerpt = excerpt.strip()
+        # Remove quotes if they're the first/last characters
+        if excerpt.startswith('"') and excerpt.endswith('"'):
+            excerpt = excerpt[1:-1]
+        elif excerpt.startswith('"'):
+            excerpt = excerpt[1:]
+        elif excerpt.endswith('"'):
+            excerpt = excerpt[:-1]
+        return excerpt.strip()

@@ -8,8 +8,8 @@ from extensions import db
 from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
 from .initial_taxonomies import INITIAL_TAXONOMIES
-from .models import Taxonomy, Category, ArticleSuggestion
-from .services import ContentManagerService, ResearcherService
+from .models import Taxonomy, Category, ArticleSuggestion, Research, ContentStatus
+from .services import ContentManagerService, ResearcherService, WriterService
 
 # Create the CLI group
 content_cli = AppGroup("content")
@@ -201,6 +201,83 @@ def generate_research(suggestion_id: int) -> None:
             else research.content
         )
         click.echo("\nPreview:")
+        click.echo("-" * 40)
+        click.echo(preview)
+        click.echo("-" * 40)
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+@content_cli.command("generate-article")
+@click.argument("research_id", type=int)
+def generate_article(research_id: int) -> None:
+    """
+    Generate an article from research content.
+
+    Arguments:
+        research_id: ID of the research to use as source
+    """
+    # Verify research exists and is approved
+    research = Research.query.get(research_id)
+    if not research:
+        click.echo(f"Error: Research {research_id} not found", err=True)
+        return
+
+    if research.status != ContentStatus.APPROVED:
+        click.echo(f"Error: Research {research_id} is not approved", err=True)
+        return
+
+    suggestion = research.suggestion
+    if not suggestion:
+        click.echo(f"Error: No suggestion found for research {research_id}", err=True)
+        return
+
+    click.echo(f"Generating article from research: {suggestion.title}")
+    click.echo(f"Level: {suggestion.level.value}")
+    click.echo(f"Category: {suggestion.category.name}")
+
+    try:
+        # Initialize service
+        service = WriterService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        with click.progressbar(length=1, label="Generating article") as bar:
+            article = loop.run_until_complete(
+                service.generate_article(research_id=research_id)
+            )
+            bar.update(1)
+
+        # Display results
+        click.echo("\nArticle generated successfully!")
+        click.echo(f"Title: {article.title}")
+        click.echo(f"Word count: {article.word_count}")
+        click.echo(f"Tokens used: {article.tokens_used}")
+
+        # Show excerpt
+        click.echo("\nExcerpt:")
+        click.echo("-" * 40)
+        click.echo(article.excerpt)
+        click.echo("-" * 40)
+
+        # Show AI summary
+        click.echo("\nAI Summary:")
+        click.echo("-" * 40)
+        click.echo(article.ai_summary)
+        click.echo("-" * 40)
+
+        # Show preview of first 200 characters of main content
+        preview = (
+            article.content[:200] + "..."
+            if len(article.content) > 200
+            else article.content
+        )
+        click.echo("\nContent Preview:")
         click.echo("-" * 40)
         click.echo(preview)
         click.echo("-" * 40)
