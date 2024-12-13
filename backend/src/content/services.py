@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -55,7 +56,7 @@ class ContentManagerService:
 
         Args:
             category_id: ID of the category
-            level: Article level (elementary, middle_school, etc.)
+            level: Article level (ELEMENTARY, MIDDLE_SCHOOL, etc.)
             num_suggestions: Number of suggestions to generate
 
         Returns:
@@ -187,58 +188,118 @@ class ResearcherService:
         Raises:
             ValueError: If parameters are invalid or API call fails
         """
-        # Get suggestion and validate
         suggestion = ArticleSuggestion.query.get(suggestion_id)
         if not suggestion:
             raise ValueError(f"ArticleSuggestion {suggestion_id} not found")
 
-        # Get category and taxonomy information
         category = Category.query.get(suggestion.category_id)
         if not category:
             raise ValueError(f"Category {suggestion.category_id} not found")
 
-        # Prepare research parameters
         research_params = ResearcherService._prepare_research_params(
             suggestion, category
         )
-
-        # Get and validate prompt template
         template = self.agent.get_template("research")
         if not template:
             raise ValueError("Research template not found")
 
         try:
-            # Format sub-topics list for the template
+            full_content = []
+            message_history = []
+            generation_started_at = datetime.now(timezone.utc)
+            total_tokens = 0
+
+            # Build section order
+            sections = ["Abstract", "Main Topic Development"]
+            sections.extend(suggestion.sub_topics)
+            sections.extend(
+                [
+                    "Contemporary Relevance",
+                    "Conclusion",
+                    "Sources and Further Reading",
+                ]
+            )
+
+            # Generate initial abstract
             sub_topics_formatted = "\n".join(
                 f"- {topic}" for topic in suggestion.sub_topics
             )
 
-            # Generate research content
-            prompt = template.render(
-                **research_params, sub_topics_list=sub_topics_formatted
+            # Create dynamic subtopics structure for the prompt
+            subtopics_structure = ""
+            for subtopic in suggestion.sub_topics:
+                subtopics_structure += f"""
+## {subtopic}
+6 detailed paragraphs exploring:
+- Key concepts and principles
+- Supporting evidence
+- Critical analysis
+- Practical applications
+- Regional variations
+- Historical development
+
+"""
+            research_params["dynamic_subtopics_structure"] = subtopics_structure
+
+            initial_prompt = template.render(
+                **research_params,
+                sub_topics_list=sub_topics_formatted,
             )
 
-            # Start generation timer
-            generation_started_at = datetime.now(timezone.utc)
+            # Generate abstract
+            message_history.append({"role": "user", "content": initial_prompt})
+            abstract_response = self.client._generate_content(
+                prompt=initial_prompt,
+                message_history=[],  # Empty for initial prompt
+            )
 
-            # Generate content using Anthropic
-            response = self.client._generate_content(prompt)
+            abstract_content = self.client._extract_content(abstract_response)
+            total_tokens += self.client._track_usage(abstract_response)
 
-            content = self.client._extract_content(response)
+            # Add abstract to full content and message history
+            full_content.append(self._clean_markdown(abstract_content))
+            message_history.append({"role": "assistant", "content": abstract_content})
 
-            # Clean markdown wrapper if present
-            if content.startswith("```markdown\n") and content.endswith("```"):
-                content = content[12:-3]  # Remove wrapper
-            elif content.startswith("```\n") and content.endswith("```"):
-                content = content[4:-3]  # Remove wrapper
+            # Generate each section
+            for i in range(1, len(sections)):
+                current_section = sections[i]
+                previous_section = sections[i - 1]
 
-            # Track usage
-            total_tokens = self.client._track_usage(response)
+                continuation_prompt = (
+                    f"You just completed the full development of the {previous_section} section. "
+                    f"Now continue with the {current_section} section. This section should be based on "
+                    f"the specifications set in my initial message and the contents of the Abstract "
+                    f"you generated."
+                )
 
-            # Create research record
+                # Add continuation prompt to message history
+                message_history.append({"role": "user", "content": continuation_prompt})
+
+                # Generate section content
+                section_response = self.client._generate_content(
+                    prompt=continuation_prompt,
+                    message_history=message_history[
+                        :2
+                    ],  # Only initial prompt and abstract
+                )
+
+                if not section_response:
+                    raise ValueError(f"Empty response for section: {current_section}")
+
+                section_content = self.client._extract_content(section_response)
+                total_tokens += self.client._track_usage(section_response)
+
+                # Add clean content to full document
+                full_content.append(self._clean_markdown(section_content))
+
+                # Small delay between sections
+                await asyncio.sleep(5)
+
+            # Create final research document
+            complete_content = "\n\n".join(full_content)
             research = Research(
                 suggestion_id=suggestion_id,
-                content=content,
+                content=complete_content,
                 status=ContentStatus.PENDING,
                 model_id=self.agent.model_id,
                 tokens_used=total_tokens,
@@ -247,17 +308,21 @@ class ResearcherService:
 
             db.session.add(research)
             db.session.commit()
-
             return research
 
-        except IntegrityError as e:
-            db.session.rollback()
-            current_app.logger.error(f"Database error: {e}")
-            raise ValueError("Failed to save research")
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error generating research: {e}")
             raise
+
+    @staticmethod
+    def _clean_markdown(content: str) -> str:
+        """Clean markdown wrapper if present."""
+        if content.startswith("```markdown\n") and content.endswith("```"):
+            return content[12:-3]
+        elif content.startswith("```\n") and content.endswith("```"):
+            return content[4:-3]
+        return content
 
     @staticmethod
     def _prepare_research_params(
@@ -284,7 +349,7 @@ class ResearcherService:
                 "main_topic": suggestion.main_topic,
                 "sub_topics": suggestion.sub_topics,
                 "point_of_view": suggestion.point_of_view,
-                "level": "college",
+                "level": "COLLEGE",
             },
             "context": {
                 "taxonomy": category.taxonomy.name,

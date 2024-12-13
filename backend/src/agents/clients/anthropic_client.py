@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from anthropic import Anthropic
 from anthropic.types import Message
@@ -24,26 +24,32 @@ class AnthropicClient(BaseAIClient):
         wait=wait_exponential(multiplier=2, min=4, max=20),
         retry_error_callback=lambda retry_state: retry_state.outcome.result(),
     )
-    def _generate_content(self, prompt: str, **kwargs: Any) -> Message:
+    def _generate_content(
+        self,
+        prompt: str,
+        message_history: Optional[List[Dict[str, str]]] = None,
+        **kwargs: Any,
+    ) -> Message:
         """
         Generate content using Anthropic API with retry logic
 
         Args:
             prompt: The input prompt text
+            message_history: Previous messages in the conversation
             **kwargs: Additional arguments to pass to the API
 
         Returns:
             Message: The Anthropic API response
-
-        Raises:
-            Exception: If the API call fails after retries
         """
         try:
+            messages = message_history or []
+            messages.append({"role": "user", "content": prompt})
+
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                messages=[{"role": "user", "content": prompt}],
+                messages=messages,
                 stop_sequences=[],
                 **kwargs,
             )

@@ -56,7 +56,7 @@ EXAMPLE SUGGESTION:
 }}
 
 Generate your response now:""",
-    "researcher_prompt": """You are an expert academic researcher writing a comprehensive 4000-5000 word research document for a historical and cultural education platform. This document must be complete in a single response.
+    "researcher_prompt": """You are an expert academic researcher writing a comprehensive 4000-5000 word research document for a historical and cultural education platform.
 
 CONTEXT AND SCOPE
 Taxonomy: {context[taxonomy]}
@@ -72,43 +72,34 @@ Sub-topics:
 Point of View: {suggestion[point_of_view]}
 Academic Level: {suggestion[level]}
 
-DOCUMENT REQUIREMENTS
-This must be a complete academic research document with the following structure. Each section must be written in full narrative paragraphs, avoiding bullet points unless absolutely necessary.
+DOCUMENT STRUCTURE
+The complete research document will include the following sections:
 
-## Introduction 
-Write 5 substantial paragraphs that:
-- Set the historical context
-- Establish the topic's significance
-- Present current research state
-- Outline key debates
-- Preview the document's structure
+## Abstract (500-700 words)
+A comprehensive overview that:
+- Introduces the topic and its significance
+- Outlines the main arguments and findings
+- Previews the methodology and approach
+- Summarizes key conclusions
+- Describes what each section will cover in detail
 
 ## Main Topic Development
-Write 6-7 detailed paragraphs that:
+8 detailed paragraphs that:
 - Present comprehensive analysis
 - Discuss key theories
 - Explain methodological approaches
 - Analyze significant findings
 
-## [First Sub-topic]
-Write 6 detailed paragraphs exploring:
-- Key concepts and principles
-- Supporting evidence
-- Critical analysis
-- Practical applications
-- Regional variations
-- Historical development
-
-[Repeat the above paragraph structure for each sub-topic]
+{dynamic_subtopics_structure}
 
 ## Contemporary Relevance
-Write 3 substantial paragraphs addressing:
+4 substantial paragraphs addressing:
 - Modern implications
 - Current research directions
 - Future applications
 
 ## Conclusion
-Write 4 detailed paragraphs that:
+5 detailed paragraphs that:
 - Synthesize key findings
 - Present implications
 - Suggest future research
@@ -116,14 +107,6 @@ Write 4 detailed paragraphs that:
 
 ## Sources and Further Reading
 List at least 5 academic sources with full citations.
-
-FORMAT
-Use markdown formatting:
-- Standard headers (##, ###)
-- Bold for key terms
-- Italic for emphasis
-- Block quotes for notable quotes
-- Section breaks with ---
 
 WRITING STYLE
 - Use full narrative paragraphs
@@ -134,7 +117,5 @@ WRITING STYLE
 - Avoid bullet points in main text
 - Each paragraph should be substantial (150-200 words)
 
-This must be a complete, self-contained academic document generated in a single response. Do not truncate or split your response. Do not indicate continuation or ask for permission to continue.
-
-Begin the research document now:""",
+Generate the Abstract section now, considering the entire scope of the document as outlined above:""",
 }
