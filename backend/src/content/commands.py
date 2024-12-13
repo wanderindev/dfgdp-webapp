@@ -8,7 +8,15 @@ from extensions import db
 from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
 from .initial_taxonomies import INITIAL_TAXONOMIES
-from .models import Taxonomy, Category, ArticleSuggestion, Research, ContentStatus
+from .initial_social_media_accounts import INITIAL_SOCIAL_MEDIA_ACCOUNTS
+from .models import (
+    Taxonomy,
+    Category,
+    ArticleSuggestion,
+    Research,
+    ContentStatus,
+    SocialMediaAccount,
+)
 from .services import ContentManagerService, ResearcherService, WriterService
 
 # Create the CLI group
@@ -286,3 +294,31 @@ def generate_article(research_id: int) -> None:
         click.echo(f"Error: {str(e)}", err=True)
     except Exception as e:
         click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+# noinspection PyArgumentList
+@content_cli.command("init-social-accounts")
+def init_social_accounts() -> None:
+    """Initialize social media accounts with default configurations."""
+    try:
+        # Create social media accounts
+        for account_data in INITIAL_SOCIAL_MEDIA_ACCOUNTS:
+            if not SocialMediaAccount.query.filter_by(
+                platform=account_data["platform"], username=account_data["username"]
+            ).first():
+                account = SocialMediaAccount(**account_data)
+                db.session.add(account)
+                click.echo(
+                    f"Created social media account: {account_data['username']} "
+                    f"({account_data['platform'].value})"
+                )
+
+        db.session.commit()
+        click.echo("Successfully initialized social media accounts.")
+
+    except IntegrityError as e:
+        db.session.rollback()
+        click.echo(f"Error: Database integrity error - {str(e)}")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"Error: {str(e)}")
