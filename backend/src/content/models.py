@@ -50,6 +50,14 @@ class MediaSource(str, enum.Enum):
     S3 = "S3"
 
 
+class InstagramMediaType(str, enum.Enum):
+    SQUARE = "SQUARE"  # 1:1
+    PORTRAIT = "PORTRAIT"  # 4:5
+    LANDSCAPE = "LANDSCAPE"  # 1.91:1
+    STORY = "STORY"  # 9:16
+    REEL = "REEL"  # 9:16
+
+
 class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
     """Main content hierarchy"""
 
@@ -422,6 +430,31 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
         return None
 
 
+social_media_post_media = db.Table(
+    "social_media_post_media",
+    db.Column(
+        "post_id",
+        db.Integer,
+        db.ForeignKey("social_media_posts.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    db.Column(
+        "media_id",
+        db.Integer,
+        db.ForeignKey("media.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    db.Column(
+        "position",
+        db.Integer,
+        nullable=False,
+        comment="Order position in carousel, starting from 0",
+    ),
+    Index("idx_social_media_post_media_post", "post_id"),
+    Index("idx_social_media_post_media_position", "post_id", "position", unique=True),
+)
+
+
 # noinspection PyArgumentList
 class Media(db.Model, TimestampMixin):
     """Media files management"""
@@ -447,6 +480,13 @@ class Media(db.Model, TimestampMixin):
     alt_text: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
     external_url: Mapped[Optional[str]] = db.Column(db.String(512), nullable=True)
 
+    # Aspect ratio for images and videos
+    width: Mapped[Optional[int]] = db.Column(db.Integer, nullable=True)
+    height: Mapped[Optional[int]] = db.Column(db.Integer, nullable=True)
+    instagram_media_type: Mapped[Optional[InstagramMediaType]] = db.Column(
+        db.Enum(InstagramMediaType, name="instagram_media_type"), nullable=True
+    )
+
     # Relationships
     feature_for_articles: Mapped[List["Article"]] = relationship(
         "Article",
@@ -455,16 +495,6 @@ class Media(db.Model, TimestampMixin):
             uselist=False,
         ),
         foreign_keys="Article.feature_image_id",
-        passive_deletes=True,
-    )
-
-    feature_for_posts: Mapped[List["SocialMediaPost"]] = relationship(
-        "SocialMediaPost",
-        backref=backref(
-            "image",
-            uselist=False,
-        ),
-        foreign_keys="SocialMediaPost.image_id",
         passive_deletes=True,
     )
 
@@ -698,7 +728,23 @@ class SocialMediaAccount(db.Model, TimestampMixin):
 
 
 class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
-    """Generated social media content"""
+    """Generated social media content with platform-specific constraints.
+
+    Instagram-specific constraints:
+    - Caption (content): Maximum 2,200 characters
+    - Carousel posts: Maximum 10 images/videos
+    - Mentions: Maximum 30 mentions per post
+    - Hashtags: While Instagram allows up to 30 hashtags, best practices suggest using 3-15 relevant hashtags
+    - Media aspect ratios:
+        * Square: 1:1
+        * Portrait: 4:5
+        * Landscape: 1.91:1
+        * Stories/Reels: 9:16
+
+    The automated service generates posts without mentions. Mentions can be added manually
+    through the admin dashboard during the review process. When adding mentions, they should
+    be relevant to the content and used thoughtfully to avoid appearing as spam.
+    """
 
     __tablename__ = "social_media_posts"
 
@@ -714,9 +760,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
         db.ForeignKey("social_media_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-    )
-    image_id: Mapped[Optional[int]] = db.Column(
-        db.Integer, db.ForeignKey("media.id", ondelete="SET NULL"), nullable=True
     )
 
     content: Mapped[str] = db.Column(db.Text, nullable=False)
@@ -755,24 +798,241 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
         {"comment": "Social media posts with scheduling and tracking"},
     )
 
+    media_items: Mapped[List["Media"]] = relationship(
+        "Media",
+        secondary=social_media_post_media,
+        order_by="social_media_post_media.c.position",
+        backref=backref(
+            "social_media_posts", order_by="social_media_post_media.c.position"
+        ),
+    )
+
+    @property
+    def aspect_ratio(self) -> Optional[float]:
+        """Calculate aspect ratio if dimensions are available."""
+        if self.width and self.height:
+            return self.width / self.height
+        return None
+
     @property
     def platform(self) -> Optional[Platform]:
         """Get the platform from the associated account"""
         return self.account.platform if self.account else None
 
-    def upload_image(self, file) -> Optional[Media]:
-        """Upload and set image for social media post"""
+    def upload_image(self, file, position: Optional[int] = None) -> Optional[Media]:
+        """
+        Upload and add an image to the social media post.
+
+        Args:
+            file: The image file to upload
+            position: Position in carousel (0-based). If None, appends to end.
+                     If position is specified and already occupied, shifts existing
+                     images to make room.
+
+        Returns:
+            Media: The created Media object if successful, None otherwise
+        """
+        # Create media object
         media = Media.create_from_upload(
             file,
             title=f"Social media image for {self.article.title}",
             alt_text=f"Social media image for {self.article.title}",
         )
-        if media:
-            self.image_id = media.id
-            try:
-                db.session.commit()
-                return media
-            except Exception:
-                db.session.rollback()
-                media.delete()
-        return None
+        if not media:
+            return None
+
+        try:
+            # If position not specified, append to end
+            if position is None:
+                position = len(self.media_items)
+
+            # Validate position
+            if position < 0 or position > len(self.media_items):
+                raise ValueError("Invalid position")
+
+            # Get the association table
+            assoc = social_media_post_media
+
+            # If inserting at existing position, shift other images
+            if position < len(self.media_items):
+                # Shift existing items starting from the end
+                db.session.execute(
+                    assoc.update()
+                    .where(
+                        db.and_(
+                            assoc.c.post_id == self.id, assoc.c.position >= position
+                        )
+                    )
+                    .values(position=assoc.c.position + 1)
+                )
+
+            # Insert new media at specified position
+            db.session.execute(
+                assoc.insert().values(
+                    post_id=self.id, media_id=media.id, position=position
+                )
+            )
+
+            db.session.commit()
+            return media
+
+        except Exception:
+            db.session.rollback()
+            media.delete()
+            return None
+
+    def remove_image(self, position: int) -> bool:
+        """
+        Remove an image from the specified carousel position.
+
+        Args:
+            position: The position (0-based) of the image to remove
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if position < 0 or position >= len(self.media_items):
+                return False
+
+            # Get the association table
+            assoc = social_media_post_media
+
+            # Remove the image at specified position
+            db.session.execute(
+                assoc.delete().where(
+                    db.and_(assoc.c.post_id == self.id, assoc.c.position == position)
+                )
+            )
+
+            # Shift remaining images to fill the gap
+            db.session.execute(
+                assoc.update()
+                .where(db.and_(assoc.c.post_id == self.id, assoc.c.position > position))
+                .values(position=assoc.c.position - 1)
+            )
+
+            db.session.commit()
+            return True
+
+        except Exception:
+            db.session.rollback()
+            return False
+
+    def reorder_images(self, old_position: int, new_position: int) -> bool:
+        """
+        Reorder images by moving an image from one position to another.
+
+        Args:
+            old_position: Current position of the image (0-based)
+            new_position: New desired position (0-based)
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            if (
+                old_position < 0
+                or old_position >= len(self.media_items)
+                or new_position < 0
+                or new_position >= len(self.media_items)
+            ):
+                return False
+
+            if old_position == new_position:
+                return True
+
+            # Get the association table
+            assoc = social_media_post_media
+
+            # Get the media_id being moved
+            media_id = self.media_items[old_position].id
+
+            if new_position > old_position:
+                # Moving forward: shift items in between backwards
+                db.session.execute(
+                    assoc.update()
+                    .where(
+                        db.and_(
+                            assoc.c.post_id == self.id,
+                            assoc.c.position > old_position,
+                            assoc.c.position <= new_position,
+                        )
+                    )
+                    .values(position=assoc.c.position - 1)
+                )
+            else:
+                # Moving backward: shift items in between forward
+                db.session.execute(
+                    assoc.update()
+                    .where(
+                        db.and_(
+                            assoc.c.post_id == self.id,
+                            assoc.c.position >= new_position,
+                            assoc.c.position < old_position,
+                        )
+                    )
+                    .values(position=assoc.c.position + 1)
+                )
+
+            # Update the moved item's position
+            db.session.execute(
+                assoc.update()
+                .where(
+                    db.and_(assoc.c.post_id == self.id, assoc.c.media_id == media_id)
+                )
+                .values(position=new_position)
+            )
+
+            db.session.commit()
+            return True
+
+        except Exception:
+            db.session.rollback()
+            return False
+
+    def format_caption(self) -> str:
+        """
+        Format the complete caption including content, hashtags, and mentions.
+        Returns the formatted caption ready for Instagram.
+        """
+        parts = [self.content]
+
+        # Add mentions if any
+        if self.mentions:
+            mentions_text = " ".join(f"@{username}" for username in self.mentions)
+            parts.append(mentions_text)
+
+        # Add hashtags if any
+        if self.hashtags:
+            hashtags_text = " ".join(f"#{tag}" for tag in self.hashtags)
+            parts.append(hashtags_text)
+
+        return "\n\n".join(filter(None, parts))
+
+    def validate_instagram_format(self) -> bool:
+        """
+        Validate if the image meets Instagram's requirements for the specified type.
+        Returns False if validation fails.
+        """
+        if not self.instagram_media_type or not self.width or not self.height:
+            return False
+
+        ratio = self.aspect_ratio
+        if not ratio:
+            return False
+
+        # Check aspect ratio requirements
+        if self.instagram_media_type == InstagramMediaType.SQUARE:
+            return abs(ratio - 1.0) < 0.01  # Allow small deviation
+        elif self.instagram_media_type == InstagramMediaType.PORTRAIT:
+            return abs(ratio - 0.8) < 0.01  # 4:5 ratio
+        elif self.instagram_media_type == InstagramMediaType.LANDSCAPE:
+            return abs(ratio - 1.91) < 0.01  # 1.91:1 ratio
+        elif self.instagram_media_type in (
+            InstagramMediaType.STORY,
+            InstagramMediaType.REEL,
+        ):
+            return abs(ratio - 0.5625) < 0.01  # 9:16 ratio
+
+        return False
