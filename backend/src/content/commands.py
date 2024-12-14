@@ -7,8 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from extensions import db
 from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
-from .initial_taxonomies import INITIAL_TAXONOMIES
+from .initial_hashtags import INITIAL_HASHTAG_GROUPS
 from .initial_social_media_accounts import INITIAL_SOCIAL_MEDIA_ACCOUNTS
+from .initial_taxonomies import INITIAL_TAXONOMIES
 from .models import (
     Taxonomy,
     Category,
@@ -16,6 +17,7 @@ from .models import (
     Research,
     ContentStatus,
     SocialMediaAccount,
+    HashtagGroup,
 )
 from .services import ContentManagerService, ResearcherService, WriterService
 
@@ -315,6 +317,33 @@ def init_social_accounts() -> None:
 
         db.session.commit()
         click.echo("Successfully initialized social media accounts.")
+
+    except IntegrityError as e:
+        db.session.rollback()
+        click.echo(f"Error: Database integrity error - {str(e)}")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"Error: {str(e)}")
+
+
+# noinspection PyArgumentList
+@content_cli.command("init-hashtags")
+def init_hashtags() -> None:
+    """Initialize hashtag groups with default configurations."""
+    try:
+        # Create hashtag groups
+        for group_data in INITIAL_HASHTAG_GROUPS:
+            if not HashtagGroup.query.filter_by(name=group_data["name"]).first():
+                group = HashtagGroup(**group_data)
+                db.session.add(group)
+                click.echo(
+                    f"Created hashtag group: {group_data['name']} "
+                    f"({'core' if group_data['is_core'] else 'optional'})"
+                )
+                click.echo(f"Hashtags: {', '.join(group_data['hashtags'])}\n")
+
+        db.session.commit()
+        click.echo("Successfully initialized hashtag groups.")
 
     except IntegrityError as e:
         db.session.rollback()

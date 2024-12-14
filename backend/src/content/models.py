@@ -1073,3 +1073,30 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
             return abs(ratio - 0.5625) < 0.01  # 9:16 ratio
 
         return False
+
+
+class HashtagGroup(db.Model, TimestampMixin):
+    """Groups of related hashtags for social media posts"""
+
+    __tablename__ = "hashtag_groups"
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    name: Mapped[str] = db.Column(db.String(100), nullable=False, unique=True)
+    hashtags: Mapped[List[str]] = db.Column(
+        db.ARRAY(db.String(100)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
+    )
+    description: Mapped[str] = db.Column(db.Text, nullable=False)
+    is_core: Mapped[bool] = db.Column(
+        db.Boolean,
+        nullable=False,
+        server_default=text("false"),
+        comment="Whether this is a core group that should be included in all posts",
+    )
+
+    __table_args__ = (
+        Index("idx_hashtag_group_name", "name"),
+        Index("idx_hashtag_group_core", "is_core"),
+        {"comment": "Predefined groups of hashtags for social media posts"},
+    )
