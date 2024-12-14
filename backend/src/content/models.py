@@ -58,6 +58,11 @@ class InstagramMediaType(str, enum.Enum):
     REEL = "REEL"  # 9:16
 
 
+class PostType(str, enum.Enum):
+    FEED = "FEED"  # Regular feed post (Did You Know?)
+    STORY = "STORY"  # Story post (Article Promotion)
+
+
 class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
     """Main content hierarchy"""
 
@@ -741,9 +746,9 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
         * Landscape: 1.91:1
         * Stories/Reels: 9:16
 
-    The automated service generates posts without mentions. Mentions can be added manually
-    through the admin dashboard during the review process. When adding mentions, they should
-    be relevant to the content and used thoughtfully to avoid appearing as spam.
+    Post Types:
+    - FEED: Regular feed posts (Did You Know?) that remain permanently on the profile
+    - STORY: 24-hour stories used for article promotion, can be saved as highlights
     """
 
     __tablename__ = "social_media_posts"
@@ -768,6 +773,17 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
         nullable=False,
         server_default=text("ARRAY[]::varchar[]"),
     )
+    post_type: Mapped[PostType] = db.Column(
+        db.Enum(PostType, name="post_type"),
+        nullable=False,
+        server_default=text("'FEED'"),
+    )
+    is_highlight: Mapped[bool] = db.Column(
+        db.Boolean,
+        nullable=False,
+        server_default=text("false"),
+        comment="Whether this story is saved as a highlight",
+    )
 
     status: Mapped[ContentStatus] = db.Column(
         db.Enum(ContentStatus, name="content_status_type"),
@@ -791,13 +807,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
 
     article: Mapped["Article"] = relationship("Article", backref="social_media_posts")
 
-    __table_args__ = (
-        Index("idx_social_media_post_status", "status"),
-        Index("idx_social_media_post_scheduled", "scheduled_for"),
-        Index("idx_social_media_post_posted", "posted_at"),
-        {"comment": "Social media posts with scheduling and tracking"},
-    )
-
     media_items: Mapped[List["Media"]] = relationship(
         "Media",
         secondary=social_media_post_media,
@@ -805,6 +814,13 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
         backref=backref(
             "social_media_posts", order_by="social_media_post_media.c.position"
         ),
+    )
+
+    __table_args__ = (
+        Index("idx_social_media_post_status", "status"),
+        Index("idx_social_media_post_scheduled", "scheduled_for"),
+        Index("idx_social_media_post_posted", "posted_at"),
+        {"comment": "Social media posts with scheduling and tracking"},
     )
 
     @property
@@ -818,6 +834,27 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     def platform(self) -> Optional[Platform]:
         """Get the platform from the associated account"""
         return self.account.platform if self.account else None
+
+    @property
+    def story_link(self) -> Optional[str]:
+        """
+        Generate the full URL for the article being promoted in the story.
+        Only applicable for STORY type posts.
+
+        Returns:
+            str: Full URL to the article, or None if post is not a story or has no article
+        """
+        if self.post_type != PostType.STORY or not self.article:
+            return None
+
+        try:
+            base_url = current_app.config["BLOG_URL"].rstrip("/")
+            category = self.article.category
+            taxonomy = category.taxonomy
+            return f"{base_url}/{taxonomy.slug}/{category.slug}/{self.article.slug}"
+        except Exception as e:
+            current_app.logger.error(f"Error generating story link: {str(e)}")
+            return None
 
     def upload_image(self, file, position: Optional[int] = None) -> Optional[Media]:
         """

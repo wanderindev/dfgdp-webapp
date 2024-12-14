@@ -49,6 +49,9 @@ class BaseConfig:
     AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
 
+    # Site Settings
+    BLOG_URL: str = os.getenv("BLOG_URL", "https://panamaincontext.com")
+
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration."""
