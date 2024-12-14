@@ -17,6 +17,7 @@ class AgentType(str, enum.Enum):
     WRITER = "WRITER"
     SOCIAL_MEDIA = "SOCIAL_MEDIA"
     TRANSLATOR = "TRANSLATOR"
+    MEDIA_MANAGER = "MEDIA_MANAGER"
 
 
 class Provider(str, enum.Enum):

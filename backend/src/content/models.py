@@ -1,8 +1,8 @@
 import enum
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 
 from flask import current_app
 from slugify import slugify
@@ -48,6 +48,7 @@ class MediaSource(str, enum.Enum):
     LOCAL = "LOCAL"
     YOUTUBE = "YOUTUBE"
     S3 = "S3"
+    WIKIMEDIA = "WIKIMEDIA"
 
 
 class InstagramMediaType(str, enum.Enum):
@@ -472,6 +473,171 @@ social_media_post_media = db.Table(
 )
 
 
+class MediaSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
+    """AI-generated suggestions for media content"""
+
+    __tablename__ = "media_suggestions"
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    research_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey("research.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Suggested search parameters
+    commons_categories: Mapped[List[str]] = db.Column(
+        db.ARRAY(db.String(255)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
+        comment="Suggested Wikimedia Commons categories",
+    )
+    search_queries: Mapped[List[str]] = db.Column(
+        db.ARRAY(db.String(255)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
+        comment="Suggested search queries",
+    )
+    illustration_topics: Mapped[List[str]] = db.Column(
+        db.ARRAY(db.String(255)),
+        nullable=False,
+        server_default=text("ARRAY[]::varchar[]"),
+        comment="Key topics needing illustration",
+    )
+
+    # Rationale for suggestions
+    reasoning: Mapped[str] = db.Column(
+        db.Text, nullable=False, comment="AI's explanation for suggestions"
+    )
+
+    # Relationships
+    research: Mapped["Research"] = relationship("Research", backref="media_suggestions")
+    candidates: Mapped[List["MediaCandidate"]] = relationship(
+        "MediaCandidate", backref="suggestion", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (Index("idx_media_suggestion_research", "research_id"),)
+
+
+# noinspection PyArgumentList
+class MediaCandidate(db.Model, TimestampMixin):
+    """Potential media items found from suggestions"""
+
+    __tablename__ = "media_candidates"
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    suggestion_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey("media_suggestions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Wikimedia Commons metadata
+    commons_id: Mapped[str] = db.Column(db.String(255), nullable=False)
+    commons_url: Mapped[str] = db.Column(db.String(512), nullable=False)
+    title: Mapped[str] = db.Column(db.String(255), nullable=False)
+    description: Mapped[str] = db.Column(db.Text, nullable=True)
+    author: Mapped[str] = db.Column(db.String(255), nullable=True)
+    license: Mapped[str] = db.Column(db.String(100), nullable=False)
+    license_url: Mapped[str] = db.Column(db.String(512), nullable=True)
+
+    # Image metadata
+    width: Mapped[int] = db.Column(db.Integer, nullable=False)
+    height: Mapped[int] = db.Column(db.Integer, nullable=False)
+    mime_type: Mapped[str] = db.Column(db.String(50), nullable=False)
+    file_size: Mapped[int] = db.Column(db.Integer, nullable=False)
+
+    # Local status
+    status: Mapped[ContentStatus] = db.Column(
+        db.Enum(ContentStatus, name="content_status_type"),
+        nullable=False,
+        server_default=text("'PENDING'"),
+    )
+    review_notes: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
+    reviewed_by_id: Mapped[Optional[int]] = db.Column(
+        db.Integer, db.ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[Optional[datetime]] = db.Column(
+        db.DateTime(timezone=True), nullable=True
+    )
+
+    # Cache management
+    thumbnail_path: Mapped[Optional[str]] = db.Column(db.String(512), nullable=True)
+    cached_at: Mapped[Optional[datetime]] = db.Column(
+        db.DateTime(timezone=True), nullable=True
+    )
+
+    __table_args__ = (
+        Index("idx_media_candidate_suggestion", "suggestion_id"),
+        Index("idx_media_candidate_status", "status"),
+        db.UniqueConstraint(
+            "suggestion_id", "commons_id", name="uq_media_candidate_commons"
+        ),
+    )
+
+    @property
+    def aspect_ratio(self) -> float:
+        """Calculate aspect ratio"""
+        return self.width / self.height if self.height else 0
+
+    def approve(self, user_id: int, notes: Optional[str] = None) -> Optional["Media"]:
+        """
+        Approve candidate and create Media entry
+
+        Returns:
+            Created Media object if successful, None otherwise
+        """
+        try:
+            # Create Media entry
+            media = Media(
+                title=self.title,
+                original_filename=self.commons_id,
+                file_path=self.commons_url,
+                file_size=self.file_size,
+                mime_type=self.mime_type,
+                media_type=MediaType.IMAGE,
+                source=MediaSource.WIKIMEDIA,
+                width=self.width,
+                height=self.height,
+                caption=self.description,
+                attribution=f"Author: {self.author}\nLicense: {self.license}",
+                license_url=self.license_url,
+            )
+            db.session.add(media)
+
+            # Update candidate status
+            self.status = ContentStatus.APPROVED
+            self.review_notes = notes
+            self.reviewed_by_id = user_id
+            self.reviewed_at = datetime.now(timezone.utc)
+
+            db.session.commit()
+            return media
+
+        except Exception as e:
+            current_app.logger.error(f"Error approving media candidate: {e}")
+            db.session.rollback()
+            return None
+
+    def reject(self, user_id: int, notes: Optional[str] = None) -> bool:
+        """Reject candidate"""
+        try:
+            self.status = ContentStatus.REJECTED
+            self.review_notes = notes
+            self.reviewed_by_id = user_id
+            self.reviewed_at = datetime.now(timezone.utc)
+
+            db.session.commit()
+            return True
+
+        except Exception as e:
+            current_app.logger.error(f"Error rejecting media candidate: {e}")
+            db.session.rollback()
+            return False
+
+
 # noinspection PyArgumentList
 class Media(db.Model, TimestampMixin):
     """Media files management"""
@@ -497,6 +663,23 @@ class Media(db.Model, TimestampMixin):
     alt_text: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
     external_url: Mapped[Optional[str]] = db.Column(db.String(512), nullable=True)
 
+    # Licensing information
+    license: Mapped[Optional[str]] = db.Column(
+        db.String(100), nullable=True, comment="License type (e.g., CC BY-SA 4.0)"
+    )
+    license_url: Mapped[Optional[str]] = db.Column(
+        db.String(512), nullable=True, comment="URL to license details"
+    )
+    attribution: Mapped[Optional[str]] = db.Column(
+        db.Text, nullable=True, comment="Required attribution text"
+    )
+    source_url: Mapped[Optional[str]] = db.Column(
+        db.String(512), nullable=True, comment="Original source URL"
+    )
+    commons_id: Mapped[Optional[str]] = db.Column(
+        db.String(255), nullable=True, comment="Wikimedia Commons file identifier"
+    )
+
     # Aspect ratio for images and videos
     width: Mapped[Optional[int]] = db.Column(db.Integer, nullable=True)
     height: Mapped[Optional[int]] = db.Column(db.Integer, nullable=True)
@@ -519,7 +702,8 @@ class Media(db.Model, TimestampMixin):
         Index("idx_media_type", "media_type"),
         Index("idx_media_source", "source"),
         Index("idx_media_mime_type", "mime_type"),
-        {"comment": "Media files with metadata and relationships"},
+        Index("idx_media_commons_id", "commons_id"),
+        {"comment": "Media files with metadata, licensing, and relationships"},
     )
 
     @property
@@ -546,6 +730,36 @@ class Media(db.Model, TimestampMixin):
             return (
                 f"[Download {self.title or self.original_filename}]({self.public_url})"
             )
+
+    @property
+    def attribution_html(self) -> Optional[str]:
+        """Generate HTML attribution string"""
+        if not self.attribution:
+            return None
+
+        attribution = self.attribution
+        if self.license and self.license_url:
+            attribution += (
+                f' Licensed under <a href="{self.license_url}">{self.license}</a>'
+            )
+        if self.source_url:
+            attribution = f'<a href="{self.source_url}">{attribution}</a>'
+
+        return attribution
+
+    @property
+    def attribution_markdown(self) -> Optional[str]:
+        """Generate Markdown attribution string"""
+        if not self.attribution:
+            return None
+
+        attribution = self.attribution
+        if self.license and self.license_url:
+            attribution += f" Licensed under [{self.license}]({self.license_url})"
+        if self.source_url:
+            attribution = f"[{attribution}]({self.source_url})"
+
+        return attribution
 
     @classmethod
     def create_from_upload(
@@ -692,6 +906,54 @@ class Media(db.Model, TimestampMixin):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         name, ext = os.path.splitext(original_filename)
         return f"{name}_{timestamp}{ext}"
+
+    def set_wikimedia_metadata(self, commons_data: Dict[str, Any]) -> bool:
+        """
+        Update media metadata from Wikimedia Commons data
+
+        Args:
+            commons_data: Dictionary containing Wikimedia Commons metadata
+
+        Returns:
+            bool: True if update successful, False otherwise
+        """
+        try:
+            self.commons_id = commons_data.get("title")
+            self.source_url = commons_data.get("url")
+            self.license = commons_data.get("license")
+            self.license_url = commons_data.get("license_url")
+            self.attribution = commons_data.get("attribution")
+            self.source = MediaSource.WIKIMEDIA
+
+            if "width" in commons_data:
+                self.width = commons_data["width"]
+            if "height" in commons_data:
+                self.height = commons_data["height"]
+
+            db.session.commit()
+            return True
+
+        except Exception as e:
+            current_app.logger.error(f"Error updating Wikimedia metadata: {e}")
+            db.session.rollback()
+            return False
+
+    def get_attribution_text(self, format_: str = "html") -> Optional[str]:
+        """
+        Get properly formatted attribution text
+
+        Args:
+            format_: Output format ('html' or 'markdown')
+
+        Returns:
+            Formatted attribution string or None if no attribution required
+        """
+        if format_ == "html":
+            return self.attribution_html
+        elif format_ == "markdown":
+            return self.attribution_markdown
+        else:
+            return self.attribution
 
 
 @event.listens_for(Media, "after_delete")
