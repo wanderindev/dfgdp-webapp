@@ -15,6 +15,7 @@ from content.models import (
     Category,
     ContentStatus,
     HashtagGroup,
+    MediaSuggestion,
     Platform,
     PostType,
     Research,
@@ -819,3 +820,147 @@ class SocialMediaManagerService:
                 # Take at most 5 hashtags from the group
                 return group.hashtags[:5]
         return []
+
+
+# noinspection PyArgumentList,PyProtectedMember,PyUnboundLocalVariable
+class MediaManagerService:
+    """Service for generating media suggestions using AI"""
+
+    def __init__(self) -> None:
+        # Get the active media manager agent
+        self.agent: Optional[Agent] = Agent.query.filter_by(
+            type=AgentType.MEDIA_MANAGER, is_active=True
+        ).first()
+
+        if not self.agent:
+            raise ValueError("No active media manager agent found")
+
+        # Initialize Anthropic client
+        self.client = AnthropicClient(
+            model=self.agent.model.model_id,
+            temperature=self.agent.temperature,
+            max_tokens=self.agent.max_tokens,
+        )
+
+        self.client._init_client()
+
+    async def generate_suggestions(self, research_id: int) -> MediaSuggestion:
+        """
+        Generate media suggestions for research content.
+
+        Args:
+            research_id: ID of the Research to analyze
+
+        Returns:
+            Created MediaSuggestion object
+
+        Raises:
+            ValueError: If parameters are invalid or API call fails
+        """
+        # Get research and validate
+        research = Research.query.get(research_id)
+        if not research:
+            raise ValueError(f"Research {research_id} not found")
+
+        suggestion = research.suggestion
+        if not suggestion:
+            raise ValueError(f"No suggestion found for research {research_id}")
+
+        category = suggestion.category
+        if not category:
+            raise ValueError(f"No category found for suggestion {suggestion.id}")
+
+        try:
+            # Prepare template variables
+            template_vars = {
+                "research_title": suggestion.title,
+                "taxonomy_name": category.taxonomy.name,
+                "taxonomy_description": category.taxonomy.description,
+                "category_name": category.name,
+                "category_description": category.description,
+                "research_content": research.content,
+            }
+
+            # Get and validate prompt template
+            template = self.agent.get_template("media_suggestions")
+            if not template:
+                raise ValueError("Media suggestions template not found")
+
+            # Generate suggestions
+            generation_started_at = datetime.now(timezone.utc)
+            prompt = template.render(**template_vars)
+
+            response = self.client._generate_content(prompt)
+            if not response:
+                raise ValueError("Empty response from API")
+
+            content = self.client._extract_content(response)
+            data = MediaManagerService._parse_response(content)
+
+            # Create suggestion
+            media_suggestion = MediaSuggestion(
+                research_id=research_id,
+                commons_categories=data["commons_categories"],
+                search_queries=data["search_queries"],
+                illustration_topics=data["illustration_topics"],
+                reasoning=data["reasoning"],
+                model_id=self.agent.model_id,
+                tokens_used=self.client._track_usage(response),
+                generation_started_at=generation_started_at,
+            )
+
+            db.session.add(media_suggestion)
+            db.session.commit()
+            return media_suggestion
+
+        except json.JSONDecodeError as e:
+            current_app.logger.error(f"Failed to parse API response: {e}")
+            raise ValueError("Invalid API response format")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error generating media suggestions: {e}")
+            raise
+
+    @staticmethod
+    def _parse_response(content: str) -> dict:
+        """
+        Parse API response with fallback cleanup
+
+        Args:
+            content: Raw response content
+
+        Returns:
+            Parsed JSON data
+
+        Raises:
+            ValueError: If parsing fails after cleanup attempts
+        """
+        try:
+            # First try direct parsing
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            current_app.logger.warning(f"Initial JSON parsing failed: {e}")
+
+            try:
+                # Clean up newlines in reasoning field
+                import re
+
+                # Find the reasoning field and clean it up
+                pattern = r'"reasoning"\s*:\s*"([^"]*)"'
+                match = re.search(pattern, content)
+                if match:
+                    reasoning = match.group(1)
+                    # Replace newlines and normalize spaces
+                    cleaned_reasoning = " ".join(reasoning.replace("\n", " ").split())
+                    # Replace the reasoning in the content
+                    content = re.sub(
+                        pattern, f'"reasoning":"{cleaned_reasoning}"', content
+                    )
+
+                return json.loads(content)
+
+            except (json.JSONDecodeError, re.error) as e:
+                current_app.logger.error(
+                    f"Failed to parse JSON even after cleanup: {e}"
+                )
+                raise ValueError("Invalid API response format")

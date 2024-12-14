@@ -25,6 +25,7 @@ from .services import (
     ResearcherService,
     WriterService,
     SocialMediaManagerService,
+    MediaManagerService,
 )
 
 # Create the CLI group
@@ -227,6 +228,7 @@ def generate_research(suggestion_id: int) -> None:
         click.echo(f"Unexpected error: {str(e)}", err=True)
 
 
+# noinspection DuplicatedCode
 @content_cli.command("generate-article")
 @click.argument("research_id", type=int)
 def generate_article(research_id: int) -> None:
@@ -461,6 +463,81 @@ def generate_did_you_know(article_id: int, count: int) -> None:
             click.echo("Hashtags:")
             click.echo(", ".join([f"#{tag}" for tag in post.hashtags]))
             click.echo(f"Tokens used: {post.tokens_used}")
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+# Add to commands.py
+
+
+# noinspection DuplicatedCode
+@content_cli.command("generate-media-suggestions")
+@click.argument("research_id", type=int)
+def generate_media_suggestions(research_id: int) -> None:
+    """
+    Generate media suggestions for research content.
+
+    Arguments:
+        research_id: ID of the research to analyze
+    """
+    # Verify research exists and is approved
+    research = Research.query.get(research_id)
+    if not research:
+        click.echo(f"Error: Research {research_id} not found", err=True)
+        return
+
+    if research.status != ContentStatus.APPROVED:
+        click.echo(f"Error: Research {research_id} is not approved", err=True)
+        return
+
+    suggestion = research.suggestion
+    if not suggestion:
+        click.echo(f"Error: No suggestion found for research {research_id}", err=True)
+        return
+
+    click.echo(f"Generating media suggestions for research: {suggestion.title}")
+    click.echo(f"Category: {suggestion.category.name}")
+
+    try:
+        # Initialize service
+        service = MediaManagerService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        with click.progressbar(length=1, label="Generating suggestions") as bar:
+            media_suggestion = loop.run_until_complete(
+                service.generate_suggestions(research_id=research_id)
+            )
+            bar.update(1)
+
+        # Display results
+        click.echo("\nSuggestions generated successfully!")
+        click.echo("\nWikimedia Commons Categories:")
+        click.echo("-" * 40)
+        for category in media_suggestion.commons_categories:
+            click.echo(f"- {category}")
+
+        click.echo("\nSearch Queries:")
+        click.echo("-" * 40)
+        for query in media_suggestion.search_queries:
+            click.echo(f"- {query}")
+
+        click.echo("\nIllustration Topics:")
+        click.echo("-" * 40)
+        for topic in media_suggestion.illustration_topics:
+            click.echo(f"- {topic}")
+
+        click.echo("\nReasoning:")
+        click.echo("-" * 40)
+        click.echo(media_suggestion.reasoning)
+        click.echo("-" * 40)
+
+        click.echo(f"\nTokens used: {media_suggestion.tokens_used}")
 
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)

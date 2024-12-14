@@ -107,4 +107,19 @@ INITIAL_AGENTS = [
             }
         ],
     },
+    {
+        "name": "Media Manager",
+        "type": AgentType.MEDIA_MANAGER,
+        "description": "Analyzes research content to suggest relevant images and media",
+        "model": "Claude 3.5 Sonnet",
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "prompts": [
+            {
+                "name": "media_suggestions",
+                "description": "Template for generating media suggestions",
+                "template": INITIAL_PROMPTS["media_manager_prompt"],
+            }
+        ],
+    },
 ]
