@@ -1,12 +1,17 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+from html import unescape
 from typing import Any, Dict, List, Optional
 
+import aiohttp
+from bs4 import BeautifulSoup
 from flask import current_app
 from sqlalchemy.exc import IntegrityError
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from agents.clients import AnthropicClient, OpenAIClient
+from agents.clients.base import RateLimiter
 from agents.models import Agent, AgentType, Provider
 from content.models import (
     Article,
@@ -15,6 +20,7 @@ from content.models import (
     Category,
     ContentStatus,
     HashtagGroup,
+    MediaCandidate,
     MediaSuggestion,
     Platform,
     PostType,
@@ -964,3 +970,308 @@ class MediaManagerService:
                     f"Failed to parse JSON even after cleanup: {e}"
                 )
                 raise ValueError("Invalid API response format")
+
+
+# noinspection PyArgumentList
+class WikimediaService:
+    """Service for interacting with Wikimedia Commons API"""
+
+    API_ENDPOINT = "https://commons.wikimedia.org/w/api.php"
+
+    def __init__(self) -> None:
+        self.session = None
+        self.rate_limiter = RateLimiter(
+            calls_per_minute=30
+        )  # Respect Wikimedia's limits
+
+    async def __aenter__(self) -> "WikimediaService":
+        self.session = aiohttp.ClientSession()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.session:
+            await self.session.close()
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+    )
+    async def search_images(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Search for images using the Wikimedia API
+
+        Args:
+            query: Search query
+            limit: Maximum number of results
+
+        Returns:
+            List of image metadata dictionaries
+        """
+        await self.rate_limiter.wait_if_needed()
+
+        params = {
+            "action": "query",
+            "format": "json",
+            "generator": "search",
+            "gsrnamespace": "6",
+            "gsrsearch": f"filetype:bitmap|drawing {query}",
+            "gsrlimit": limit,
+            "prop": "imageinfo",
+            "iiprop": "url|size|mime|extmetadata",
+            "iiextmetadatafilter": "License|LicenseUrl|Attribution|Artist|ImageDescription|ObjectName|Title",
+        }
+
+        async with self.session.get(self.API_ENDPOINT, params=params) as response:
+            data = await response.json()
+
+            if "query" not in data or "pages" not in data["query"]:
+                return []
+
+            results = []
+            for page in data["query"]["pages"].values():
+                metadata = WikimediaService._extract_image_metadata(page)
+                if metadata:
+                    results.append(metadata)
+
+            return results
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+    )
+    async def search_category(
+        self, category: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Search for images in a specific Commons category
+
+        Args:
+            category: Category name (without "Category:" prefix)
+            limit: Maximum number of results
+
+        Returns:
+            List of image metadata dictionaries
+        """
+        # Step 1: Get category members
+        category = category.replace("Category:", "")
+        titles = await self._get_category_members(category, limit)
+
+        if not titles:
+            return []
+
+        # Step 2: Fetch metadata in batches
+        return await self._fetch_files_metadata(titles)
+
+    async def process_suggestion(
+        self, suggestion_id: int, max_per_query: int = 5
+    ) -> List[MediaCandidate]:
+        """
+        Process a MediaSuggestion and create MediaCandidate entries
+
+        Args:
+            suggestion_id: ID of MediaSuggestion to process
+            max_per_query: Maximum images to fetch per query/category
+
+        Returns:
+            List of created MediaCandidate objects
+        """
+        suggestion = MediaSuggestion.query.get(suggestion_id)
+        if not suggestion:
+            raise ValueError(f"MediaSuggestion {suggestion_id} not found")
+
+        candidates = []
+
+        # Process categories
+        for category in suggestion.commons_categories:
+            try:
+                results = await self.search_category(category, limit=max_per_query)
+                candidates.extend(
+                    await WikimediaService._create_candidates(suggestion, results)
+                )
+            except Exception as e:
+                current_app.logger.error(f"Error processing category {category}: {e}")
+
+        # Process search queries
+        for query in suggestion.search_queries:
+            try:
+                results = await self.search_images(query, limit=max_per_query)
+                candidates.extend(
+                    await WikimediaService._create_candidates(suggestion, results)
+                )
+            except Exception as e:
+                current_app.logger.error(f"Error processing query {query}: {e}")
+
+        return candidates
+
+    @staticmethod
+    async def _create_candidates(
+        suggestion: MediaSuggestion, results: List[Dict[str, Any]]
+    ) -> List[MediaCandidate]:
+        """Create MediaCandidate entries from search results"""
+        candidates = []
+
+        for result in results:
+            try:
+                candidate = MediaCandidate(suggestion_id=suggestion.id, **result)
+                db.session.add(candidate)
+                candidates.append(candidate)
+
+            except Exception as e:
+                current_app.logger.error(f"Error creating candidate: {e}")
+                continue
+
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            current_app.logger.error("Duplicate candidates found, skipping")
+
+        return candidates
+
+    @staticmethod
+    def _extract_image_metadata(page: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Extract standardized image metadata from a Commons API response page
+
+        Args:
+            page: Dictionary containing page data from Commons API
+
+        Returns:
+            Dictionary containing standardized metadata or None if invalid
+        """
+        if "imageinfo" not in page:
+            return None
+
+        try:
+            info = page["imageinfo"][0]
+            metadata = info.get("extmetadata", {})
+
+            # Clean HTML from metadata fields
+            description = WikimediaService._clean_html_content(
+                metadata.get("ImageDescription", {}).get("value")
+            )
+            author = WikimediaService._clean_html_content(
+                metadata.get("Artist", {}).get("value")
+            )
+
+            # For title, prefer ObjectName over filename
+            title = metadata.get("ObjectName", {}).get("value") or page[
+                "title"
+            ].replace("File:", "")
+            title = WikimediaService._clean_html_content(title)
+
+            return {
+                "commons_id": page["title"],
+                "commons_url": info["url"],
+                "title": title,
+                "description": description,
+                "author": author,
+                "license": metadata.get("License", {}).get("value"),
+                "license_url": metadata.get("LicenseUrl", {}).get("value"),
+                "width": info["width"],
+                "height": info["height"],
+                "mime_type": info["mime"],
+                "file_size": info["size"],
+            }
+        except (KeyError, IndexError) as e:
+            current_app.logger.warning(f"Error extracting image metadata: {e}")
+            return None
+
+    async def _get_category_members(self, category: str, limit: int) -> List[str]:
+        """Get list of file titles from category"""
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "categorymembers",
+            "cmtype": "file",
+            "cmtitle": f"Category:{category}",
+            "cmlimit": limit,
+        }
+
+        async with self.session.get(self.API_ENDPOINT, params=params) as response:
+            data = await response.json()
+
+            if "query" not in data or "categorymembers" not in data["query"]:
+                return []
+
+            return [member["title"] for member in data["query"]["categorymembers"]]
+
+    async def _fetch_files_metadata(
+        self, titles: List[str], batch_size: int = 50
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch metadata for multiple files in batches
+
+        Args:
+            titles: List of file titles
+            batch_size: Number of files to fetch per request
+
+        Returns:
+            List of metadata dictionaries
+        """
+        results = []
+
+        # Process titles in batches
+        for i in range(0, len(titles), batch_size):
+            batch = titles[i : i + batch_size]
+
+            # Wait for rate limiting
+            await self.rate_limiter.wait_if_needed()
+
+            params = {
+                "action": "query",
+                "format": "json",
+                "prop": "imageinfo",
+                "titles": "|".join(batch),
+                "iiprop": "url|size|mime|extmetadata",
+                "iiextmetadatafilter": "License|LicenseUrl|Attribution|Artist|ImageDescription|ObjectName|Title",
+            }
+
+            try:
+                async with self.session.get(
+                    self.API_ENDPOINT, params=params
+                ) as response:
+                    data = await response.json()
+
+                    if "query" in data and "pages" in data["query"]:
+                        for page in data["query"]["pages"].values():
+                            metadata = WikimediaService._extract_image_metadata(page)
+                            if metadata:
+                                results.append(metadata)
+
+            except Exception as e:
+                current_app.logger.error(
+                    f"Error fetching batch {i}-{i + batch_size}: {str(e)}"
+                )
+                continue
+
+            # Small delay between batches
+            await asyncio.sleep(1)
+
+        return results
+
+    @staticmethod
+    def _clean_html_content(html_content: Optional[str]) -> Optional[str]:
+        """
+        Clean HTML content from metadata
+
+        Args:
+            html_content: String that might contain HTML
+
+        Returns:
+            Cleaned string without HTML tags
+        """
+        if not html_content:
+            return None
+
+        # First unescape HTML entities
+        unescaped = unescape(html_content)
+
+        # Parse with BeautifulSoup to extract text
+        soup = BeautifulSoup(unescaped, "html.parser")
+
+        # Get text and clean up whitespace
+        text = soup.get_text(separator=" ")
+        text = " ".join(text.split())
+
+        return text.strip() or None

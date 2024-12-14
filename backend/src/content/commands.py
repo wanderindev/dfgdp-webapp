@@ -19,6 +19,7 @@ from .models import (
     ContentStatus,
     SocialMediaAccount,
     HashtagGroup,
+    MediaSuggestion,
 )
 from .services import (
     ContentManagerService,
@@ -26,6 +27,7 @@ from .services import (
     WriterService,
     SocialMediaManagerService,
     MediaManagerService,
+    WikimediaService,
 )
 
 # Create the CLI group
@@ -543,3 +545,66 @@ def generate_media_suggestions(research_id: int) -> None:
         click.echo(f"Error: {str(e)}", err=True)
     except Exception as e:
         click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+@content_cli.command("fetch-media-candidates")
+@click.argument("suggestion_id", type=int)
+@click.option(
+    "--max-per-query",
+    "-m",
+    default=5,
+    help="Maximum images to fetch per query/category",
+    type=click.IntRange(1, 20),
+)
+def fetch_media_candidates(suggestion_id: int, max_per_query: int) -> None:
+    """
+    Fetch media candidates from Wikimedia Commons for a suggestion.
+
+    Arguments:
+        suggestion_id: ID of the media suggestion to process
+        max_per_query: Maximum images to fetch per query/category (default: 5)
+    """
+    # Verify suggestion exists
+    suggestion = MediaSuggestion.query.get(suggestion_id)
+    if not suggestion:
+        click.echo(f"Error: MediaSuggestion {suggestion_id} not found", err=True)
+        return
+
+    click.echo(f"Fetching media candidates for suggestion: {suggestion_id}")
+    click.echo(
+        f"Processing {len(suggestion.commons_categories)} categories and {len(suggestion.search_queries)} queries"
+    )
+
+    async def run_service():
+        async with WikimediaService() as service:
+            return await service.process_suggestion(
+                suggestion_id=suggestion_id, max_per_query=max_per_query
+            )
+
+    try:
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        total_items = len(suggestion.commons_categories) + len(
+            suggestion.search_queries
+        )
+        with click.progressbar(length=total_items, label="Fetching candidates") as bar:
+            candidates = loop.run_until_complete(run_service())
+            bar.update(total_items)
+
+        # Display results
+        click.echo(f"\nFetched {len(candidates)} candidates:")
+
+        for candidate in candidates:
+            click.echo("\n" + "-" * 40)
+            click.echo(f"Title: {candidate.title}")
+            click.echo(f"Author: {candidate.author or 'Unknown'}")
+            click.echo(f"License: {candidate.license}")
+            click.echo(f"Dimensions: {candidate.width}x{candidate.height}")
+            click.echo(f"URL: {candidate.commons_url}")
+
+        click.echo("\nUse the admin interface to review and approve candidates.")
+
+    except Exception as e:
+        click.echo(f"Error fetching candidates: {str(e)}", err=True)
