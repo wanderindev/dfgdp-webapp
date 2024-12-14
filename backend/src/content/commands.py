@@ -13,13 +13,19 @@ from .initial_taxonomies import INITIAL_TAXONOMIES
 from .models import (
     Taxonomy,
     Category,
+    Article,
     ArticleSuggestion,
     Research,
     ContentStatus,
     SocialMediaAccount,
     HashtagGroup,
 )
-from .services import ContentManagerService, ResearcherService, WriterService
+from .services import (
+    ContentManagerService,
+    ResearcherService,
+    WriterService,
+    SocialMediaManagerService,
+)
 
 # Create the CLI group
 content_cli = AppGroup("content")
@@ -351,3 +357,112 @@ def init_hashtags() -> None:
     except Exception as e:
         db.session.rollback()
         click.echo(f"Error: {str(e)}")
+
+
+@content_cli.command("generate-story")
+@click.argument("article_id", type=int)
+def generate_story(article_id: int) -> None:
+    """
+    Generate an Instagram Story post to promote an article.
+
+    Arguments:
+        article_id: ID of the article to promote
+    """
+    # Verify article exists
+    article = Article.query.get(article_id)
+    if not article:
+        click.echo(f"Error: Article {article_id} not found", err=True)
+        return
+
+    click.echo(f"Generating Instagram Story promotion for article: {article.title}")
+
+    try:
+        # Initialize service
+        service = SocialMediaManagerService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        with click.progressbar(length=1, label="Generating story") as bar:
+            post = loop.run_until_complete(
+                service.generate_story_promotion(article_id=article_id)
+            )
+            bar.update(1)
+
+        # Display results
+        click.echo("\nStory generated successfully!")
+        click.echo(f"\nContent:")
+        click.echo("-" * 40)
+        click.echo(post.content)
+        click.echo("-" * 40)
+
+        click.echo("\nHashtags:")
+        click.echo(", ".join([f"#{tag}" for tag in post.hashtags]))
+
+        click.echo(f"\nStory Link: {article.full_url}")
+        click.echo(f"Tokens used: {post.tokens_used}")
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)
+
+
+@content_cli.command("generate-did-you-know")
+@click.argument("article_id", type=int)
+@click.option(
+    "--count",
+    "-n",
+    default=3,
+    help="Number of posts to generate",
+    type=click.IntRange(1, 10),
+)
+def generate_did_you_know(article_id: int, count: int) -> None:
+    """
+    Generate Instagram feed posts with interesting facts from an article's research.
+
+    Arguments:
+        article_id: ID of the article whose research to use
+        count: Number of posts to generate (default: 3)
+    """
+    # Verify article exists
+    article = Article.query.get(article_id)
+    if not article:
+        click.echo(f"Error: Article {article_id} not found", err=True)
+        return
+
+    click.echo(f"Generating {count} 'Did you know?' posts for article: {article.title}")
+
+    try:
+        # Initialize service
+        service = SocialMediaManagerService()
+
+        # Create event loop for async operation
+        loop = asyncio.get_event_loop()
+
+        # Run the async operation with progress bar
+        with click.progressbar(length=count, label="Generating posts") as bar:
+            posts = loop.run_until_complete(
+                service.generate_did_you_know_posts(
+                    article_id=article_id, num_posts=count
+                )
+            )
+            bar.update(count)
+
+        # Display results
+        click.echo(f"\nSuccessfully generated {len(posts)} posts:")
+
+        for i, post in enumerate(posts, 1):
+            click.echo(f"\n{i}. Did you know post:")
+            click.echo("-" * 40)
+            click.echo(post.content)
+            click.echo("-" * 40)
+            click.echo("Hashtags:")
+            click.echo(", ".join([f"#{tag}" for tag in post.hashtags]))
+            click.echo(f"Tokens used: {post.tokens_used}")
+
+    except ValueError as e:
+        click.echo(f"Error: {str(e)}", err=True)
+    except Exception as e:
+        click.echo(f"Unexpected error: {str(e)}", err=True)

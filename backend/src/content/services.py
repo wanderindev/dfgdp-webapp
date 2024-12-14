@@ -8,10 +8,21 @@ from sqlalchemy.exc import IntegrityError
 
 from agents.clients import AnthropicClient, OpenAIClient
 from agents.models import Agent, AgentType, Provider
-from content.models import Article, ArticleSuggestion, Category, ContentStatus, Research
+from content.models import (
+    Article,
+    ArticleLevel,
+    ArticleSuggestion,
+    Category,
+    ContentStatus,
+    HashtagGroup,
+    Platform,
+    PostType,
+    Research,
+    SocialMediaAccount,
+    SocialMediaPost,
+)
 from extensions import db
 from .constants import ARTICLE_LEVELS
-from .models import ArticleLevel
 
 
 # noinspection PyProtectedMember,PyArgumentList,PyTypeChecker
@@ -569,3 +580,242 @@ class WriterService:
         elif excerpt.endswith('"'):
             excerpt = excerpt[:-1]
         return excerpt.strip()
+
+
+# noinspection PyProtectedMember,PyArgumentList
+class SocialMediaManagerService:
+    """Service for generating social media content using AI"""
+
+    def __init__(self) -> None:
+        # Get the active social media manager agent
+        self.agent: Optional[Agent] = Agent.query.filter_by(
+            type=AgentType.SOCIAL_MEDIA, is_active=True
+        ).first()
+
+        if not self.agent:
+            raise ValueError("No active social media manager agent found")
+
+        # Get active Instagram account
+        self.account: Optional[SocialMediaAccount] = SocialMediaAccount.query.filter_by(
+            platform=Platform.INSTAGRAM, is_active=True
+        ).first()
+
+        if not self.account:
+            raise ValueError("No active Instagram account found")
+
+        # Initialize Anthropic client
+        self.client = AnthropicClient(
+            model=self.agent.model.model_id,
+            temperature=self.agent.temperature,
+            max_tokens=self.agent.max_tokens,
+        )
+
+        self.client._init_client()
+
+    async def generate_story_promotion(
+        self, article_id: int
+    ) -> Optional[SocialMediaPost]:
+        """
+        Generate an Instagram Story post to promote a new article.
+
+        Args:
+            article_id: ID of the article to promote
+
+        Returns:
+            Created SocialMediaPost object or None if generation fails
+        """
+        # Get article and validate
+        article = Article.query.get(article_id)
+        if not article:
+            raise ValueError(f"Article {article_id} not found")
+
+        # Get hashtag groups data
+        hashtag_groups = SocialMediaManagerService._format_hashtag_groups()
+
+        # Prepare prompt variables
+        prompt_vars = {
+            "article_title": article.title,
+            "article_main_topic": article.research.suggestion.main_topic,
+            "category_name": article.category.name,
+            "category_description": article.category.description,
+            "article_level": article.level.value,
+            "article_url": article.public_url,
+            "hashtag_groups": hashtag_groups,
+        }
+
+        # Get and validate prompt template
+        template = self.agent.get_template("instagram_story_article_promotion")
+        if not template:
+            raise ValueError("Story promotion template not found")
+
+        try:
+            # Generate content
+            generation_started_at = datetime.now(timezone.utc)
+            prompt = template.render(**prompt_vars)
+
+            response = self.client._generate_content(prompt)
+            if not response:
+                raise ValueError("Empty response from API")
+
+            content = self.client._extract_content(response)
+            data = json.loads(content)
+
+            # Get hashtags from selected groups
+            group_hashtags = SocialMediaManagerService._get_hashtags_from_groups(
+                data.get("selected_hashtag_groups", [])
+            )
+
+            # Combine with specific hashtags and core hashtags
+            all_hashtags = (
+                SocialMediaManagerService._get_core_hashtags()
+                + group_hashtags
+                + data.get("hashtags", [])
+            )
+
+            # Create post
+            post = SocialMediaPost(
+                article_id=article_id,
+                account_id=self.account.id,
+                post_type=PostType.STORY,
+                content=data["content"],
+                hashtags=all_hashtags,
+                status=ContentStatus.PENDING,
+                model_id=self.agent.model_id,
+                tokens_used=self.client._track_usage(response),
+                generation_started_at=generation_started_at,
+            )
+
+            db.session.add(post)
+            db.session.commit()
+            return post
+
+        except json.JSONDecodeError as e:
+            current_app.logger.error(f"Failed to parse API response: {e}")
+            raise ValueError("Invalid API response format")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error generating story promotion: {e}")
+            raise
+
+    async def generate_did_you_know_posts(
+        self, article_id: int, num_posts: int = 3
+    ) -> List[SocialMediaPost]:
+        """
+        Generate Instagram feed posts with interesting facts from the article's research.
+
+        Args:
+            article_id: ID of the article whose research to use
+            num_posts: Number of posts to generate (default: 3)
+
+        Returns:
+            List of created SocialMediaPost objects
+        """
+        # Get article and validate
+        article = Article.query.get(article_id)
+        if not article or not article.research:
+            raise ValueError(f"Article {article_id} or its research not found")
+
+        research = article.research
+
+        # Get hashtag groups data
+        hashtag_groups = SocialMediaManagerService._format_hashtag_groups()
+
+        # Prepare prompt variables
+        prompt_vars = {
+            "research_title": article.title,
+            "category_name": article.category.name,
+            "category_description": article.category.description,
+            "research_content": research.content,
+            "hashtag_groups": hashtag_groups,
+            "num_posts": num_posts,
+        }
+
+        # Get and validate prompt template
+        template = self.agent.get_template("instagram_post_did_you_know")
+        if not template:
+            raise ValueError("Did you know template not found")
+
+        try:
+            # Generate content
+            generation_started_at = datetime.now(timezone.utc)
+            prompt = template.render(**prompt_vars)
+
+            response = self.client._generate_content(prompt)
+            if not response:
+                raise ValueError("Empty response from API")
+
+            content = self.client._extract_content(response)
+            data = json.loads(content)
+
+            total_tokens = self.client._track_usage(response)
+            tokens_per_post = total_tokens // len(data["posts"])
+
+            # Create posts
+            created_posts = []
+            for post_data in data["posts"]:
+                # Get hashtags from selected groups
+                group_hashtags = SocialMediaManagerService._get_hashtags_from_groups(
+                    post_data.get("selected_hashtag_groups", [])
+                )
+
+                # Combine with specific hashtags and core hashtags
+                all_hashtags = (
+                    SocialMediaManagerService._get_core_hashtags()
+                    + group_hashtags
+                    + post_data.get("hashtags", [])
+                )
+
+                post = SocialMediaPost(
+                    article_id=article_id,
+                    account_id=self.account.id,
+                    post_type=PostType.FEED,
+                    content=post_data["content"],
+                    hashtags=all_hashtags,
+                    status=ContentStatus.PENDING,
+                    model_id=self.agent.model_id,
+                    tokens_used=tokens_per_post,
+                    generation_started_at=generation_started_at,
+                )
+
+                db.session.add(post)
+                created_posts.append(post)
+
+            db.session.commit()
+            return created_posts
+
+        except json.JSONDecodeError as e:
+            current_app.logger.error(f"Failed to parse API response: {e}")
+            raise ValueError("Invalid API response format")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error generating did you know posts: {e}")
+            raise
+
+    @staticmethod
+    def _format_hashtag_groups() -> str:
+        """Format hashtag groups for prompt template"""
+        groups = HashtagGroup.query.filter_by(is_core=False).all()
+        return "\n".join(
+            f"{group.name}:\n{', '.join(group.hashtags)}\n" for group in groups
+        )
+
+    @staticmethod
+    def _get_core_hashtags() -> List[str]:
+        """Get hashtags from core groups"""
+        core_groups = HashtagGroup.query.filter_by(is_core=True).all()
+        core_hashtags = []
+        for group in core_groups:
+            # Take at most 3 hashtags from each core group
+            core_hashtags.extend(group.hashtags[:3])
+        return core_hashtags
+
+    @staticmethod
+    def _get_hashtags_from_groups(group_names: List[str]) -> List[str]:
+        """Get hashtags from specified groups"""
+        if group_names:
+            group_name = group_names[0]
+            group = HashtagGroup.query.filter_by(name=group_name).first()
+            if group:
+                # Take at most 5 hashtags from the group
+                return group.hashtags[:5]
+        return []

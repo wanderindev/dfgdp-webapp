@@ -81,10 +81,15 @@ INITIAL_AGENTS = [
         "max_tokens": 2048,
         "prompts": [
             {
-                "name": "instagram_post",
-                "description": "Template for generating Instagram posts",
-                "template": "",  # We'll add the template content later
-            }
+                "name": "instagram_post_did_you_know",
+                "description": "Template for generating Instagram 'Did you know?' posts",
+                "template": INITIAL_PROMPTS["instagram_post_did_you_know"],
+            },
+            {
+                "name": "instagram_story_article_promotion",
+                "description": "Template for generating Instagram article promotion story",
+                "template": INITIAL_PROMPTS["instagram_story_article_promotion"],
+            },
         ],
     },
     {

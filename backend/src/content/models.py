@@ -399,6 +399,18 @@ class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
 
         return score
 
+    @property
+    def public_url(self) -> Optional[str]:
+        """Generate the full URL for the article"""
+        try:
+            base_url = current_app.config["BLOG_URL"].rstrip("/")
+            category = self.category
+            taxonomy = category.taxonomy
+            return f"{base_url}/{taxonomy.slug}/{category.slug}/{self.slug}"
+        except Exception as e:
+            current_app.logger.error(f"Error generating public url: {str(e)}")
+            return None
+
     def tag_article(self, tag_names: List[str]) -> List[Tag]:
         """Tag the article with provided tag names. Creates new tags if they don't exist."""
         applied_tags = []
@@ -834,27 +846,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     def platform(self) -> Optional[Platform]:
         """Get the platform from the associated account"""
         return self.account.platform if self.account else None
-
-    @property
-    def story_link(self) -> Optional[str]:
-        """
-        Generate the full URL for the article being promoted in the story.
-        Only applicable for STORY type posts.
-
-        Returns:
-            str: Full URL to the article, or None if post is not a story or has no article
-        """
-        if self.post_type != PostType.STORY or not self.article:
-            return None
-
-        try:
-            base_url = current_app.config["BLOG_URL"].rstrip("/")
-            category = self.article.category
-            taxonomy = category.taxonomy
-            return f"{base_url}/{taxonomy.slug}/{category.slug}/{self.article.slug}"
-        except Exception as e:
-            current_app.logger.error(f"Error generating story link: {str(e)}")
-            return None
 
     def upload_image(self, file, position: Optional[int] = None) -> Optional[Media]:
         """
