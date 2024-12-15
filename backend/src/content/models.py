@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, relationship, backref
 from werkzeug.utils import secure_filename
 
 from extensions import db
-from mixins.mixins import AIGenerationMixin, TimestampMixin
+from mixins.mixins import AIGenerationMixin, SlugMixin, TimestampMixin
 from mixins.mixins import TranslatableMixin
 
 
@@ -64,7 +64,7 @@ class PostType(str, enum.Enum):
     STORY = "STORY"  # Story post (Article Promotion)
 
 
-class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
+class Taxonomy(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     """Main content hierarchy"""
 
     __tablename__ = "taxonomies"
@@ -92,7 +92,7 @@ class Taxonomy(db.Model, TimestampMixin, TranslatableMixin):
         return slugify(self.name)
 
 
-class Category(db.Model, TimestampMixin, TranslatableMixin):
+class Category(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     """Sub-categories within taxonomies"""
 
     __tablename__ = "categories"
@@ -293,7 +293,9 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
     )
 
 
-class Article(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
+class Article(
+    db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin, SlugMixin
+):
     """Main article content"""
 
     __tablename__ = "articles"

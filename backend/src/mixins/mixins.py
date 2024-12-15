@@ -1,7 +1,12 @@
 from datetime import datetime, timezone
 from typing import Any, List, TypeVar, Union, Optional, Protocol
+
+from flask import g
+from slugify import slugify
 from sqlalchemy.orm import Mapped, declared_attr
+
 from extensions import db
+from translations.models import ApprovedLanguage
 
 
 class HasId(Protocol):
@@ -79,3 +84,84 @@ class TranslatableMixin:
         from translations.services import get_available_translations
 
         return get_available_translations(self, field)
+
+
+# noinspection PyUnresolvedReferences
+class SlugMixin:
+    """Mixin for models that need language-aware slugs"""
+
+    @property
+    def slug(self) -> str:
+        """
+        Generate slug from translated title/name based on current language.
+
+        The slug is generated from either the 'title' or 'name' field,
+        depending on which one exists in the model.
+
+        Returns:
+            str: URL-friendly slug
+        """
+        # Get current language from Flask g object
+        current_lang = getattr(g, "language", None)
+
+        # Fallback to default language if not set
+        if not current_lang:
+            default_lang = ApprovedLanguage.get_default_language()
+            current_lang = default_lang.code if default_lang else "en"
+
+        # Get the source field for slug generation (title or name)
+        if hasattr(self, "title"):
+            source_field = "title"
+        elif hasattr(self, "name"):
+            source_field = "name"
+        else:
+            raise AttributeError(
+                "Model must have either 'title' or 'name' attribute to generate slug"
+            )
+
+        # Get the source field value in the current language
+        source_value = self.get_translation(source_field, current_lang)
+
+        # If no translation exists, use the original value
+        if not source_value:
+            source_value = getattr(self, source_field)
+
+        # Generate and return the slug
+        return slugify(source_value)
+
+    def get_slug(self, language: Optional[str] = None) -> str:
+        """
+        Get slug for a specific language.
+
+        Args:
+            language: Language code. If None, uses current language
+                     from Flask g object or falls back to default language.
+
+        Returns:
+            str: URL-friendly slug for the specified language
+        """
+        if not language:
+            language = getattr(g, "language", None)
+            if not language:
+                default_lang = ApprovedLanguage.get_default_language()
+                language = default_lang.code if default_lang else "en"
+
+        # Get the source field for slug generation (title or name)
+        if hasattr(self, "title"):
+            source_field = "title"
+        elif hasattr(self, "name"):
+            source_field = "name"
+        else:
+            raise AttributeError(
+                "Model must have either 'title' or 'name' attribute to generate slug"
+            )
+
+        # Get the source field value in the specified language
+        source_value = self.get_translation(source_field, language)
+
+        # If no translation exists, use the original value
+        if not source_value:
+            source_value = getattr(self, source_field)
+
+        # Generate and return the slug
+        return slugify(source_value)
