@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional, List, Any, Dict
 
 from flask import current_app
-from slugify import slugify
 from sqlalchemy import event, func, text, Index
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, relationship, backref
@@ -14,6 +13,7 @@ from werkzeug.utils import secure_filename
 from extensions import db
 from mixins.mixins import AIGenerationMixin, SlugMixin, TimestampMixin
 from mixins.mixins import TranslatableMixin
+from translations.models import ApprovedLanguage
 
 
 # Enums
@@ -86,11 +86,6 @@ class Taxonomy(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
         {"comment": "Main content categorization hierarchy"},
     )
 
-    @property
-    def slug(self) -> str:
-        """Generate slug from name"""
-        return slugify(self.name)
-
 
 class Category(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     """Sub-categories within taxonomies"""
@@ -113,14 +108,9 @@ class Category(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
         {"comment": "Sub-categories within taxonomies"},
     )
 
-    @property
-    def slug(self) -> str:
-        """Generate slug from name"""
-        return slugify(self.name)
-
 
 # noinspection PyArgumentList
-class Tag(db.Model, TimestampMixin, TranslatableMixin):
+class Tag(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     """Content tags with approval workflow"""
 
     __tablename__ = "tags"
@@ -144,10 +134,6 @@ class Tag(db.Model, TimestampMixin, TranslatableMixin):
         Index("idx_tag_name", "name"),
         {"comment": "Content categorization tags with approval workflow"},
     )
-
-    @property
-    def slug(self) -> str:
-        return slugify(self.name)
 
     @staticmethod
     def create_tag(name: str) -> Optional["Tag"]:
@@ -362,11 +348,6 @@ class Article(
     )
 
     @property
-    def slug(self) -> str:
-        """Generate slug from title"""
-        return slugify(self.title)
-
-    @property
     def word_count(self) -> int:
         """Calculate word count from content"""
         return len(self.content.split()) if self.content else 0
@@ -404,12 +385,32 @@ class Article(
 
     @property
     def public_url(self) -> Optional[str]:
-        """Generate the full URL for the article"""
+        """
+        Generate the full URL for the article using the default language.
+
+        The URL follows the pattern:
+        {base_url}/{language_code}/{taxonomy_slug}/{category_slug}/{article_slug}
+
+        Returns:
+            str or None: Full URL if generation succeeds, None if it fails
+        """
         try:
+            # Get base URL from config
             base_url = current_app.config["BLOG_URL"].rstrip("/")
+
+            # Get default language code
+            default_lang = ApprovedLanguage.get_default_language()
+            if not default_lang:
+                current_app.logger.error("No default language configured")
+                return None
+
+            # Get category and taxonomy
             category = self.category
             taxonomy = category.taxonomy
-            return f"{base_url}/{taxonomy.slug}/{category.slug}/{self.slug}"
+
+            # Generate URL with default language code
+            return f"{base_url}/{default_lang.code}/{taxonomy.slug}/{category.slug}/{self.slug}"
+
         except Exception as e:
             current_app.logger.error(f"Error generating public url: {str(e)}")
             return None

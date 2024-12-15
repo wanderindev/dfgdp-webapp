@@ -10,6 +10,7 @@ from auth.commands import auth_cli
 from config import config
 from content.commands import content_cli
 from extensions import db, migrate, jwt, redis_client, login_manager
+from middleware.language_middleware import LanguageMiddleware
 
 
 def create_app(config_name: Optional[str] = None) -> Flask:
@@ -29,6 +30,9 @@ def create_app(config_name: Optional[str] = None) -> Flask:
 
     # Initialize Redis
     redis_client.from_url(app.config["REDIS_URL"])
+
+    # Initialize language middleware
+    LanguageMiddleware(app)
 
     @login_manager.user_loader
     def load_user(user_id: str) -> Optional[UserMixin]:
