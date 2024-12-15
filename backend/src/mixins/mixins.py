@@ -1,12 +1,14 @@
+import json
 from datetime import datetime, timezone
-from typing import Any, List, TypeVar, Union, Optional, Protocol
+from typing import Any, List, TypeVar, Optional, Protocol
 
 from flask import g
 from slugify import slugify
+from sqlalchemy import inspect
 from sqlalchemy.orm import Mapped, declared_attr
 
 from extensions import db
-from translations.models import ApprovedLanguage
+from translations.models import ApprovedLanguage, Translation
 
 
 class HasId(Protocol):
@@ -61,29 +63,91 @@ class TranslatableMixin:
     """Mixin for models that support field translations"""
 
     def get_translation(self: T, field: str, language: Optional[str] = None) -> Any:
-        """Get translation for a field in specified language."""
-        from translations.services import get_translation
+        """
+        Get translation for a field in specified language.
 
-        return get_translation(self, field, language)
+        Args:
+            field: Name of the field to get translation for
+            language: Language code. If None, uses current language from Flask g
+                     or falls back to default language
 
-    def set_translation(
-        self: T,
-        field: str,
-        language: str,
-        content: Union[str, dict, list],
-        is_generated: bool = True,
-        model_id: Optional[int] = None,
-    ) -> None:
-        """Set translation for a field in specified language."""
-        from translations.services import set_translation
+        Returns:
+            Translated content or original field value if no translation exists
+        """
+        if language is None:
+            # Get language from Flask g or fall back to default
+            language = getattr(g, "language", None)
+            if not language:
+                default_lang = ApprovedLanguage.get_default_language()
+                language = default_lang.code if default_lang else "en"
 
-        return set_translation(self, field, language, content, is_generated, model_id)
+        # Get mapper for entity type
+        mapper = inspect(self)
+        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+            return getattr(self, field)
+
+        # Look for translation
+        translation = Translation.query.filter_by(
+            entity_type=self.__tablename__,
+            entity_id=mapper.primary_key[0],
+            field=field,
+            language=language,
+        ).first()
+
+        if translation:
+            try:
+                # Try to parse as JSON for complex types
+                return json.loads(translation.content)
+            except json.JSONDecodeError:
+                return translation.content
+
+        # Fallback to original value
+        return getattr(self, field)
 
     def get_available_translations(self: T, field: str) -> List[str]:
-        """Get list of available language codes for a field."""
-        from translations.services import get_available_translations
+        """
+        Get list of available language codes for a field.
 
-        return get_available_translations(self, field)
+        Args:
+            field: Name of the field to check translations for
+
+        Returns:
+            List of language codes that have translations
+        """
+        mapper = inspect(self)
+        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+            return []
+
+        translations = Translation.query.filter_by(
+            entity_type=self.__tablename__, entity_id=mapper.primary_key[0], field=field
+        ).all()
+
+        return [t.language for t in translations]
+
+    def has_translation(self: T, field: str, language: str) -> bool:
+        """
+        Check if a translation exists for a field in a specific language.
+
+        Args:
+            field: Name of the field to check
+            language: Language code to check for
+
+        Returns:
+            bool: True if translation exists, False otherwise
+        """
+        mapper = inspect(self)
+        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+            return False
+
+        return (
+            Translation.query.filter_by(
+                entity_type=self.__tablename__,
+                entity_id=mapper.primary_key[0],
+                field=field,
+                language=language,
+            ).first()
+            is not None
+        )
 
 
 # noinspection PyUnresolvedReferences
