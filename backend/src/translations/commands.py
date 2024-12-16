@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import click
+from flask import current_app
 from flask.cli import AppGroup
 from sqlalchemy import inspect
 
@@ -29,6 +30,14 @@ class MissingTranslationChecker:
 
     def __init__(self, service: TranslationService) -> None:
         self.service = service
+        self.model_registry = {
+            "articles": Article,
+            "taxonomies": Taxonomy,
+            "categories": Category,
+            "tags": Tag,
+            "media": Media,
+            "social_media_posts": SocialMediaPost,
+        }
 
     def check_entity(
         self, entity: Any, languages: Optional[List[str]] = None
@@ -66,11 +75,14 @@ class MissingTranslationChecker:
         # Check each field
         missing: Dict[str, Set[str]] = {}
 
-        mapper = inspect(entity)
-        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+        # Get entity ID using inspect
+        instance_state = inspect(entity)
+        try:
+            mapper = instance_state.mapper
+            pk = mapper.primary_key[0]
+            entity_id = getattr(entity, pk.name)
+        except (AttributeError, IndexError):
             return {}
-
-        entity_id = mapper.primary_key[0]
 
         for field in fields:
             missing_langs = set()
@@ -113,9 +125,10 @@ class MissingTranslationChecker:
         if not handler:
             return []
 
-        # Get model class
-        model = db.Model._decl_class_registry.get(model_type)
+        # Get model class from registry
+        model = self.model_registry.get(model_type)
         if not model:
+            current_app.logger.error(f"Unknown model type: {model_type}")
             return []
 
         # Build query
@@ -208,7 +221,16 @@ def check_missing_translations(
                 # Report findings
                 click.echo(f"\nFound missing translations in {len(results)} {mt}:")
                 for entity, missing in results:
-                    entity_id = inspect(entity).primary_key[0]
+                    # Get entity ID using inspect
+                    instance_state = inspect(entity)
+                    try:
+                        mapper = instance_state.mapper
+                        pk = mapper.primary_key[0]
+                        entity_id = getattr(entity, pk.name)
+                    except (AttributeError, IndexError):
+                        click.echo(f"\n  {mt} Unknown ID:")
+                        continue
+
                     click.echo(f"\n  {mt} {entity_id}:")
                     for field, langs in missing.items():
                         langs_str = ", ".join(sorted(langs))

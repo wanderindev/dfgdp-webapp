@@ -11,6 +11,8 @@ from config import config
 from content.commands import content_cli
 from extensions import db, migrate, jwt, redis_client, login_manager
 from middleware.language_middleware import LanguageMiddleware
+from translations.commands import translations_cli
+from translations.services import register_translation_handlers
 
 
 def create_app(config_name: Optional[str] = None) -> Flask:
@@ -34,6 +36,9 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     # Initialize language middleware
     LanguageMiddleware(app)
 
+    # Register translation handlers
+    register_translation_handlers()
+
     @login_manager.user_loader
     def load_user(user_id: str) -> Optional[UserMixin]:
         from auth.models import User
@@ -55,6 +60,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     app.cli.add_command(auth_cli)
     app.cli.add_command(agents_cli)
     app.cli.add_command(content_cli)
+    app.cli.add_command(translations_cli)
 
     # Configure logging
     if not app.debug:

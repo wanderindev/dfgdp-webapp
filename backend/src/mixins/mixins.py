@@ -8,7 +8,6 @@ from sqlalchemy import inspect
 from sqlalchemy.orm import Mapped, declared_attr
 
 from extensions import db
-from translations.models import ApprovedLanguage, Translation
 
 
 class HasId(Protocol):
@@ -74,6 +73,9 @@ class TranslatableMixin:
         Returns:
             Translated content or original field value if no translation exists
         """
+        # Import here to avoid circular import
+        from translations.models import ApprovedLanguage, Translation
+
         if language is None:
             # Get language from Flask g or fall back to default
             language = getattr(g, "language", None)
@@ -81,15 +83,19 @@ class TranslatableMixin:
                 default_lang = ApprovedLanguage.get_default_language()
                 language = default_lang.code if default_lang else "en"
 
-        # Get mapper for entity type
-        mapper = inspect(self)
-        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+        # Get entity ID using inspect
+        instance_state = inspect(self)
+        try:
+            mapper = instance_state.mapper
+            pk = mapper.primary_key[0]
+            entity_id = getattr(self, pk.name)
+        except (AttributeError, IndexError):
             return getattr(self, field)
 
         # Look for translation
         translation = Translation.query.filter_by(
             entity_type=self.__tablename__,
-            entity_id=mapper.primary_key[0],
+            entity_id=entity_id,
             field=field,
             language=language,
         ).first()
@@ -114,12 +120,20 @@ class TranslatableMixin:
         Returns:
             List of language codes that have translations
         """
-        mapper = inspect(self)
-        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+        # Import here to avoid circular import
+        from translations.models import Translation
+
+        # Get entity ID using inspect
+        instance_state = inspect(self)
+        try:
+            mapper = instance_state.mapper
+            pk = mapper.primary_key[0]
+            entity_id = getattr(self, pk.name)
+        except (AttributeError, IndexError):
             return []
 
         translations = Translation.query.filter_by(
-            entity_type=self.__tablename__, entity_id=mapper.primary_key[0], field=field
+            entity_type=self.__tablename__, entity_id=entity_id, field=field
         ).all()
 
         return [t.language for t in translations]
@@ -135,14 +149,22 @@ class TranslatableMixin:
         Returns:
             bool: True if translation exists, False otherwise
         """
-        mapper = inspect(self)
-        if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+        # Import here to avoid circular import
+        from translations.models import Translation
+
+        # Get entity ID using inspect
+        instance_state = inspect(self)
+        try:
+            mapper = instance_state.mapper
+            pk = mapper.primary_key[0]
+            entity_id = getattr(self, pk.name)
+        except (AttributeError, IndexError):
             return False
 
         return (
             Translation.query.filter_by(
                 entity_type=self.__tablename__,
-                entity_id=mapper.primary_key[0],
+                entity_id=entity_id,
                 field=field,
                 language=language,
             ).first()

@@ -95,16 +95,21 @@ INITIAL_AGENTS = [
     {
         "name": "Translator",
         "type": AgentType.TRANSLATOR,
-        "description": "Translates content while preserving formatting and special tokens",
+        "description": "Translates content and metadata while preserving formatting and special tokens",
         "model": "Claude 3.5 Sonnet",
-        "temperature": 0.3,
-        "max_tokens": 8092,
+        "temperature": 0.8,
+        "max_tokens": 4096,
         "prompts": [
             {
                 "name": "translate_content",
                 "description": "Template for translating content while preserving format",
-                "template": "",  # We'll add the template content later
-            }
+                "template": INITIAL_PROMPTS["translate_content"],
+            },
+            {
+                "name": "translate_metadata",
+                "description": "Template for translating metadata and other non-content text",
+                "template": INITIAL_PROMPTS["translate_metadata"],
+            },
         ],
     },
     {

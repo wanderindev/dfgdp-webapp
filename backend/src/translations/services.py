@@ -5,11 +5,10 @@ from typing import Any, Dict, List, Optional, Type
 from flask import current_app
 from sqlalchemy import inspect
 
+from agents.clients import AnthropicClient
+from agents.models import Agent, AgentType, Provider
 from extensions import db
-from agents.models import Agent, AgentType
-from content.models import ContentStatus
 from translations.models import Translation, ApprovedLanguage
-import json
 
 
 # noinspection PyArgumentList
@@ -55,6 +54,9 @@ class TranslationHandler(ABC):
         field: str,
         language: str,
         content: str,
+        generation_started_at: Optional[datetime] = None,
+        tokens_used: Optional[int] = None,
+        model_id: Optional[int] = None,
     ) -> Optional[Translation]:
         """
         Create or update a translation record.
@@ -64,17 +66,22 @@ class TranslationHandler(ABC):
             field: Field name being translated
             language: Target language code
             content: Translated content
+            generation_started_at: Optional timestamp when generation started
+            tokens_used: Optional number of tokens used for generation
+            model_id: Optional ID of the AI model used for generation
 
         Returns:
             Created/updated Translation object or None if failed
         """
         try:
-            # Get entity primary key
-            mapper = inspect(entity)
-            if not mapper or not mapper.primary_key or not mapper.primary_key[0]:
+            # Get entity ID using inspect
+            instance_state = inspect(entity)
+            try:
+                mapper = instance_state.mapper
+                pk = mapper.primary_key[0]
+                entity_id = getattr(entity, pk.name)
+            except (AttributeError, IndexError):
                 raise ValueError("Could not determine entity primary key")
-
-            entity_id = mapper.primary_key[0]
 
             # Look for existing translation
             translation = Translation.query.filter_by(
@@ -90,6 +97,9 @@ class TranslationHandler(ABC):
                 translation.is_generated = True
                 translation.generated_at = datetime.now(timezone.utc)
                 translation.generated_by_id = self.agent.model_id
+                translation.generation_started_at = generation_started_at
+                translation.tokens_used = translation.tokens_used + tokens_used
+                translation.model_id = model_id
             else:
                 # Create new translation
                 translation = Translation(
@@ -101,6 +111,9 @@ class TranslationHandler(ABC):
                     is_generated=True,
                     generated_at=datetime.now(timezone.utc),
                     generated_by_id=self.agent.model_id,
+                    generation_started_at=generation_started_at,
+                    tokens_used=tokens_used,
+                    model_id=model_id,
                 )
                 db.session.add(translation)
 
@@ -115,6 +128,7 @@ class TranslationHandler(ABC):
             return None
 
 
+# noinspection PyProtectedMember
 class TranslationService:
     """Service for managing content translations"""
 
@@ -129,6 +143,24 @@ class TranslationService:
 
         if not self.agent:
             raise ValueError("No active translator agent found")
+
+        # Initialize the appropriate client
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
+
+        self.client._init_client()
 
         # Initialize handlers
         self.initialized_handlers: Dict[str, TranslationHandler] = {}
@@ -235,16 +267,24 @@ class TranslationService:
             if not source_content:
                 source_content = getattr(entity, field)
 
-            # Generate translation using agent
-            translated_content = await self.agent.generate_content(
-                prompt=self._build_translation_prompt(
-                    content=source_content,
-                    source_language=source_language,
-                    target_language=target_language,
-                    entity_type=handler.get_entity_type(),
-                    field=field,
-                )
+            # Generate translation using client
+            prompt = self._build_translation_prompt(
+                content=source_content,
+                source_language=source_language,
+                target_language=target_language,
+                entity_type=handler.get_entity_type(),
+                field=field,
             )
+
+            generation_started_at = datetime.now(timezone.utc)
+            response = self.client._generate_content(prompt)
+            if not response:
+                raise ValueError("Empty response from API")
+
+            translated_content = self.client._extract_content(response)
+
+            # Track usage
+            total_tokens = self.client._track_usage(response)
 
             # Create translation record
             translation = await handler.create_translation(
@@ -252,6 +292,9 @@ class TranslationService:
                 field=field,
                 language=target_language,
                 content=translated_content,
+                generation_started_at=generation_started_at,
+                tokens_used=total_tokens,
+                model_id=self.agent.model_id,
             )
 
             return translation is not None
@@ -280,6 +323,15 @@ class TranslationService:
         if not template:
             raise ValueError("Translation template not found")
 
+        prompt = template.render(
+            content=content,
+            source_language=source_language,
+            target_language=target_language,
+            entity_type=entity_type,
+            field=field,
+        )
+        print(prompt)
+
         return template.render(
             content=content,
             source_language=source_language,
@@ -289,188 +341,23 @@ class TranslationService:
         )
 
 
-class TaxonomyTranslationHandler(TranslationHandler):
-    """Handler for Taxonomy translations"""
+def register_translation_handlers() -> None:
+    """Register all translation handlers with the service"""
+    from translations.handlers import (
+        ArticleTranslationHandler,
+        CategoryTranslationHandler,
+        MediaTranslationHandler,
+        SocialMediaPostTranslationHandler,
+        TaxonomyTranslationHandler,
+        TagTranslationHandler,
+    )
 
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["name", "description"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "taxonomies"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if taxonomy is ready for translation.
-        Taxonomies don't have a status field, so we just verify
-        they have required fields.
-        """
-        return bool(entity.name and entity.description)
-
-
-class CategoryTranslationHandler(TranslationHandler):
-    """Handler for Category translations"""
-
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["name", "description"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "categories"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if category is ready for translation.
-        Categories don't have a status field, so we verify required fields
-        and that parent taxonomy exists.
-        """
-        return bool(
-            entity.name
-            and entity.description
-            and entity.taxonomy_id
-            and entity.taxonomy
-        )
-
-
-class TagTranslationHandler(TranslationHandler):
-    """Handler for Tag translations"""
-
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["name"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "tags"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if tag is ready for translation.
-        Only translate approved tags.
-        """
-        return bool(entity.name and entity.status == ContentStatus.APPROVED)
-
-
-class ArticleTranslationHandler(TranslationHandler):
-    """Handler for Article translations"""
-
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["title", "content", "excerpt"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "articles"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if article is ready for translation.
-        Only translate approved articles with all required fields.
-        """
-        return bool(
-            entity.title and entity.content and entity.status == ContentStatus.APPROVED
-        )
-
-    async def pre_translate(self, entity: Any) -> None:
-        """
-        Before translation, ensure we have an excerpt if none exists.
-        AI summary is optional.
-        """
-        if not entity.excerpt:
-            current_app.logger.warning(
-                f"Article {entity.id} missing excerpt before translation"
-            )
-
-    async def post_translate(self, entity: Any, results: Dict[str, bool]) -> None:
-        """After translation, update translation timestamp if successful"""
-        if all(results.values()):
-            # All translations successful
-            try:
-                entity.translations_updated_at = datetime.now(timezone.utc)
-                db.session.commit()
-            except Exception as e:
-                current_app.logger.error(
-                    f"Error updating translation timestamp for article {entity.id}: {str(e)}"
-                )
-                db.session.rollback()
-
-
-class MediaTranslationHandler(TranslationHandler):
-    """Handler for Media translations"""
-
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["title", "caption", "alt_text", "attribution"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "media"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if media is ready for translation.
-        Require at least title or alt_text.
-        """
-        return bool(entity.title or entity.alt_text)
-
-
-class SocialMediaPostTranslationHandler(TranslationHandler):
-    """Handler for SocialMediaPost translations"""
-
-    def get_translatable_fields(self) -> List[str]:
-        """Get fields that should be translated"""
-        return ["content", "hashtags"]
-
-    def get_entity_type(self) -> str:
-        """Get entity type name"""
-        return "social_media_posts"
-
-    async def validate_entity(self, entity: Any) -> bool:
-        """
-        Validate if post is ready for translation.
-        Only translate approved posts that haven't been published.
-        """
-        return bool(
-            entity.content
-            and entity.status == ContentStatus.APPROVED
-            and not entity.posted_at
-        )
-
-    async def create_translation(
-        self,
-        entity: Any,
-        field: str,
-        language: str,
-        content: str,
-    ) -> Optional[Translation]:
-        """
-        Override create_translation for hashtags field to handle list conversion
-        """
-        if field == "hashtags":
-            try:
-                # Convert string back to list
-                content = [tag.strip() for tag in content.split(",") if tag.strip()]
-                # Convert to JSON for storage
-                content = json.dumps(content)
-            except Exception as e:
-                current_app.logger.error(
-                    f"Error processing hashtag translation: {str(e)}"
-                )
-                return None
-
-        return await super().create_translation(entity, field, language, content)
-
-    async def post_translate(self, entity: Any, results: Dict[str, bool]) -> None:
-        """After translation, update scheduling if needed"""
-        if all(results.values()) and entity.scheduled_for:
-            try:
-                # Update scheduling metadata
-                entity.translation_ready = True
-                db.session.commit()
-            except Exception as e:
-                current_app.logger.error(
-                    f"Error updating post {entity.id} scheduling: {str(e)}"
-                )
-                db.session.rollback()
+    # Register handlers
+    TranslationService.register_handler("taxonomies", TaxonomyTranslationHandler)
+    TranslationService.register_handler("categories", CategoryTranslationHandler)
+    TranslationService.register_handler("tags", TagTranslationHandler)
+    TranslationService.register_handler("articles", ArticleTranslationHandler)
+    TranslationService.register_handler("media", MediaTranslationHandler)
+    TranslationService.register_handler(
+        "social_media_posts", SocialMediaPostTranslationHandler
+    )
