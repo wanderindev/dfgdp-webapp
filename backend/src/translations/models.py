@@ -5,7 +5,7 @@ from sqlalchemy import text, Index
 from sqlalchemy.orm import Mapped, relationship
 
 from extensions import db
-from mixins.mixins import TimestampMixin
+from mixins.mixins import AIGenerationMixin, TimestampMixin
 
 
 class ApprovedLanguage(db.Model, TimestampMixin):
@@ -54,7 +54,7 @@ class ApprovedLanguage(db.Model, TimestampMixin):
         return cls.query.filter_by(is_default=True).first()
 
 
-class Translation(db.Model, TimestampMixin):
+class Translation(db.Model, TimestampMixin, AIGenerationMixin):
     """Store translations for various content types"""
 
     __tablename__ = "translations"
