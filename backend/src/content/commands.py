@@ -8,11 +8,14 @@ from extensions import db
 from .constants import ARTICLE_LEVELS
 from .initial_categories import INITIAL_CATEGORIES
 from .initial_hashtags import INITIAL_HASHTAG_GROUPS
+from .initial_languages import INITIAL_LANGUAGES
 from .initial_social_media_accounts import INITIAL_SOCIAL_MEDIA_ACCOUNTS
+from .initial_tags import INITIAL_TAGS
 from .initial_taxonomies import INITIAL_TAXONOMIES
 from .models import (
     Taxonomy,
     Category,
+    ApprovedLanguage,
     Article,
     ArticleSuggestion,
     Research,
@@ -20,6 +23,7 @@ from .models import (
     SocialMediaAccount,
     HashtagGroup,
     MediaSuggestion,
+    Tag,
 )
 from .services import (
     ContentManagerService,
@@ -608,3 +612,54 @@ def fetch_media_candidates(suggestion_id: int, max_per_query: int) -> None:
 
     except Exception as e:
         click.echo(f"Error fetching candidates: {str(e)}", err=True)
+
+
+# noinspection PyArgumentList
+@content_cli.command("init-languages")
+def init_languages() -> None:
+    """Initialize approved languages with default configurations."""
+    try:
+        # Create languages
+        for lang_data in INITIAL_LANGUAGES:
+            if not ApprovedLanguage.query.filter_by(code=lang_data["code"]).first():
+                lang = ApprovedLanguage(**lang_data)
+                db.session.add(lang)
+                click.echo(
+                    f"Created language: {lang_data['name']} "
+                    f"({'default' if lang_data['is_default'] else 'additional'})"
+                )
+
+        db.session.commit()
+        click.echo("Successfully initialized languages.")
+
+    except IntegrityError as e:
+        db.session.rollback()
+        click.echo(f"Error: Database integrity error - {str(e)}")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"Error: {str(e)}")
+
+
+# noinspection PyArgumentList
+@content_cli.command("init-tags")
+def init_tags() -> None:
+    """Initialize tags with sample data."""
+    try:
+        # Create tags
+        for tag_data in INITIAL_TAGS:
+            if not Tag.query.filter_by(name=tag_data["name"]).first():
+                tag = Tag(
+                    name=tag_data["name"], status=ContentStatus[tag_data["status"]]
+                )
+                db.session.add(tag)
+                click.echo(f"Created tag: {tag_data['name']}")
+
+        db.session.commit()
+        click.echo("Successfully initialized tags.")
+
+    except IntegrityError as e:
+        db.session.rollback()
+        click.echo(f"Error: Database integrity error - {str(e)}")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"Error: {str(e)}")
