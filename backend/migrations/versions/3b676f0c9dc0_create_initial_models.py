@@ -561,7 +561,6 @@ def upgrade():
         sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("scheduled_for", sa.DateTime(timezone=True), nullable=True),
         sa.Column("posted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("post_url", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("tokens_used", sa.Integer(), nullable=True),

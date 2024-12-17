@@ -5,8 +5,8 @@ from flask import Flask
 from flask_cors import CORS
 from flask_login import UserMixin
 
-from agents.commands import agents_cli
 from auth.commands import auth_cli
+from init.commands import init_cli
 from config import config
 from content.commands import content_cli
 from extensions import db, migrate, jwt, redis_client, login_manager
@@ -58,8 +58,8 @@ def create_app(config_name: Optional[str] = None) -> Flask:
 
     # Register CLI commands
     app.cli.add_command(auth_cli)
-    app.cli.add_command(agents_cli)
     app.cli.add_command(content_cli)
+    app.cli.add_command(init_cli)
     app.cli.add_command(translations_cli)
 
     # Configure logging

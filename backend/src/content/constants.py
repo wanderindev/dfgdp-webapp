@@ -1,21 +1,6 @@
 from typing import Dict, NamedTuple
 
 
-class ArticleStructure(NamedTuple):
-    """Define the common structure for all articles"""
-
-    min_sections: int = 3
-    max_sections: int = 5
-    required_elements: tuple = (
-        "introduction",
-        "main_points",
-        "conclusion",
-        "related_articles",
-        "further_reading",
-    )
-    max_related_articles: int = 5
-
-
 class ArticleLevelSpecs(NamedTuple):
     """Specifications for each article level"""
 
@@ -92,13 +77,4 @@ ARTICLE_LEVELS: Dict[str, ArticleLevelSpecs] = {
         ),
         audience="General adult audience",
     ),
-}
-
-# Maximum length for different content elements
-CONTENT_LIMITS = {
-    "title": 100,  # characters
-    "excerpt": 160,  # characters
-    "main_topic": 200,  # characters
-    "sub_topic": 100,  # characters per sub-topic
-    "point_of_view": 300,  # characters
 }

@@ -187,6 +187,8 @@ class SlugMixin:
         Returns:
             str: URL-friendly slug
         """
+        from translations.models import ApprovedLanguage
+
         # Get current language from Flask g object
         current_lang = getattr(g, "language", None)
 
@@ -226,6 +228,8 @@ class SlugMixin:
         Returns:
             str: URL-friendly slug for the specified language
         """
+        from translations.models import ApprovedLanguage
+
         if not language:
             language = getattr(g, "language", None)
             if not language:

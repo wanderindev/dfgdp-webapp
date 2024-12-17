@@ -180,16 +180,21 @@ class ResearcherService:
         if not self.agent:
             raise ValueError("No active researcher agent found")
 
-        # Verify agent uses Anthropic
-        if self.agent.model.provider != Provider.ANTHROPIC:
-            raise ValueError("Researcher agent must use Anthropic model")
-
-        # Initialize Anthropic client
-        self.client = AnthropicClient(
-            model=self.agent.model.model_id,
-            temperature=self.agent.temperature,
-            max_tokens=self.agent.max_tokens,
-        )
+        # Initialize the appropriate client based on the provider
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = OpenAIClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
 
         self.client._init_client()
 
@@ -394,12 +399,21 @@ class WriterService:
         if not self.agent:
             raise ValueError("No active writer agent found")
 
-        # Initialize Anthropic client
-        self.client = AnthropicClient(
-            model=self.agent.model.model_id,
-            temperature=self.agent.temperature,
-            max_tokens=self.agent.max_tokens,
-        )
+        # Initialize the appropriate client based on the provider
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = OpenAIClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
 
         self.client._init_client()
 
@@ -610,12 +624,21 @@ class SocialMediaManagerService:
         if not self.account:
             raise ValueError("No active Instagram account found")
 
-        # Initialize Anthropic client
-        self.client = AnthropicClient(
-            model=self.agent.model.model_id,
-            temperature=self.agent.temperature,
-            max_tokens=self.agent.max_tokens,
-        )
+        # Initialize the appropriate client based on the provider
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = OpenAIClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
 
         self.client._init_client()
 
@@ -841,12 +864,21 @@ class MediaManagerService:
         if not self.agent:
             raise ValueError("No active media manager agent found")
 
-        # Initialize Anthropic client
-        self.client = AnthropicClient(
-            model=self.agent.model.model_id,
-            temperature=self.agent.temperature,
-            max_tokens=self.agent.max_tokens,
-        )
+        # Initialize the appropriate client based on the provider
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = OpenAIClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
 
         self.client._init_client()
 

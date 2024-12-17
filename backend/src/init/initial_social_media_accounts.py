@@ -1,4 +1,4 @@
-from .models import Platform
+from content.models import Platform
 
 INITIAL_SOCIAL_MEDIA_ACCOUNTS = [
     {

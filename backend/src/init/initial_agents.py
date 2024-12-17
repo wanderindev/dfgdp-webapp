@@ -1,5 +1,5 @@
-from .initial_prompts import INITIAL_PROMPTS
-from .models import Provider, AgentType
+from agents.models import Provider, AgentType
+from init.initial_prompts import INITIAL_PROMPTS
 
 INITIAL_AI_MODELS = [
     {
@@ -63,7 +63,7 @@ INITIAL_AGENTS = [
         "description": "Writes articles based on research",
         "model": "Claude 3.5 Sonnet",
         "temperature": 0.95,
-        "max_tokens": 4096,
+        "max_tokens": 8192,
         "prompts": [
             {
                 "name": "article_writing",
@@ -78,7 +78,7 @@ INITIAL_AGENTS = [
         "description": "Generates social media content from articles",
         "model": "Claude 3.5 Sonnet",
         "temperature": 0.95,
-        "max_tokens": 2048,
+        "max_tokens": 8192,
         "prompts": [
             {
                 "name": "instagram_post_did_you_know",

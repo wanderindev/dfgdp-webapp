@@ -1080,7 +1080,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     posted_at: Mapped[Optional[datetime]] = db.Column(
         db.DateTime(timezone=True), nullable=True
     )
-    post_url: Mapped[Optional[str]] = db.Column(db.String(255), nullable=True)
 
     article: Mapped["Article"] = relationship("Article", backref="social_media_posts")
 

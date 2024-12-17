@@ -2,28 +2,15 @@ import asyncio
 
 import click
 from flask.cli import AppGroup
-from sqlalchemy.exc import IntegrityError
 
-from extensions import db
 from .constants import ARTICLE_LEVELS
-from .initial_categories import INITIAL_CATEGORIES
-from .initial_hashtags import INITIAL_HASHTAG_GROUPS
-from .initial_languages import INITIAL_LANGUAGES
-from .initial_social_media_accounts import INITIAL_SOCIAL_MEDIA_ACCOUNTS
-from .initial_tags import INITIAL_TAGS
-from .initial_taxonomies import INITIAL_TAXONOMIES
 from .models import (
-    Taxonomy,
     Category,
-    ApprovedLanguage,
     Article,
     ArticleSuggestion,
     Research,
     ContentStatus,
-    SocialMediaAccount,
-    HashtagGroup,
     MediaSuggestion,
-    Tag,
 )
 from .services import (
     ContentManagerService,
@@ -36,83 +23,6 @@ from .services import (
 
 # Create the CLI group
 content_cli = AppGroup("content")
-
-
-# noinspection PyArgumentList
-@content_cli.command("init-taxonomies")
-def init_taxonomies() -> None:
-    """Initialize taxonomies and categories with default configurations."""
-    try:
-        # First, create taxonomies
-        for taxonomy_data in INITIAL_TAXONOMIES:
-            if not Taxonomy.query.filter_by(name=taxonomy_data["name"]).first():
-                taxonomy = Taxonomy(**taxonomy_data)
-                db.session.add(taxonomy)
-                click.echo(
-                    f"Created taxonomy: {taxonomy_data['name']} (slug: {taxonomy.slug})"
-                )
-        db.session.commit()
-
-        # Then create categories
-        for category_data in INITIAL_CATEGORIES:
-            # Make a copy of the data to avoid modifying the original
-            category_dict = category_data.copy()
-
-            # Get the referenced taxonomy
-            taxonomy = Taxonomy.query.filter_by(name=category_dict["taxonomy"]).first()
-            if not taxonomy:
-                click.echo(f"Error: Taxonomy {category_dict['taxonomy']} not found")
-                continue
-
-            # Remove taxonomy name from data and add taxonomy_id
-            category_dict.pop("taxonomy")
-            category_dict["taxonomy_id"] = taxonomy.id
-
-            # Check if category already exists
-            if not Category.query.filter_by(
-                taxonomy_id=taxonomy.id, name=category_dict["name"]
-            ).first():
-                category = Category(**category_dict)
-                db.session.add(category)
-                click.echo(
-                    f"Created category: {category_dict['name']} (slug: {category.slug})"
-                )
-
-        db.session.commit()
-        click.echo("Successfully initialized taxonomies and categories.")
-
-    except IntegrityError as e:
-        db.session.rollback()
-        click.echo(f"Error: Database integrity error - {str(e)}")
-    except Exception as e:
-        db.session.rollback()
-        click.echo(f"Error: {str(e)}")
-
-
-@content_cli.command("list")
-def list_content_hierarchy() -> None:
-    """List all taxonomies and their categories."""
-    taxonomies = Taxonomy.query.all()
-
-    if not taxonomies:
-        click.echo("No taxonomies found.")
-        return
-
-    for taxonomy in taxonomies:
-        click.echo(f"\nTaxonomy: {taxonomy.name}")
-        click.echo(f"Description: {taxonomy.description}")
-        click.echo("\nCategories:")
-
-        for category in taxonomy.categories:
-            click.echo(f"  - {category.name}: {category.description}")
-
-
-def validate_level(_ctx, _param, value):
-    """Validate the level parameter"""
-    if value not in ARTICLE_LEVELS:
-        valid_levels = ", ".join(ARTICLE_LEVELS.keys())
-        raise click.BadParameter(f"Invalid level. Must be one of: {valid_levels}")
-    return value
 
 
 @content_cli.command("generate-suggestions")
@@ -312,61 +222,6 @@ def generate_article(research_id: int) -> None:
         click.echo(f"Unexpected error: {str(e)}", err=True)
 
 
-# noinspection PyArgumentList
-@content_cli.command("init-social-accounts")
-def init_social_accounts() -> None:
-    """Initialize social media accounts with default configurations."""
-    try:
-        # Create social media accounts
-        for account_data in INITIAL_SOCIAL_MEDIA_ACCOUNTS:
-            if not SocialMediaAccount.query.filter_by(
-                platform=account_data["platform"], username=account_data["username"]
-            ).first():
-                account = SocialMediaAccount(**account_data)
-                db.session.add(account)
-                click.echo(
-                    f"Created social media account: {account_data['username']} "
-                    f"({account_data['platform'].value})"
-                )
-
-        db.session.commit()
-        click.echo("Successfully initialized social media accounts.")
-
-    except IntegrityError as e:
-        db.session.rollback()
-        click.echo(f"Error: Database integrity error - {str(e)}")
-    except Exception as e:
-        db.session.rollback()
-        click.echo(f"Error: {str(e)}")
-
-
-# noinspection PyArgumentList
-@content_cli.command("init-hashtags")
-def init_hashtags() -> None:
-    """Initialize hashtag groups with default configurations."""
-    try:
-        # Create hashtag groups
-        for group_data in INITIAL_HASHTAG_GROUPS:
-            if not HashtagGroup.query.filter_by(name=group_data["name"]).first():
-                group = HashtagGroup(**group_data)
-                db.session.add(group)
-                click.echo(
-                    f"Created hashtag group: {group_data['name']} "
-                    f"({'core' if group_data['is_core'] else 'optional'})"
-                )
-                click.echo(f"Hashtags: {', '.join(group_data['hashtags'])}\n")
-
-        db.session.commit()
-        click.echo("Successfully initialized hashtag groups.")
-
-    except IntegrityError as e:
-        db.session.rollback()
-        click.echo(f"Error: Database integrity error - {str(e)}")
-    except Exception as e:
-        db.session.rollback()
-        click.echo(f"Error: {str(e)}")
-
-
 @content_cli.command("generate-story")
 @click.argument("article_id", type=int)
 def generate_story(article_id: int) -> None:
@@ -474,9 +329,6 @@ def generate_did_you_know(article_id: int, count: int) -> None:
         click.echo(f"Error: {str(e)}", err=True)
     except Exception as e:
         click.echo(f"Unexpected error: {str(e)}", err=True)
-
-
-# Add to commands.py
 
 
 # noinspection DuplicatedCode
@@ -612,54 +464,3 @@ def fetch_media_candidates(suggestion_id: int, max_per_query: int) -> None:
 
     except Exception as e:
         click.echo(f"Error fetching candidates: {str(e)}", err=True)
-
-
-# noinspection PyArgumentList
-@content_cli.command("init-languages")
-def init_languages() -> None:
-    """Initialize approved languages with default configurations."""
-    try:
-        # Create languages
-        for lang_data in INITIAL_LANGUAGES:
-            if not ApprovedLanguage.query.filter_by(code=lang_data["code"]).first():
-                lang = ApprovedLanguage(**lang_data)
-                db.session.add(lang)
-                click.echo(
-                    f"Created language: {lang_data['name']} "
-                    f"({'default' if lang_data['is_default'] else 'additional'})"
-                )
-
-        db.session.commit()
-        click.echo("Successfully initialized languages.")
-
-    except IntegrityError as e:
-        db.session.rollback()
-        click.echo(f"Error: Database integrity error - {str(e)}")
-    except Exception as e:
-        db.session.rollback()
-        click.echo(f"Error: {str(e)}")
-
-
-# noinspection PyArgumentList
-@content_cli.command("init-tags")
-def init_tags() -> None:
-    """Initialize tags with sample data."""
-    try:
-        # Create tags
-        for tag_data in INITIAL_TAGS:
-            if not Tag.query.filter_by(name=tag_data["name"]).first():
-                tag = Tag(
-                    name=tag_data["name"], status=ContentStatus[tag_data["status"]]
-                )
-                db.session.add(tag)
-                click.echo(f"Created tag: {tag_data['name']}")
-
-        db.session.commit()
-        click.echo("Successfully initialized tags.")
-
-    except IntegrityError as e:
-        db.session.rollback()
-        click.echo(f"Error: Database integrity error - {str(e)}")
-    except Exception as e:
-        db.session.rollback()
-        click.echo(f"Error: {str(e)}")
