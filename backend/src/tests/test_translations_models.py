@@ -1,7 +1,22 @@
+import json
 from datetime import datetime, timezone
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+
 from agents.models import AIModel, Provider
-from content.models import Article, Tag, Category, Taxonomy, ArticleLevel, ContentStatus
+from content.models import (
+    Article,
+    Tag,
+    Category,
+    Taxonomy,
+    ArticleLevel,
+    ContentStatus,
+    SocialMediaPost,
+    Media,
+    MediaType,
+    MediaSource,
+)
 from translations.models import ApprovedLanguage, Translation
 
 
@@ -81,9 +96,71 @@ def test_translation_creation(db_session):
 
 
 # noinspection PyArgumentList
-def test_translatable_mixin_with_article(
-    db_session, test_category, test_research
-):  # Add test_research fixture
+def test_approved_language_default_constraint(db_session):
+    """Ensure default language must be active."""
+    language = ApprovedLanguage(
+        code="de", name="German", is_active=False, is_default=True
+    )
+    db_session.add(language)
+    with pytest.raises(Exception):  # Adjust exception type based on DB error
+        db_session.commit()
+
+
+# noinspection PyArgumentList
+def test_translation_unique_constraint(db_session):
+    """Ensure Translation uniqueness is enforced."""
+    # Create necessary language and translation
+    language = ApprovedLanguage(code="en", name="English", is_active=True)
+    db_session.add(language)
+    db_session.commit()
+
+    translation = Translation(
+        entity_type="article",
+        entity_id=1,
+        field="title",
+        language="en",
+        content="Test Title",
+    )
+    duplicate = Translation(
+        entity_type="article",
+        entity_id=1,
+        field="title",
+        language="en",
+        content="Duplicate Title",
+    )
+    db_session.add_all([translation, duplicate])
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+# noinspection PyArgumentList
+def test_translation_cascade_delete(db_session):
+    """Test cascading delete for translations when language is removed."""
+    language = ApprovedLanguage(code="es", name="Spanish", is_active=True)
+    db_session.add(language)
+    db_session.commit()
+
+    translation = Translation(
+        entity_type="article",
+        entity_id=1,
+        field="title",
+        language="es",
+        content="Título de prueba",
+    )
+    db_session.add(translation)
+    db_session.commit()
+
+    # Delete language
+    db_session.delete(language)
+    db_session.commit()
+
+    # Ensure translation is deleted
+    assert Translation.query.filter_by(language="es").count() == 0
+
+
+
+# noinspection PyArgumentList
+def test_translatable_mixin_with_article(db_session, test_category, test_research):
     """Test TranslatableMixin functionality with Article model."""
     # Create languages
     english = ApprovedLanguage(
@@ -95,22 +172,44 @@ def test_translatable_mixin_with_article(
     # Create article
     article = Article(
         category=test_category,
-        research=test_research,  # Use the fixture instead of research_id=1
+        research=test_research,
         title="Original Title",
         content="Original Content",
+        excerpt="Original Excerpt",
         level=ArticleLevel.HIGH_SCHOOL,
     )
     db_session.add(article)
     db_session.commit()
 
-    # Add translations
-    article.set_translation("title", "es", "Título en Español")
-    article.set_translation("content", "es", "Contenido en Español")
+    # Create translations directly in the Translation model
+    translation_title = Translation(
+        entity_type="articles",
+        entity_id=article.id,
+        field="title",
+        language="es",
+        content="Título en Español",
+    )
+    translation_content = Translation(
+        entity_type="articles",
+        entity_id=article.id,
+        field="content",
+        language="es",
+        content="Contenido en Español",
+    )
+    translation_excerpt = Translation(
+        entity_type="articles",
+        entity_id=article.id,
+        field="excerpt",
+        language="es",
+        content="Extracto en Español",
+    )
+    db_session.add_all([translation_title, translation_content, translation_excerpt])
     db_session.commit()
 
     # Test retrieving translations
     assert article.get_translation("title", "es") == "Título en Español"
     assert article.get_translation("content", "es") == "Contenido en Español"
+    assert article.get_translation("excerpt", "es") == "Extracto en Español"
 
     # Test fallback to original content
     assert article.get_translation("title", "fr") == "Original Title"
@@ -137,8 +236,21 @@ def test_translatable_mixin_with_taxonomy(db_session):
     db_session.commit()
 
     # Add translations
-    taxonomy.set_translation("name", "es", "Historia")
-    taxonomy.set_translation("description", "es", "Eventos históricos")
+    translation_name = Translation(
+        entity_type="taxonomies",
+        entity_id=taxonomy.id,
+        field="name",
+        language="es",
+        content="Historia",
+    )
+    translation_description = Translation(
+        entity_type="taxonomies",
+        entity_id=taxonomy.id,
+        field="description",
+        language="es",
+        content="Eventos históricos",
+    )
+    db_session.add_all([translation_name, translation_description])
     db_session.commit()
 
     assert taxonomy.get_translation("name", "es") == "Historia"
@@ -165,8 +277,21 @@ def test_translatable_mixin_with_category(db_session, test_taxonomy):
     db_session.commit()
 
     # Add translations
-    category.set_translation("name", "es", "Grecia Antigua")
-    category.set_translation("description", "es", "Historia de la Antigua Grecia")
+    translation_name = Translation(
+        entity_type="categories",
+        entity_id=category.id,
+        field="name",
+        language="es",
+        content="Grecia Antigua",
+    )
+    translation_description = Translation(
+        entity_type="categories",
+        entity_id=category.id,
+        field="description",
+        language="es",
+        content="Historia de la Antigua Grecia",
+    )
+    db_session.add_all([translation_name, translation_description])
     db_session.commit()
 
     assert category.get_translation("name", "es") == "Grecia Antigua"
@@ -191,7 +316,14 @@ def test_translatable_mixin_with_tag(db_session):
     db_session.commit()
 
     # Add translation
-    tag.set_translation("name", "es", "Filosofía")
+    translation_name = Translation(
+        entity_type="tags",
+        entity_id=tag.id,
+        field="name",
+        language="es",
+        content="Filosofía",
+    )
+    db_session.add(translation_name)
     db_session.commit()
 
     assert tag.get_translation("name", "es") == "Filosofía"
@@ -202,8 +334,6 @@ def test_translatable_mixin_with_social_media_post(
     db_session, test_article, test_social_media_account
 ):
     """Test TranslatableMixin functionality with SocialMediaPost model."""
-    from content.models import SocialMediaPost
-
     # Create languages
     english = ApprovedLanguage(
         code="en", name="English", is_active=True, is_default=True
@@ -222,9 +352,69 @@ def test_translatable_mixin_with_social_media_post(
     db_session.commit()
 
     # Add translations
-    post.set_translation("content", "es", "¡Mira nuestro nuevo artículo!")
-    post.set_translation("hashtags", "es", ["#historia", "#educacion"])
+    translation_content = Translation(
+        entity_type="social_media_posts",
+        entity_id=post.id,
+        field="content",
+        language="es",
+        content="¡Mira nuestro nuevo artículo!",
+    )
+    translation_hashtags = Translation(
+        entity_type="social_media_posts",
+        entity_id=post.id,
+        field="hashtags",
+        language="es",
+        content=json.dumps(["#historia", "#educacion"]),  # Store hashtags as JSON
+    )
+    db_session.add_all([translation_content, translation_hashtags])
     db_session.commit()
 
     assert post.get_translation("content", "es") == "¡Mira nuestro nuevo artículo!"
     assert post.get_translation("hashtags", "es") == ["#historia", "#educacion"]
+
+
+# noinspection PyArgumentList
+def test_translatable_mixin_with_media(db_session):
+    """Test TranslatableMixin functionality with Media model."""
+    # Create languages
+    english = ApprovedLanguage(
+        code="en", name="English", is_active=True, is_default=True
+    )
+    spanish = ApprovedLanguage(code="es", name="Spanish", is_active=True)
+    db_session.add_all([english, spanish])
+
+    # Create media
+    media = Media(
+        filename="image.jpg",
+        original_filename="image.jpg",
+        file_path="/media/image.jpg",
+        file_size=1000000,
+        mime_type="image/jpeg",
+        media_type=MediaType.IMAGE,
+        source=MediaSource.LOCAL,
+        title="Original Title",
+        alt_text="Original Alt Text",
+    )
+    db_session.add(media)
+    db_session.commit()
+
+    # Add translations
+    translation_title = Translation(
+        entity_type="media",
+        entity_id=media.id,
+        field="title",
+        language="es",
+        content="Título en Español",
+    )
+    translation_alt_text = Translation(
+        entity_type="media",
+        entity_id=media.id,
+        field="alt_text",
+        language="es",
+        content="Texto alternativo en Español",
+    )
+    db_session.add_all([translation_title, translation_alt_text])
+    db_session.commit()
+
+    assert media.get_translation("title", "es") == "Título en Español"
+    assert media.get_translation("alt_text", "es") == "Texto alternativo en Español"

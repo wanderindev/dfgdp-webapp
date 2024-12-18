@@ -648,7 +648,7 @@ class MediaCandidate(db.Model, TimestampMixin):
 
 
 # noinspection PyArgumentList
-class Media(db.Model, TimestampMixin):
+class Media(db.Model, TimestampMixin, TranslatableMixin):
     """Media files management"""
 
     __tablename__ = "media"
