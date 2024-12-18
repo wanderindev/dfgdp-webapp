@@ -158,7 +158,6 @@ def test_translation_cascade_delete(db_session):
     assert Translation.query.filter_by(language="es").count() == 0
 
 
-
 # noinspection PyArgumentList
 def test_translatable_mixin_with_article(db_session, test_category, test_research):
     """Test TranslatableMixin functionality with Article model."""
