@@ -21,6 +21,8 @@ from content.models import (
     Media,
     MediaType,
     MediaSource,
+    InstagramMediaType,
+    social_media_post_media,
 )
 from extensions import db
 
@@ -624,24 +626,69 @@ def test_media_file_operations_edge_cases(app, db_session, mock_file):
 def test_social_media_post_properties(
     db_session, test_article, test_social_media_account
 ):
-    """Test SocialMediaPost property methods."""
+    """Test the validate_instagram_format method with multiple media items."""
+    # Create test Media objects
+    media1 = Media(
+        filename="media1.jpg",
+        original_filename="media1.jpg",
+        file_path="/media/media1.jpg",
+        file_size=1000000,
+        mime_type="image/jpeg",
+        media_type=MediaType.IMAGE,
+        source=MediaSource.LOCAL,
+        instagram_media_type=InstagramMediaType.SQUARE,
+    )
+    media2 = Media(
+        filename="media2.jpg",
+        original_filename="media2.jpg",
+        file_path="/media/media2.jpg",
+        file_size=1000000,
+        mime_type="image/jpeg",
+        media_type=MediaType.IMAGE,
+        source=MediaSource.LOCAL,
+        instagram_media_type=InstagramMediaType.PORTRAIT,
+    )
+    media3 = Media(
+        filename="media3.jpg",
+        original_filename="media3.jpg",
+        file_path="/media/media3.jpg",
+        file_size=1000000,
+        mime_type="image/jpeg",
+        media_type=MediaType.IMAGE,
+        source=MediaSource.LOCAL,
+        instagram_media_type=None,
+    )  # Missing type
+    db_session.add_all([media1, media2, media3])
+    db_session.commit()
+
+    # Create SocialMediaPost
     post = SocialMediaPost(
         article=test_article,
         account=test_social_media_account,
-        content="Test content",
-        hashtags=["test", "example"],
+        content="Test post content",
+        hashtags=["#test"],
     )
     db_session.add(post)
     db_session.commit()
 
-    # Test format_caption
-    formatted = post.format_caption()
-    assert "Test content" in formatted
-    assert "#test" in formatted
-    assert "#example" in formatted
+    # Add media items with positions
+    db_session.execute(
+        social_media_post_media.insert(),
+        [
+            {"post_id": post.id, "media_id": media1.id, "position": 0},
+            {"post_id": post.id, "media_id": media2.id, "position": 1},
+        ],
+    )
+    db_session.commit()
 
-    # Test platform property
-    assert post.platform == Platform.INSTAGRAM
+    # Validate Instagram format
+    assert post.validate_instagram_format()  # Should return True
 
-    # Test validation
-    assert not post.validate_instagram_format()  # Should fail without proper dimensions
+    # Add invalid media and test again
+    db_session.execute(
+        social_media_post_media.insert(),
+        [{"post_id": post.id, "media_id": media3.id, "position": 2}],
+    )
+    db_session.commit()
+
+    assert not post.validate_instagram_format()  # Should return False

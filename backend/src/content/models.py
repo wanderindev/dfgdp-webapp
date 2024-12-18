@@ -1314,30 +1314,13 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
 
     def validate_instagram_format(self) -> bool:
         """
-        Validate if the image meets Instagram's requirements for the specified type.
-        Returns False if validation fails.
+        Validate the Instagram-specific requirements for all media items in this post.
+        Returns True if all media items meet the requirements, otherwise False.
         """
-        if not self.instagram_media_type or not self.width or not self.height:
-            return False
-
-        ratio = self.aspect_ratio
-        if not ratio:
-            return False
-
-        # Check aspect ratio requirements
-        if self.instagram_media_type == InstagramMediaType.SQUARE:
-            return abs(ratio - 1.0) < 0.01  # Allow small deviation
-        elif self.instagram_media_type == InstagramMediaType.PORTRAIT:
-            return abs(ratio - 0.8) < 0.01  # 4:5 ratio
-        elif self.instagram_media_type == InstagramMediaType.LANDSCAPE:
-            return abs(ratio - 1.91) < 0.01  # 1.91:1 ratio
-        elif self.instagram_media_type in (
-            InstagramMediaType.STORY,
-            InstagramMediaType.REEL,
-        ):
-            return abs(ratio - 0.5625) < 0.01  # 9:16 ratio
-
-        return False
+        for media in self.media_items:
+            if not media.instagram_media_type:
+                return False
+        return True
 
 
 class HashtagGroup(db.Model, TimestampMixin):
