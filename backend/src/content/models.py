@@ -593,9 +593,15 @@ class MediaCandidate(db.Model, TimestampMixin):
             Created Media object if successful, None otherwise
         """
         try:
+            # Extract filename from commons_id (remove "File:" prefix if present)
+            filename = self.commons_id
+            if filename.startswith("File:"):
+                filename = filename[5:]
+
             # Create Media entry
             media = Media(
                 title=self.title,
+                filename=filename,
                 original_filename=self.commons_id,
                 file_path=self.commons_url,
                 file_size=self.file_size,
@@ -785,36 +791,45 @@ class Media(db.Model, TimestampMixin):
         # Generate unique filename
         filename = cls._generate_unique_filename(original_filename)
 
-        # Create media directory if it doesn't exist
-        media_dir = Path(current_app.config["UPLOAD_FOLDER"])
-        media_dir.mkdir(exist_ok=True)
-
-        # Save file
-        file_path = media_dir / filename
-        file.save(str(file_path))
-
-        # Create media entry
-        media = cls(
-            filename=filename,
-            original_filename=original_filename,
-            file_path=str(file_path),
-            file_size=os.path.getsize(str(file_path)),
-            mime_type=mime_type,
-            media_type=media_type,
-            source=MediaSource.LOCAL,
-            title=title,
-            caption=caption,
-            alt_text=alt_text,
-        )
-
         try:
-            db.session.add(media)
-            db.session.commit()
-            return media
-        except Exception:
-            if file_path.exists():
-                file_path.unlink()
-            db.session.rollback()
+            # Create media directory if it doesn't exist
+            media_dir = Path(current_app.config["UPLOAD_FOLDER"])
+            try:
+                media_dir.mkdir(exist_ok=True)
+            except (PermissionError, OSError) as e:
+                current_app.logger.error(f"Failed to create upload directory: {str(e)}")
+                return None
+
+            # Save file
+            file_path = media_dir / filename
+            file.save(str(file_path))
+
+            # Create media entry
+            media = cls(
+                filename=filename,
+                original_filename=original_filename,
+                file_path=str(file_path),
+                file_size=os.path.getsize(str(file_path)),
+                mime_type=mime_type,
+                media_type=media_type,
+                source=MediaSource.LOCAL,
+                title=title,
+                caption=caption,
+                alt_text=alt_text,
+            )
+
+            try:
+                db.session.add(media)
+                db.session.commit()
+                return media
+            except Exception:
+                if file_path.exists():
+                    file_path.unlink()
+                db.session.rollback()
+                return None
+
+        except Exception as e:
+            current_app.logger.error(f"Error creating media from upload: {str(e)}")
             return None
 
     @classmethod
@@ -1285,15 +1300,10 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
 
     def format_caption(self) -> str:
         """
-        Format the complete caption including content, hashtags, and mentions.
+        Format the complete caption including content and hashtags.
         Returns the formatted caption ready for Instagram.
         """
         parts = [self.content]
-
-        # Add mentions if any
-        if self.mentions:
-            mentions_text = " ".join(f"@{username}" for username in self.mentions)
-            parts.append(mentions_text)
 
         # Add hashtags if any
         if self.hashtags:

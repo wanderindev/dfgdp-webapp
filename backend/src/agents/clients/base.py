@@ -66,7 +66,7 @@ class BaseAIClient(ABC):
         await self.rate_limiter.wait_if_needed()
 
         response = await self._generate_content(prompt, **kwargs)
-        await self._track_usage(response)
+        self._track_usage(response)
         return self._extract_content(response)
 
     @abstractmethod
@@ -97,7 +97,7 @@ class BaseAIClient(ABC):
         pass
 
     @abstractmethod
-    async def _track_usage(self, response: Any) -> None:
+    def _track_usage(self, response: Any) -> None:
         """
         Track token usage and cost for this response.
 

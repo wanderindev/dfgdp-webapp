@@ -92,13 +92,16 @@ class AnthropicClient(BaseAIClient):
 
         return total_tokens
 
-    def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
+    def _calculate_cost(
+        self, input_tokens: int, output_tokens: int, use_batch_rates: bool = False
+    ) -> float:
         """
         Calculate the cost of API usage using rates from the database
 
         Args:
             input_tokens: The number of input tokens used
             output_tokens: The number of output tokens used
+            use_batch_rates: Whether to use batch rates instead of per-token rates
 
         Returns:
             float: The calculated cost in USD
@@ -109,6 +112,12 @@ class AnthropicClient(BaseAIClient):
         model = AIModel.query.filter_by(model_id=self.model).first()
         if not model:
             return 0.0
+
+        # Calculate cost using batch rates per million tokens
+        if use_batch_rates:
+            return (input_tokens * float(model.batch_input_rate) / 1000000) + (
+                output_tokens * float(model.batch_output_rate) / 1000000
+            )
 
         # Calculate cost using rates per million tokens
         return (input_tokens * float(model.input_rate) / 1000000) + (

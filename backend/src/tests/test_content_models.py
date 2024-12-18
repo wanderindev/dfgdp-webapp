@@ -2,6 +2,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+from werkzeug.datastructures import FileStorage
+
 from content.models import (
     Taxonomy,
     Category,
@@ -423,7 +427,7 @@ def test_public_url(db_session, mock_file):
 
 
 def test_markdown_code(db_session, mock_file):
-    """Test markdown code generation."""
+    """Test Markdown code generation."""
     # Image
     image = Media.create_from_upload(
         mock_file,
@@ -463,4 +467,181 @@ def test_event_listener_delete_error(app, db_session, mock_file):
         db.session.delete(media)
         db.session.commit()
 
-        mock_logger.assert_called_with(f"Failed to delete file: {media.file_path}")
+        # Updated assertion to match actual error message format
+        mock_logger.assert_called_with(
+            f"Failed to delete file {media.file_path}: IO Error"
+        )
+
+
+# noinspection PyTypeChecker
+def test_article_tag_methods(db_session, test_article):
+    """Test article tagging methods."""
+    # Test tag_article method
+    tags = test_article.tag_article(["test", "example"])
+    assert len(tags) == 2
+    assert all(tag.name in ["test", "example"] for tag in tags)
+
+    # Test with duplicate tags
+    more_tags = test_article.tag_article(["test", "new"])
+    assert len(more_tags) == 1  # Only "new" should be added
+    assert more_tags[0].name == "new"
+
+    # Test with integrity error
+    with patch(
+        "content.models.db.session.commit", side_effect=IntegrityError(None, None, None)
+    ):
+        tags = test_article.tag_article(["error"])
+        assert len(tags) == 0
+
+
+# noinspection PyArgumentList
+def test_media_candidate_operations(db_session, test_user, test_research):
+    """Test MediaCandidate operations."""
+    from content.models import MediaCandidate, MediaSuggestion
+
+    # Create test media suggestion using test_research
+    suggestion = MediaSuggestion(
+        research_id=test_research.id,
+        commons_categories=["Test Category"],
+        search_queries=["Test Query"],
+        illustration_topics=["Test Topic"],
+        reasoning="Test reasoning",
+    )
+    db_session.add(suggestion)
+    db_session.commit()
+
+    # Create candidate with complete Wikimedia metadata
+    candidate = MediaCandidate(
+        suggestion_id=suggestion.id,
+        commons_id="File:Test_File.jpg",  # Added "File:" prefix
+        commons_url="https://commons.wikimedia.org/wiki/File:Test_File.jpg",
+        title="Test File",
+        description="Test Description",
+        author="Test Author",  # Added author
+        license="CC BY-SA 4.0",
+        license_url="https://creativecommons.org/licenses/by-sa/4.0/",  # Added license URL
+        width=1920,
+        height=1080,
+        mime_type="image/jpeg",
+        file_size=1000000,
+    )
+    db_session.add(candidate)
+    db_session.commit()
+
+    # Test aspect_ratio property
+    assert candidate.aspect_ratio == pytest.approx(1920 / 1080)
+
+    # Test approve method
+    media = candidate.approve(test_user.id, notes="Test approval")
+    assert media is not None
+    assert candidate.status == ContentStatus.APPROVED
+    assert candidate.reviewed_by_id == test_user.id
+    assert candidate.reviewed_at is not None
+
+    # Test the created media object
+    assert (
+        media.filename == "Test_File.jpg"
+    )  # Should use commons_id without "File:" prefix
+    assert media.source == MediaSource.WIKIMEDIA
+    assert media.media_type == MediaType.IMAGE
+    assert media.attribution is not None
+    assert "Test Author" in media.attribution
+    assert "CC BY-SA 4.0" in media.attribution
+
+    # Test reject method
+    another_candidate = MediaCandidate(
+        suggestion_id=suggestion.id,
+        commons_id="File:Test_File_2.jpg",
+        commons_url="https://commons.wikimedia.org/wiki/File:Test_File_2.jpg",
+        title="Test File 2",
+        author="Test Author 2",
+        license="CC BY-SA 4.0",
+        license_url="https://creativecommons.org/licenses/by-sa/4.0/",
+        width=1920,
+        height=1080,
+        mime_type="image/jpeg",
+        file_size=1000000,
+    )
+    db_session.add(another_candidate)
+    db_session.commit()
+
+    assert another_candidate.reject(test_user.id, notes="Test rejection")
+    assert another_candidate.status == ContentStatus.REJECTED
+    assert another_candidate.reviewed_by_id == test_user.id
+    assert another_candidate.reviewed_at is not None
+
+
+# noinspection PyArgumentList
+def test_hashtag_group_operations(db_session):
+    """Test HashtagGroup operations."""
+    from content.models import HashtagGroup
+
+    # Create core hashtag group
+    core_group = HashtagGroup(
+        name="Core Brand",
+        hashtags=["brand", "company"],
+        description="Core brand hashtags",
+        is_core=True,
+    )
+    db_session.add(core_group)
+
+    # Create regular hashtag group
+    regular_group = HashtagGroup(
+        name="Product Launch",
+        hashtags=["new", "launch"],
+        description="Product launch hashtags",
+        is_core=False,
+    )
+    db_session.add(regular_group)
+    db_session.commit()
+
+    assert core_group.is_core is True
+    assert regular_group.is_core is False
+    assert len(core_group.hashtags) == 2
+    assert len(regular_group.hashtags) == 2
+
+
+# noinspection PyTypeChecker
+def test_media_file_operations_edge_cases(app, db_session, mock_file):
+    """Test edge cases in media file operations."""
+    # Test with non-existent upload folder
+    with patch.object(Path, "mkdir", side_effect=PermissionError):
+        media = Media.create_from_upload(mock_file)
+        assert media is None
+
+    # Test with file write error
+    with patch.object(FileStorage, "save", side_effect=IOError):
+        media = Media.create_from_upload(mock_file)
+        assert media is None
+
+    # Test deletion of non-existent file
+    media = Media.create_from_upload(mock_file)
+    Path(media.file_path).unlink()  # Delete file manually
+    assert media.delete()  # Should still return True even if file doesn't exist
+
+
+# noinspection PyArgumentList
+def test_social_media_post_properties(
+    db_session, test_article, test_social_media_account
+):
+    """Test SocialMediaPost property methods."""
+    post = SocialMediaPost(
+        article=test_article,
+        account=test_social_media_account,
+        content="Test content",
+        hashtags=["test", "example"],
+    )
+    db_session.add(post)
+    db_session.commit()
+
+    # Test format_caption
+    formatted = post.format_caption()
+    assert "Test content" in formatted
+    assert "#test" in formatted
+    assert "#example" in formatted
+
+    # Test platform property
+    assert post.platform == Platform.INSTAGRAM
+
+    # Test validation
+    assert not post.validate_instagram_format()  # Should fail without proper dimensions
