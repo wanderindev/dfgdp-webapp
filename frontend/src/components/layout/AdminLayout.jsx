@@ -1,60 +1,87 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { Users, Layers, BookOpen, PenTool, Image, Share2, Globe2, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// Navigation items configuration
+// Navigation configuration
 const navItems = [
   {
     title: 'Users',
     icon: Users,
-    href: '/admin/users'
+    href: '/users'
   },
   {
     title: 'Content Manager',
     icon: Layers,
-    href: '/admin/content',
+    href: '/content',
     subItems: [
-      { title: 'Taxonomies & Categories', href: '/admin/content/taxonomies' },
-      { title: 'Tags', href: '/admin/content/tags' },
-      { title: 'Article Suggestions', href: '/admin/content/suggestions' }
+      { title: 'Taxonomies & Categories', href: '/content/taxonomies' },
+      { title: 'Tags', href: '/content/tags' },
+      { title: 'Article Suggestions', href: '/content/suggestions' }
     ]
   },
   {
     title: 'Researcher',
     icon: BookOpen,
-    href: '/admin/research'
+    href: '/research'
   },
   {
     title: 'Writer',
     icon: PenTool,
-    href: '/admin/writer'
+    href: '/writer'
   },
   {
     title: 'Media Manager',
     icon: Image,
-    href: '/admin/media'
+    href: '/media'
   },
   {
     title: 'Social Media',
     icon: Share2,
-    href: '/admin/social',
+    href: '/social',
     subItems: [
-      { title: 'Accounts', href: '/admin/social/accounts' },
-      { title: 'Posts', href: '/admin/social/posts' },
-      { title: 'Hashtag Groups', href: '/admin/social/hashtags' }
+      { title: 'Accounts', href: '/social/accounts' },
+      { title: 'Posts', href: '/social/posts' },
+      { title: 'Hashtag Groups', href: '/social/hashtags' }
     ]
   },
   {
     title: 'Translations',
     icon: Globe2,
-    href: '/admin/translations'
+    href: '/translations'
   }
 ];
+
+const NavLink = ({ href, children, className }) => {
+  const location = useLocation();
+  const isActive = location.pathname === href;
+
+  return (
+    <Link to={href}>
+      <Button
+        variant={isActive ? "secondary" : "ghost"}
+        className={cn("w-full justify-start", className)}
+      >
+        {children}
+      </Button>
+    </Link>
+  );
+};
 
 const AdminLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [expandedItem, setExpandedItem] = React.useState(null);
+  const location = useLocation();
+
+  // Update expanded item based on current path
+  React.useEffect(() => {
+    const currentPath = location.pathname;
+    const expandedIndex = navItems.findIndex(item =>
+      item.subItems?.some(subItem => currentPath.startsWith(subItem.href))
+    );
+    setExpandedItem(expandedIndex >= 0 ? expandedIndex : null);
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,34 +107,42 @@ const AdminLayout = ({ children }) => {
       )}>
         {/* Logo Area */}
         <div className="h-16 flex items-center justify-center border-b">
-          <span className="font-semibold text-lg">Panama In Context</span>
+          <Link to="/" className="font-semibold text-lg">Panama In Context</Link>
         </div>
 
         {/* Navigation */}
         <nav className="p-4 space-y-2">
           {navItems.map((item, index) => (
             <div key={index} className="space-y-1">
-              <Button
-                variant="ghost"
-                className="w-full justify-start"
-                onClick={() => setExpandedItem(expandedItem === index ? null : index)}
-              >
-                <item.icon className="mr-2 h-4 w-4" />
-                {item.title}
-              </Button>
-              {item.subItems && expandedItem === index && (
-                <div className="ml-6 space-y-1">
-                  {item.subItems.map((subItem, subIndex) => (
-                    <Button
-                      key={subIndex}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full justify-start text-sm font-normal"
-                    >
-                      {subItem.title}
-                    </Button>
-                  ))}
-                </div>
+              {item.subItems ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => setExpandedItem(expandedItem === index ? null : index)}
+                  >
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </Button>
+                  {expandedItem === index && (
+                    <div className="ml-6 space-y-1">
+                      {item.subItems.map((subItem, subIndex) => (
+                        <NavLink
+                          key={subIndex}
+                          href={subItem.href}
+                          className="text-sm font-normal"
+                        >
+                          {subItem.title}
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <NavLink href={item.href}>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.title}
+                </NavLink>
               )}
             </div>
           ))}
