@@ -19,6 +19,7 @@ from content.models import (
     ContentStatus,
     Article,
     SocialMediaAccount,
+    MediaSuggestion,
 )
 from extensions import db
 
@@ -199,3 +200,19 @@ def upload_folder(app):
         file.unlink()
     if folder.exists():
         folder.rmdir()
+
+
+# noinspection PyArgumentList
+@pytest.fixture
+def test_media_suggestion(db_session, test_research):
+    """Create a test media suggestion."""
+    suggestion = MediaSuggestion(
+        research_id=test_research.id,
+        commons_categories=["Test Category"],
+        search_queries=["Test Query"],
+        illustration_topics=["Test Topic"],
+        reasoning="Test reasoning",
+    )
+    db_session.add(suggestion)
+    db_session.commit()
+    return suggestion
