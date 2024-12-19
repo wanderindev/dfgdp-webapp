@@ -1,5 +1,6 @@
 import asyncio
 import io
+import json
 from pathlib import Path
 from typing import Generator, Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -10,7 +11,7 @@ from flask.testing import FlaskClient
 from sqlalchemy.orm import Session
 from werkzeug.datastructures import FileStorage
 
-from agents.models import Agent, AgentType, AIModel, Provider
+from agents.models import Agent, AgentType, AIModel, Provider, PromptTemplate
 from app import create_app
 from auth.models import User
 from content.models import (
@@ -24,7 +25,9 @@ from content.models import (
     SocialMediaAccount,
     MediaSuggestion,
 )
+from content.services import ContentManagerService
 from extensions import db
+from init.initial_prompts import INITIAL_PROMPTS
 from translations.models import ApprovedLanguage
 
 
@@ -225,25 +228,42 @@ def test_media_suggestion(db_session, test_research):
 # noinspection PyArgumentList
 @pytest.fixture
 def test_agent(db_session):
-    """Create a test translator agent."""
+    """Create a test content manager agent."""
     model = AIModel(
         name="Test Model",
         provider=Provider.ANTHROPIC,
-        model_id="test-model",
+        model_id="claude-3-5-sonnet-latest",
+        description="Test model",
         is_active=True,
+        input_rate=3.0,
+        output_rate=15.0,
+        batch_input_rate=1.5,
+        batch_output_rate=7.5,
     )
     db_session.add(model)
     db_session.commit()
 
     agent = Agent(
-        name="Test Translator",
-        type=AgentType.TRANSLATOR,
+        name="Test Content Manager",
+        type=AgentType.CONTENT_MANAGER,
         model=model,
+        description="Test content manager agent",
         temperature=0.7,
         max_tokens=1000,
         is_active=True,
     )
+
+    # Add a test prompt template with proper placeholders
+    template = PromptTemplate(
+        agent=agent,
+        name="content_suggestion",
+        description="Template for generating new article suggestions",
+        template=INITIAL_PROMPTS["content_manager_prompt"],
+        is_active=True,
+    )
+
     db_session.add(agent)
+    db_session.add(template)
     db_session.commit()
     return agent
 
@@ -352,3 +372,74 @@ def mock_wikimedia_service():
         service_instance.__aenter__ = AsyncMock(return_value=service_instance)
         service_instance.__aexit__ = AsyncMock()
         yield service_instance
+
+
+@pytest.fixture
+def mock_anthropic_response():
+    """Create a mock Anthropic API response"""
+    mock_response = Mock()
+    mock_response.content = [
+        Mock(
+            text=json.dumps(
+                {
+                    "suggestions": [
+                        {
+                            "title": "Test Article",
+                            "main_topic": "Main topic description",
+                            "sub_topics": ["Topic 1", "Topic 2"],
+                            "point_of_view": "Academic analysis",
+                        }
+                    ]
+                }
+            )
+        )
+    ]
+    mock_response.usage = Mock(input_tokens=100, output_tokens=50)
+    return mock_response
+
+
+@pytest.fixture
+def mock_anthropic_client(mock_anthropic_response):
+    """Mock the Anthropic client"""
+    with patch("content.services.AnthropicClient._generate_content") as mock_generate:
+        # Configure the mock to return our response when awaited
+        mock_generate.return_value = mock_anthropic_response
+        yield mock_generate
+
+
+# noinspection DuplicatedCode
+@pytest.mark.asyncio
+async def test_generate_suggestions_success(
+    app,
+    db_session,
+    test_category,
+    test_agent,
+    mock_anthropic_client,
+    mock_anthropic_response,
+):
+    """Test successful generation of article suggestions."""
+    # Initialize service
+    service = ContentManagerService()
+
+    # Generate suggestions
+    suggestions = await service.generate_suggestions(
+        category_id=test_category.id,
+        level=ArticleLevel.HIGH_SCHOOL.value,
+        num_suggestions=1,
+    )
+
+    # Verify suggestions were created
+    assert len(suggestions) == 1
+    suggestion = suggestions[0]
+    assert isinstance(suggestion, ArticleSuggestion)
+    assert suggestion.category_id == test_category.id
+    assert suggestion.title == "Test Article"
+    assert suggestion.main_topic == "Main topic description"
+    assert suggestion.sub_topics == ["Topic 1", "Topic 2"]
+    assert suggestion.level == ArticleLevel.HIGH_SCHOOL
+    assert suggestion.status == ContentStatus.PENDING
+
+    # Verify API was called with correct parameters
+    mock_anthropic_client.assert_called_once()
+    call_args = mock_anthropic_client.call_args
+    assert "suggestions" in call_args.args[0]  # Check prompt content

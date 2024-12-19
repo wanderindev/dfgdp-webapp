@@ -84,6 +84,9 @@ class ContentManagerService:
             ValueError: If parameters are invalid or API call fails
         """
         # Validate parameters
+        if num_suggestions < 1:
+            raise ValueError("Number of suggestions must be at least 1")
+
         category = Category.query.get(category_id)
         if not category:
             raise ValueError(f"Category {category_id} not found")
