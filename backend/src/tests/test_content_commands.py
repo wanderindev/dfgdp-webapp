@@ -1,6 +1,3 @@
-from unittest.mock import AsyncMock, patch
-
-import pytest
 from click.testing import CliRunner
 from flask.cli import ScriptInfo
 
@@ -23,58 +20,6 @@ from content.models import (
     ArticleLevel,
     ContentStatus,
 )
-
-
-@pytest.fixture
-def mock_content_manager_service():
-    with patch("content.commands.ContentManagerService") as mock:
-        # Mock the async generate_suggestions method
-        service_instance = mock.return_value
-        service_instance.generate_suggestions = AsyncMock()
-        yield service_instance
-
-
-@pytest.fixture
-def mock_researcher_service():
-    with patch("content.commands.ResearcherService") as mock:
-        service_instance = mock.return_value
-        service_instance.generate_research = AsyncMock()
-        yield service_instance
-
-
-@pytest.fixture
-def mock_writer_service():
-    with patch("content.commands.WriterService") as mock:
-        service_instance = mock.return_value
-        service_instance.generate_article = AsyncMock()
-        yield service_instance
-
-
-@pytest.fixture
-def mock_social_media_service():
-    with patch("content.commands.SocialMediaManagerService") as mock:
-        service_instance = mock.return_value
-        service_instance.generate_story_promotion = AsyncMock()
-        service_instance.generate_did_you_know_posts = AsyncMock()
-        yield service_instance
-
-
-@pytest.fixture
-def mock_media_manager_service():
-    with patch("content.commands.MediaManagerService") as mock:
-        service_instance = mock.return_value
-        service_instance.generate_suggestions = AsyncMock()
-        yield service_instance
-
-
-@pytest.fixture
-def mock_wikimedia_service():
-    with patch("content.commands.WikimediaService") as mock:
-        service_instance = mock.return_value
-        service_instance.process_suggestion = AsyncMock()
-        service_instance.__aenter__ = AsyncMock(return_value=service_instance)
-        service_instance.__aexit__ = AsyncMock()
-        yield service_instance
 
 
 # noinspection PyArgumentList,PyTypeChecker
