@@ -227,8 +227,11 @@ def test_media_suggestion(db_session, test_research):
 
 # noinspection PyArgumentList
 @pytest.fixture
-def test_agent(db_session):
-    """Create a test content manager agent."""
+def test_agent(db_session, request):
+    """Create a test agent."""
+    # Get agent type from marker, default to CONTENT_MANAGER if not specified
+    agent_type = getattr(request, "param", AgentType.CONTENT_MANAGER)
+
     model = AIModel(
         name="Test Model",
         provider=Provider.ANTHROPIC,
@@ -244,21 +247,31 @@ def test_agent(db_session):
     db_session.commit()
 
     agent = Agent(
-        name="Test Content Manager",
-        type=AgentType.CONTENT_MANAGER,
+        name=f"Test {agent_type.value} Agent",
+        type=agent_type,
         model=model,
-        description="Test content manager agent",
+        description=f"Test {agent_type.value.lower()} agent",
         temperature=0.7,
         max_tokens=1000,
         is_active=True,
     )
 
-    # Add a test prompt template with proper placeholders
+    # Add appropriate template based on agent type
+    if agent_type == AgentType.CONTENT_MANAGER:
+        template_name = "content_suggestion"
+        template_content = INITIAL_PROMPTS["content_manager_prompt"]
+    elif agent_type == AgentType.RESEARCHER:
+        template_name = "research"
+        template_content = INITIAL_PROMPTS["researcher_prompt"]
+    else:
+        template_name = "test_template"
+        template_content = "Test template content"
+
     template = PromptTemplate(
         agent=agent,
-        name="content_suggestion",
-        description="Template for generating new article suggestions",
-        template=INITIAL_PROMPTS["content_manager_prompt"],
+        name=template_name,
+        description=f"Template for {agent_type.value.lower()}",
+        template=template_content,
         is_active=True,
     )
 
@@ -271,9 +284,11 @@ def test_agent(db_session):
 @pytest.fixture
 def mock_event_loop():
     """Provide a test event loop."""
-    loop = asyncio.new_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     asyncio.set_event_loop(loop)
     yield loop
+    asyncio.set_event_loop(None)
     loop.close()
 
 

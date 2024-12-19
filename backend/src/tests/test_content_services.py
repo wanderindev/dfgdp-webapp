@@ -4,6 +4,7 @@ from unittest.mock import patch, Mock
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+from agents.models import AgentType
 from content.models import (
     ArticleSuggestion,
     ContentStatus,
@@ -11,7 +12,7 @@ from content.models import (
     Article,
     Research,
 )
-from content.services import ContentManagerService
+from content.services import ContentManagerService, ResearcherService
 
 
 # noinspection DuplicatedCode
@@ -527,3 +528,136 @@ async def test_generate_suggestions_articles_without_summaries(
 
     # Verify new suggestion was still created successfully
     assert len(suggestions) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_agent", [AgentType.RESEARCHER], indirect=True)
+async def test_generate_research_invalid_suggestion(
+    app,
+    db_session,
+    test_agent,
+    mock_anthropic_client,
+):
+    """Test research generation with invalid suggestion ID."""
+    service = ResearcherService()
+
+    with pytest.raises(ValueError, match="ArticleSuggestion 999 not found"):
+        await service.generate_research(suggestion_id=999)
+
+    # Verify no API call was made
+    mock_anthropic_client.assert_not_called()
+
+    # Verify no research was created
+    assert Research.query.count() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_agent", [AgentType.RESEARCHER], indirect=True)
+async def test_generate_research_api_error(
+    app,
+    db_session,
+    test_suggestion,
+    test_agent,
+    mock_anthropic_client,
+    caplog,
+):
+    """Test handling of API errors during research generation."""
+    # Configure mock to raise an error
+    mock_anthropic_client.side_effect = Exception("API Error")
+
+    service = ResearcherService()
+
+    with pytest.raises(Exception):
+        await service.generate_research(suggestion_id=test_suggestion.id)
+
+    # Verify error was logged
+    assert "Error generating research: API Error" in [r.message for r in caplog.records]
+
+    # Verify API was called
+    mock_anthropic_client.assert_called_once()
+
+    # Verify no research was created
+    assert Research.query.count() == 0
+
+
+# noinspection PyTypeChecker
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_agent", [AgentType.RESEARCHER], indirect=True)
+async def test_generate_research_database_error(
+    app,
+    db_session,
+    test_suggestion,
+    test_agent,
+    mock_anthropic_client,
+):
+    """Test handling of database errors during research creation."""
+    # Configure mock response
+    mock_response = Mock(
+        content=[Mock(text="Test research content")],
+        usage=Mock(input_tokens=100, output_tokens=50),
+    )
+    mock_anthropic_client.return_value = mock_response
+
+    service = ResearcherService()
+
+    # Simulate database error
+    with patch("content.services.db.session.commit") as mock_commit:
+        mock_commit.side_effect = IntegrityError(None, None, None)
+
+        with pytest.raises(Exception):
+            await service.generate_research(suggestion_id=test_suggestion.id)
+
+    # Verify session was rolled back and no research was created
+    assert Research.query.count() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("test_agent", [AgentType.RESEARCHER], indirect=True)
+async def test_clean_markdown_method(
+    app,
+    db_session,
+    test_agent,
+):
+    """Test the _clean_markdown static method."""
+    # Test with Markdown code block
+    content = "```markdown\nTest content\n```"
+    cleaned = ResearcherService._clean_markdown(content)
+    assert cleaned.strip() == "Test content"  # Use strip() to handle newlines
+
+    # Test with regular code block
+    content = "```\nTest content\n```"
+    cleaned = ResearcherService._clean_markdown(content)
+    assert cleaned.strip() == "Test content"
+
+    # Test with no code block
+    content = "Test content"
+    cleaned = ResearcherService._clean_markdown(content)
+    assert cleaned.strip() == "Test content"
+
+
+@pytest.mark.asyncio
+async def test_prepare_research_params(
+    app,
+    db_session,
+    test_suggestion,
+    test_category,
+):
+    """Test the _prepare_research_params static method."""
+    params = ResearcherService._prepare_research_params(test_suggestion, test_category)
+
+    # Verify structure and content of parameters
+    assert "suggestion" in params
+    assert "context" in params
+    assert "constraints" in params
+
+    # Verify suggestion parameters
+    assert params["suggestion"]["title"] == test_suggestion.title
+    assert params["suggestion"]["main_topic"] == test_suggestion.main_topic
+    assert params["suggestion"]["level"] == "COLLEGE"
+
+    # Verify context parameters
+    assert params["context"]["taxonomy"] == test_category.taxonomy.name
+    assert params["context"]["category"] == test_category.name
+
+    # Verify format constraint
+    assert params["constraints"]["format"] == "markdown"
