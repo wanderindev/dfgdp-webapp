@@ -40,8 +40,8 @@ class Tag:
     id: int
     name: str
     status: ContentStatus
-    approved_by_id: int = strawberry.field(name="approvedById")
-    approved_at: datetime = strawberry.field(name="approvedAt")
+    approved_by_id: Optional[int] = strawberry.field(name="approvedById")
+    approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
 
 
 # Inputs
@@ -191,6 +191,16 @@ class Mutation:
 
         tag = Tag(name=input.name)
         db.session.add(tag)
+        db.session.commit()
+        return tag
+
+    @strawberry.mutation
+    def update_tag(self, id: int, input: TagInput) -> Tag:
+        from content.models import Tag
+        from extensions import db
+
+        tag = Tag.query.get_or_404(id)
+        tag.name = input.name
         db.session.commit()
         return tag
 

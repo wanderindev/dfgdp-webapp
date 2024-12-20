@@ -26,10 +26,9 @@ const QUERIES = {
         id
         name
         status
-        approved_at
       }
     }
-  `
+  `,
 };
 
 const MUTATIONS = {
@@ -97,16 +96,25 @@ const MUTATIONS = {
     }
   `,
 
+  UPDATE_TAG: `
+    mutation UpdateTag($id: Int!, $input: TagInput!) {
+      updateTag(id: $id, input: $input) {
+        id
+        name
+        status
+      }
+    }
+  `,
+
   UPDATE_TAG_STATUS: `
     mutation UpdateTagStatus($id: Int!, $status: ContentStatus!) {
       updateTagStatus(id: $id, status: $status) {
         id
         name
         status
-        approvedAt
       }
     }
-  `
+  `,
 };
 
 // Helper function for GraphQL requests
@@ -194,6 +202,11 @@ export const contentService = {
   async createTag(input) {
     const data = await fetchGraphQL(MUTATIONS.CREATE_TAG, { input });
     return data.createTag;
+  },
+
+  async updateTag(id, input) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_TAG, { id, input });
+    return data.updateTag;
   },
 
   async updateTagStatus(id, status) {
