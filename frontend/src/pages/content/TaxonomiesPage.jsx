@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { contentService } from "@/services/content";
 
 export const TaxonomiesPage = () => {
   const { toast } = useToast();
@@ -34,21 +35,7 @@ export const TaxonomiesPage = () => {
   const fetchTaxonomies = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      const data = await Promise.resolve([
-        {
-          id: 1,
-          name: "Sample Taxonomy",
-          description: "Sample Description",
-          categories: [
-            {
-              id: 1,
-              name: "Sample Category",
-              description: "Sample Category Description"
-            }
-          ]
-        }
-      ]);
+      const data = await contentService.getTaxonomies();
       setTaxonomies(data);
     } catch (error) {
       toast({
@@ -63,8 +50,11 @@ export const TaxonomiesPage = () => {
 
   const handleSaveTaxonomy = async (taxonomyData) => {
     try {
-      // TODO: Replace with actual API call
-      await Promise.resolve();
+      if (taxonomyData.id) {
+        await contentService.updateTaxonomy(taxonomyData.id, taxonomyData);
+      } else {
+        await contentService.createTaxonomy(taxonomyData);
+      }
       toast({
         title: "Success",
         description: `Taxonomy ${taxonomyData.id ? 'updated' : 'created'} successfully`,
@@ -82,8 +72,7 @@ export const TaxonomiesPage = () => {
 
   const handleDeleteTaxonomy = async (taxonomyId) => {
     try {
-      // TODO: Replace with actual API call
-      await Promise.resolve();
+      await contentService.deleteTaxonomy(taxonomyId);
       toast({
         title: "Success",
         description: "Taxonomy deleted successfully",
@@ -100,8 +89,12 @@ export const TaxonomiesPage = () => {
 
   const handleSaveCategory = async (categoryData) => {
     try {
-      // TODO: Replace with actual API call
-      await Promise.resolve();
+      console.log(categoryData)
+      if (categoryData.id) {
+        await contentService.updateCategory(categoryData.id, categoryData);
+      } else {
+        await contentService.createCategory(categoryData);
+      }
       toast({
         title: "Success",
         description: `Category ${categoryData.id ? 'updated' : 'created'} successfully`,
@@ -120,8 +113,7 @@ export const TaxonomiesPage = () => {
 
   const handleDeleteCategory = async (categoryId) => {
     try {
-      // TODO: Replace with actual API call
-      await Promise.resolve();
+      await contentService.deleteCategory(categoryId);
       toast({
         title: "Success",
         description: "Category deleted successfully",

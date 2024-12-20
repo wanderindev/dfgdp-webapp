@@ -242,7 +242,7 @@ const CategoryDialog = ({
     e.preventDefault();
     onSave({
       id: category?.id,
-      taxonomyId: category?.taxonomy_id || taxonomyId,
+      taxonomyId: category?.taxonomyId || taxonomyId,
       ...formData
     });
   };

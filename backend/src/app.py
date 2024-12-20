@@ -30,6 +30,19 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     CORS(app)
     login_manager.init_app(app)
 
+    # Configure CORS
+    CORS(
+        app,
+        resources={
+            r"/content/graphql": {
+                "origins": ["http://localhost:5173", "https://panamaincontext.com"],
+                "methods": ["POST", "OPTIONS"],
+                "allow_headers": ["Content-Type"],
+                "supports_credentials": True,
+            }
+        },
+    )
+
     # Initialize Redis
     redis_client.from_url(app.config["REDIS_URL"])
 
@@ -55,6 +68,17 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(content_bp, url_prefix="/content")
     app.register_blueprint(translations_bp, url_prefix="/translations")
+
+    # Configure GraphQL view
+    from strawberry.flask.views import GraphQLView
+    from content.schema import schema
+
+    app.add_url_rule(
+        "/content/graphql",
+        view_func=GraphQLView.as_view(
+            "graphql_view", schema=schema, graphiql=app.debug
+        ),
+    )
 
     # Register CLI commands
     app.cli.add_command(auth_cli)
