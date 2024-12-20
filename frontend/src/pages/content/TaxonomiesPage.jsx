@@ -1,6 +1,239 @@
-export const TaxonomiesPage = () => (
-  <div className="space-y-4">
-    <h1 className="text-2xl font-bold">Taxonomies & Categories</h1>
-    <p>Taxonomy management will go here</p>
-  </div>
-);
+import React from 'react';
+import { useToast } from "@/components/ui/use-toast";
+import { TaxonomyTree, TaxonomyDialog, CategoryDialog } from '@/components/content/TaxonomyComponents';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export const TaxonomiesPage = () => {
+  const { toast } = useToast();
+  const [loading, setLoading] = React.useState(true);
+  const [taxonomies, setTaxonomies] = React.useState([]);
+  const [editingTaxonomy, setEditingTaxonomy] = React.useState(null);
+  const [editingCategory, setEditingCategory] = React.useState(null);
+  const [selectedTaxonomyId, setSelectedTaxonomyId] = React.useState(null);
+  const [confirmDialog, setConfirmDialog] = React.useState({
+    open: false,
+    title: '',
+    description: '',
+    action: null,
+  });
+
+  // Fetch taxonomies on mount
+  React.useEffect(() => {
+    fetchTaxonomies();
+  }, []);
+
+  const fetchTaxonomies = async () => {
+    try {
+      setLoading(true);
+      // TODO: Replace with actual API call
+      const data = await Promise.resolve([
+        {
+          id: 1,
+          name: "Sample Taxonomy",
+          description: "Sample Description",
+          categories: [
+            {
+              id: 1,
+              name: "Sample Category",
+              description: "Sample Category Description"
+            }
+          ]
+        }
+      ]);
+      setTaxonomies(data);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load taxonomies. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveTaxonomy = async (taxonomyData) => {
+    try {
+      // TODO: Replace with actual API call
+      await Promise.resolve();
+      toast({
+        title: "Success",
+        description: `Taxonomy ${taxonomyData.id ? 'updated' : 'created'} successfully`,
+      });
+      setEditingTaxonomy(null);
+      fetchTaxonomies();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to ${taxonomyData.id ? 'update' : 'create'} taxonomy. Please try again.`,
+      });
+    }
+  };
+
+  const handleDeleteTaxonomy = async (taxonomyId) => {
+    try {
+      // TODO: Replace with actual API call
+      await Promise.resolve();
+      toast({
+        title: "Success",
+        description: "Taxonomy deleted successfully",
+      });
+      fetchTaxonomies();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete taxonomy. Please try again.",
+      });
+    }
+  };
+
+  const handleSaveCategory = async (categoryData) => {
+    try {
+      // TODO: Replace with actual API call
+      await Promise.resolve();
+      toast({
+        title: "Success",
+        description: `Category ${categoryData.id ? 'updated' : 'created'} successfully`,
+      });
+      setEditingCategory(null);
+      setSelectedTaxonomyId(null);
+      fetchTaxonomies();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to ${categoryData.id ? 'update' : 'create'} category. Please try again.`,
+      });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    try {
+      // TODO: Replace with actual API call
+      await Promise.resolve();
+      toast({
+        title: "Success",
+        description: "Category deleted successfully",
+      });
+      fetchTaxonomies();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete category. Please try again.",
+      });
+    }
+  };
+
+  const showConfirmDialog = (title, description, action) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      description,
+      action,
+    });
+  };
+
+  if (loading && !taxonomies.length) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-bold">Taxonomies & Categories</h1>
+
+      <TaxonomyTree
+        taxonomies={taxonomies}
+        onAddTaxonomy={() => setEditingTaxonomy({})}
+        onEditTaxonomy={setEditingTaxonomy}
+        onDeleteTaxonomy={(id) => showConfirmDialog(
+          "Delete Taxonomy",
+          "Are you sure you want to delete this taxonomy? This will also delete all associated categories.",
+          () => handleDeleteTaxonomy(id)
+        )}
+        onAddCategory={(taxonomyId) => {
+          setSelectedTaxonomyId(taxonomyId);
+          setEditingCategory({});
+        }}
+        onEditCategory={setEditingCategory}
+        onDeleteCategory={(id) => showConfirmDialog(
+          "Delete Category",
+          "Are you sure you want to delete this category?",
+          () => handleDeleteCategory(id)
+        )}
+      />
+
+      <TaxonomyDialog
+        taxonomy={editingTaxonomy}
+        isOpen={!!editingTaxonomy}
+        onClose={() => setEditingTaxonomy(null)}
+        onSave={handleSaveTaxonomy}
+      />
+
+      <CategoryDialog
+        category={editingCategory}
+        taxonomyId={selectedTaxonomyId}
+        isOpen={!!editingCategory}
+        onClose={() => {
+          setEditingCategory(null);
+          setSelectedTaxonomyId(null);
+        }}
+        onSave={handleSaveCategory}
+      />
+
+      <AlertDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmDialog({
+              open: false,
+              title: '',
+              description: '',
+              action: null,
+            });
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              confirmDialog.action();
+              setConfirmDialog({
+                open: false,
+                title: '',
+                description: '',
+                action: null,
+              });
+            }}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};
+
+export default TaxonomiesPage;
