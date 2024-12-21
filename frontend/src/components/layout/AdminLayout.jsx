@@ -1,8 +1,11 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Users, Layers, BookOpen, PenTool, Image, Share2, Globe2, Menu } from 'lucide-react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Users, Layers, BookOpen, PenTool, Image, Share2, Globe2, Menu, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
 
 // Navigation configuration
 const navItems = [
@@ -73,6 +76,8 @@ const AdminLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [expandedItem, setExpandedItem] = React.useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   // Update expanded item based on current path
   React.useEffect(() => {
@@ -82,6 +87,15 @@ const AdminLayout = ({ children }) => {
     );
     setExpandedItem(expandedIndex >= 0 ? expandedIndex : null);
   }, [location.pathname]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,7 +107,7 @@ const AdminLayout = ({ children }) => {
             size="icon"
             onClick={() => setSidebarOpen(!sidebarOpen)}
           >
-            <Menu className="h-6 w-6" />
+            <Menu className="h-6 w-6"/>
           </Button>
           <span className="font-semibold text-lg">Panama In Context</span>
         </div>
@@ -121,7 +135,7 @@ const AdminLayout = ({ children }) => {
                     className="w-full justify-start"
                     onClick={() => setExpandedItem(expandedItem === index ? null : index)}
                   >
-                    <item.icon className="mr-2 h-4 w-4" />
+                    <item.icon className="mr-2 h-4 w-4"/>
                     {item.title}
                   </Button>
                   {expandedItem === index && (
@@ -140,12 +154,23 @@ const AdminLayout = ({ children }) => {
                 </>
               ) : (
                 <NavLink href={item.href}>
-                  <item.icon className="mr-2 h-4 w-4" />
+                  <item.icon className="mr-2 h-4 w-4"/>
                   {item.title}
                 </NavLink>
               )}
             </div>
           ))}
+          {/* Logout section at bottom */}
+          <div className="p-4 border-t">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-red-600 hover:text-red-600 hover:bg-red-100"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </nav>
       </aside>
 
@@ -156,7 +181,7 @@ const AdminLayout = ({ children }) => {
         "p-4 lg:p-8"
       )}>
         <div className="max-w-7xl mx-auto">
-          {children}
+          <Outlet/>
         </div>
       </main>
 

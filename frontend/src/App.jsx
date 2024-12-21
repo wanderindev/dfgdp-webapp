@@ -1,5 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
 import AdminLayout from './components/layout/AdminLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
@@ -17,43 +20,34 @@ import { TranslationsPage } from './pages/TranslationsPage';
 const App = () => {
   return (
     <BrowserRouter>
-      <AdminLayout>
+      <AuthProvider>
         <Routes>
-          {/* Default redirect to dashboard */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Public route */}
+          <Route path="/login" element={<LoginPage />} />
 
-          {/* Main dashboard */}
-          <Route path="/dashboard" element={<DashboardPage />} />
-
-          {/* Users management */}
-          <Route path="/users" element={<UsersPage />} />
-
-          {/* Content management */}
-          <Route path="/content/taxonomies" element={<TaxonomiesPage />} />
-          <Route path="/content/tags" element={<TagsPage />} />
-          <Route path="/content/suggestions" element={<SuggestionsPage />} />
-
-          {/* Research */}
-          <Route path="/research" element={<ResearchPage />} />
-
-          {/* Writer */}
-          <Route path="/writer" element={<WriterPage />} />
-
-          {/* Media */}
-          <Route path="/media" element={<MediaPage />} />
-
-          {/* Social Media */}
-          <Route path="/social/accounts" element={<SocialAccountsPage />} />
-          <Route path="/social/posts" element={<SocialPostsPage />} />
-          <Route path="/social/hashtags" element={<HashtagsPage />} />
-
-          {/* Translations */}
-          <Route path="/translations" element={<TranslationsPage />} />
-
-          {/* Catch-all redirect to dashboard */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Protected routes */}
+          <Route element={
+            <ProtectedRoute>
+              <AdminLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/content/taxonomies" element={<TaxonomiesPage />} />
+            <Route path="/content/tags" element={<TagsPage />} />
+            <Route path="/content/suggestions" element={<SuggestionsPage />} />
+            <Route path="/research" element={<ResearchPage />} />
+            <Route path="/writer" element={<WriterPage />} />
+            <Route path="/media" element={<MediaPage />} />
+            <Route path="/social/accounts" element={<SocialAccountsPage />} />
+            <Route path="/social/posts" element={<SocialPostsPage />} />
+            <Route path="/social/hashtags" element={<HashtagsPage />} />
+            <Route path="/translations" element={<TranslationsPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
         </Routes>
-      </AdminLayout>
+      </AuthProvider>
     </BrowserRouter>
   );
 };

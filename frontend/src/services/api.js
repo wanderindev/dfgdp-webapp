@@ -44,4 +44,44 @@ export const api = {
     if (!response.ok) throw new Error('Failed to reset password');
     return response.json();
   },
+
+  async login({ email, password, remember = true }) {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ email, password, remember }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Login failed');
+    }
+
+    return response.json();
+  },
+
+  async logout() {
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Logout failed');
+    }
+  },
+
+  async getCurrentUser() {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Not authenticated');
+    }
+
+    return response.json();
+  }
 };

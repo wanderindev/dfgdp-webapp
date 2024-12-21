@@ -33,14 +33,9 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     # Configure CORS
     CORS(
         app,
-        resources={
-            r"/content/graphql": {
-                "origins": ["http://localhost:5173", "https://panamaincontext.com"],
-                "methods": ["POST", "OPTIONS"],
-                "allow_headers": ["Content-Type"],
-                "supports_credentials": True,
-            }
-        },
+        origins=["http://localhost:5173", "https://panamaincontext.com"],
+        supports_credentials=True,
+        allow_headers=["Content-Type"],
     )
 
     # Initialize Redis
