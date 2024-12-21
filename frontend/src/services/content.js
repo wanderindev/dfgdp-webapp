@@ -29,6 +29,24 @@ const QUERIES = {
       }
     }
   `,
+
+  GET_SUGGESTIONS: `
+    query GetSuggestions($status: ContentStatus) {
+      articleSuggestions(status: $status) {
+        id
+        title
+        mainTopic
+        subTopics
+        pointOfView
+        level
+        status
+        category {
+          id
+          name
+        }
+      }
+    }
+  `,
 };
 
 const MUTATIONS = {
@@ -111,6 +129,52 @@ const MUTATIONS = {
       updateTagStatus(id: $id, status: $status) {
         id
         name
+        status
+      }
+    }
+  `,
+
+  GENERATE_SUGGESTIONS: `
+    mutation GenerateSuggestions($categoryId: Int!, $level: String!, $count: Int!) {
+      generateSuggestions(categoryId: $categoryId, level: $level, count: $count) {
+        id
+        title
+        mainTopic
+        subTopics
+        pointOfView
+        level
+        status
+      }
+    }
+  `,
+
+  UPDATE_SUGGESTION: `
+    mutation UpdateSuggestion($id: Int!, $input: ArticleSuggestionInput!) {
+      updateSuggestion(id: $id, input: $input) {
+        id
+        title
+        mainTopic
+        subTopics
+        pointOfView
+        level
+        status
+      }
+    }
+  `,
+
+  UPDATE_SUGGESTION_STATUS: `
+    mutation UpdateSuggestionStatus($id: Int!, $status: ContentStatus!) {
+      updateSuggestionStatus(id: $id, status: $status) {
+        id
+        status
+      }
+    }
+  `,
+
+  GENERATE_RESEARCH: `
+    mutation GenerateResearch($suggestionId: Int!) {
+      generateResearch(suggestionId: $suggestionId) {
+        id
         status
       }
     }
@@ -212,5 +276,46 @@ export const contentService = {
   async updateTagStatus(id, status) {
     const data = await fetchGraphQL(MUTATIONS.UPDATE_TAG_STATUS, { id, status });
     return data.updateTagStatus;
-  }
+  },
+
+  // Get article suggestions
+  async getSuggestions(status = null) {
+    const data = await fetchGraphQL(QUERIES.GET_SUGGESTIONS, { status });
+    return data.articleSuggestions;
+  },
+
+  // Generate new suggestions
+  async generateSuggestions({ categoryId, level, count }) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_SUGGESTIONS, {
+      categoryId,
+      level,
+      count,
+    });
+    return data.generateSuggestions;
+  },
+
+  // Update suggestion
+  async updateSuggestion(id, suggestionData) {
+    const input = {
+      title: suggestionData.title,
+      mainTopic: suggestionData.mainTopic,
+      subTopics: suggestionData.subTopics,
+      pointOfView: suggestionData.pointOfView,
+      level: suggestionData.level,
+    };
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_SUGGESTION, { id, input });
+    return data.updateSuggestion;
+  },
+
+  // Update suggestion status
+  async updateSuggestionStatus(id, status) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_SUGGESTION_STATUS, { id, status });
+    return data.updateSuggestionStatus;
+  },
+
+  // Generate research for a suggestion
+  async generateResearch(suggestionId) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_RESEARCH, { suggestionId });
+    return data.generateResearch;
+  },
 };

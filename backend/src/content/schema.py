@@ -13,6 +13,22 @@ class ContentStatus(str, Enum):
     REJECTED = "REJECTED"
 
 
+@strawberry.enum
+class ContentStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+@strawberry.enum
+class ArticleLevel(str, Enum):
+    ELEMENTARY = "ELEMENTARY"
+    MIDDLE_SCHOOL = "MIDDLE_SCHOOL"
+    HIGH_SCHOOL = "HIGH_SCHOOL"
+    COLLEGE = "COLLEGE"
+    GENERAL = "GENERAL"
+
+
 @strawberry.type
 class Category:
     id: int
@@ -44,6 +60,21 @@ class Tag:
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
 
 
+@strawberry.type
+class ArticleSuggestion:
+    id: int
+    category_id: int = strawberry.field(name="categoryId")
+    title: str
+    main_topic: str = strawberry.field(name="mainTopic")
+    sub_topics: List[str] = strawberry.field(name="subTopics")
+    point_of_view: str = strawberry.field(name="pointOfView")
+    level: ArticleLevel
+    status: ContentStatus
+    approved_by_id: Optional[int] = strawberry.field(name="approvedById")
+    approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
+    category: Category
+
+
 # Inputs
 @strawberry.input
 class TaxonomyInput:
@@ -61,6 +92,15 @@ class CategoryInput:
 @strawberry.input
 class TagInput:
     name: str
+
+
+@strawberry.input
+class ArticleSuggestionInput:
+    title: str
+    main_topic: str = strawberry.field(name="mainTopic")
+    sub_topics: List[str] = strawberry.field(name="subTopics")
+    point_of_view: str = strawberry.field(name="pointOfView")
+    level: ArticleLevel
 
 
 # Queries
@@ -111,6 +151,18 @@ class Query:
         from content.models import Tag
 
         return Tag.query.get(id)
+
+    @strawberry.field
+    def article_suggestions(
+        self, status: Optional[ContentStatus] = None
+    ) -> List[ArticleSuggestion]:
+        """Get article suggestions with optional status filter."""
+        from content.models import ArticleSuggestion
+
+        query = ArticleSuggestion.query
+        if status:
+            query = query.filter_by(status=status)
+        return query.order_by(ArticleSuggestion.created_at.desc()).all()
 
 
 # Mutations
@@ -217,6 +269,91 @@ class Mutation:
             tag.approved_by_id = current_user.id
         db.session.commit()
         return tag
+
+    @strawberry.mutation
+    def generate_suggestions(
+        self, category_id: int, level: str, count: int = 3
+    ) -> List[ArticleSuggestion]:
+        """Generate new article suggestions."""
+        from content.services import ContentManagerService
+        import asyncio
+
+        service = ContentManagerService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            suggestions = loop.run_until_complete(
+                service.generate_suggestions(
+                    category_id=category_id, level=level, num_suggestions=count
+                )
+            )
+            return suggestions
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def update_suggestion(
+        self, id: int, input: ArticleSuggestionInput
+    ) -> ArticleSuggestion:
+        """Update an existing article suggestion."""
+        from content.models import ArticleSuggestion
+        from extensions import db
+
+        suggestion = ArticleSuggestion.query.get_or_404(id)
+        suggestion.title = input.title
+        suggestion.main_topic = input.main_topic
+        suggestion.sub_topics = input.sub_topics
+        suggestion.point_of_view = input.point_of_view
+        suggestion.level = input.level
+
+        db.session.commit()
+        return suggestion
+
+    @strawberry.mutation
+    def update_suggestion_status(
+        self, id: int, status: ContentStatus
+    ) -> ArticleSuggestion:
+        """Update the status of an article suggestion."""
+        from content.models import ArticleSuggestion
+        from extensions import db
+        from datetime import datetime, timezone
+
+        suggestion = ArticleSuggestion.query.get_or_404(id)
+        suggestion.status = status
+
+        if status == ContentStatus.APPROVED:
+            suggestion.approved_at = datetime.now(timezone.utc)
+            suggestion.approved_by_id = current_user.id
+        elif status == ContentStatus.PENDING:
+            suggestion.approved_at = None
+            suggestion.approved_by_id = None
+
+        db.session.commit()
+        return suggestion
+
+    @strawberry.mutation
+    def generate_research(self, suggestion_id: int) -> ArticleSuggestion:
+        """Generate research for an approved article suggestion."""
+        from content.services import ResearcherService
+        from content.models import ArticleSuggestion, ContentStatus
+        import asyncio
+
+        suggestion = ArticleSuggestion.query.get_or_404(suggestion_id)
+        if suggestion.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate research for approved suggestions")
+
+        service = ResearcherService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(
+                service.generate_research(suggestion_id=suggestion_id)
+            )
+            return suggestion
+        finally:
+            loop.close()
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
