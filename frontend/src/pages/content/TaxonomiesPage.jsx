@@ -89,7 +89,6 @@ export const TaxonomiesPage = () => {
 
   const handleSaveCategory = async (categoryData) => {
     try {
-      console.log(categoryData)
       if (categoryData.id) {
         await contentService.updateCategory(categoryData.id, categoryData);
       } else {

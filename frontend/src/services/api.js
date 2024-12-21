@@ -3,7 +3,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 export const api = {
   fetchUsers: async ({ page = 1, pageSize = 10, email = '' }) => {
     const response = await fetch(
-      `${API_BASE_URL}/auth/api/users?page=${page}&per_page=${pageSize}&email=${email}`
+      `${API_BASE_URL}/auth/api/users?page=${page}&per_page=${pageSize}&email=${email}`,
+      {
+        credentials: 'include',
+      }
     );
     if (!response.ok) throw new Error('Failed to fetch users');
     return response.json();
@@ -14,6 +17,7 @@ export const api = {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to update user');
     return response.json();
@@ -22,6 +26,7 @@ export const api = {
   activateUser: async (userId) => {
     const response = await fetch(`${API_BASE_URL}/auth/api/users/${userId}/activate`, {
       method: 'POST',
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to activate user');
     return response.json();
@@ -30,6 +35,7 @@ export const api = {
   deactivateUser: async (userId) => {
     const response = await fetch(`${API_BASE_URL}/auth/api/users/${userId}/deactivate`, {
       method: 'POST',
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to deactivate user');
     return response.json();
@@ -40,6 +46,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
+      credentials: 'include',
     });
     if (!response.ok) throw new Error('Failed to reset password');
     return response.json();

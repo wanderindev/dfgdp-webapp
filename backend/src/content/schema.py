@@ -1,8 +1,10 @@
-import strawberry
-from typing import List, Optional
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import List, Optional
+
+import strawberry
 from flask_login import current_user
+from sqlalchemy.orm import joinedload
 
 
 # Enums
@@ -61,6 +63,16 @@ class Tag:
 
 
 @strawberry.type
+class Research:
+    id: int
+    suggestion_id: int = strawberry.field(name="suggestionId")
+    content: str
+    status: ContentStatus
+    approved_by_id: Optional[int] = strawberry.field(name="approvedById")
+    approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
+
+
+@strawberry.type
 class ArticleSuggestion:
     id: int
     category_id: int = strawberry.field(name="categoryId")
@@ -73,6 +85,7 @@ class ArticleSuggestion:
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     category: Category
+    research: Optional[Research] = None
 
 
 # Inputs
@@ -162,6 +175,7 @@ class Query:
         query = ArticleSuggestion.query
         if status:
             query = query.filter_by(status=status)
+        query = query.options(joinedload(ArticleSuggestion.research))
         return query.order_by(ArticleSuggestion.created_at.desc()).all()
 
 

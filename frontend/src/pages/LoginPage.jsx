@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { api } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setUser } = useAuth();
   const [isLoading, setIsLoading] = React.useState(false);
   const [formData, setFormData] = React.useState({
     email: '',
@@ -17,13 +19,16 @@ export const LoginPage = () => {
     remember: true
   });
 
+  // LoginPage.jsx
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await api.login(formData);
-      navigate('/dashboard');
+      const { user } = await api.login(formData);
+      // Use setUser from the outer scope
+      setUser(user);
+      navigate('/dashboard', { replace: true });
     } catch (error) {
       toast({
         variant: "destructive",

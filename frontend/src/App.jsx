@@ -16,6 +16,7 @@ import { SocialAccountsPage } from './pages/social/AccountsPage';
 import { SocialPostsPage } from './pages/social/PostsPage';
 import { HashtagsPage } from './pages/social/HashtagsPage';
 import { TranslationsPage } from './pages/TranslationsPage';
+import { Toaster } from "@/components/ui/use-toast"
 
 const App = () => {
   return (
@@ -47,6 +48,7 @@ const App = () => {
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
+        <Toaster />
       </AuthProvider>
     </BrowserRouter>
   );

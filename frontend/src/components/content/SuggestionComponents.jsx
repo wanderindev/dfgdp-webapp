@@ -366,7 +366,7 @@ export const SuggestionsTable = ({
               <DropdownMenuItem onClick={() => onEdit?.(suggestion)}>
                 Edit suggestion
               </DropdownMenuItem>
-              {suggestion.status === 'APPROVED' && (
+              {suggestion.status === 'APPROVED' && !suggestion.research && (
                 <DropdownMenuItem onClick={() => onGenerateResearch?.(suggestion)}>
                   <BookOpen className="h-4 w-4 mr-2" />
                   Generate Research

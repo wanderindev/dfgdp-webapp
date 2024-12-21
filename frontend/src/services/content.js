@@ -40,6 +40,10 @@ const QUERIES = {
         pointOfView
         level
         status
+        research {
+          id
+          status
+        }
         category {
           id
           name
