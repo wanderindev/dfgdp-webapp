@@ -109,6 +109,7 @@ A comprehensive overview that:
 List at least 5 academic sources with full citations.
 
 WRITING STYLE
+- Use markdown formatting
 - Use full narrative paragraphs
 - Develop each point thoroughly
 - Connect ideas with smooth transitions
