@@ -448,25 +448,8 @@ export const ArticlesTable = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEdit?.(article)}>
-                Edit Article
+                Review Article
               </DropdownMenuItem>
-              {status === 'APPROVED' && (
-                <>
-                  <DropdownMenuItem onClick={() => onGenerateStory?.(article.id)}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Generate Story
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setSelectedArticleId(article.id);
-                      setDykDialogOpen(true);
-                    }}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Generate DYK Posts
-                  </DropdownMenuItem>
-                </>
-              )}
               {status !== 'APPROVED' && (
                 <DropdownMenuItem
                   className="text-green-600"
@@ -489,6 +472,24 @@ export const ArticlesTable = ({
                 >
                   Make Pending
                 </DropdownMenuItem>
+              )}
+              {status === 'APPROVED' && (
+                <>
+                  <hr></hr>
+                  <DropdownMenuItem onClick={() => onGenerateStory?.(article.id)}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Generate Story
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSelectedArticleId(article.id);
+                      setDykDialogOpen(true);
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Generate DYK Posts
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -227,7 +227,7 @@ export const SuggestionDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-[90vw] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Article Suggestion</DialogTitle>
         </DialogHeader>

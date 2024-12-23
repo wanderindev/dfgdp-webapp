@@ -195,8 +195,15 @@ export const ResearchTable = ({
                 <FileEdit className="h-4 w-4 mr-2" />
                 Review Research
               </DropdownMenuItem>
+              {(status === 'APPROVED' && !hasArticle || status === 'REJECTED') && (
+                <DropdownMenuItem onClick={() => onMakePending?.(research.id)}>
+                  <History className="h-4 w-4 mr-2" />
+                  Make Pending
+                </DropdownMenuItem>
+              )}
               {status === 'APPROVED' && !research.article && (
                 <>
+                  <hr></hr>
                   <DropdownMenuItem onClick={() => onGenerateArticle?.(research)}>
                     <BookOpen className="h-4 w-4 mr-2" />
                     Generate Article
@@ -206,12 +213,6 @@ export const ResearchTable = ({
                     Generate Media
                   </DropdownMenuItem>
                 </>
-              )}
-              {(status === 'APPROVED' && !hasArticle || status === 'REJECTED') && (
-                <DropdownMenuItem onClick={() => onMakePending?.(research.id)}>
-                  <History className="h-4 w-4 mr-2" />
-                  Make Pending
-                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
