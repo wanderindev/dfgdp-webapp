@@ -56,16 +56,6 @@ class Tag:
 
 
 @strawberry.type
-class MediaSuggestion:
-    id: int
-    research_id: int = strawberry.field(name="researchId")
-    commons_categories: List[str] = strawberry.field(name="commonsCategories")
-    search_queries: List[str]
-    illustration_topics: List[str]
-    reasoning: str
-
-
-@strawberry.type
 class Research:
     id: int
     suggestion_id: int = strawberry.field(name="suggestionId")
@@ -109,6 +99,37 @@ class Article:
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     published_at: Optional[datetime] = strawberry.field(name="publishedAt")
+
+
+@strawberry.type
+class MediaCandidate:
+    id: int
+    commons_id: str
+    commons_url: str
+    title: str
+    description: Optional[str]
+    author: Optional[str]
+    license: str
+    license_url: Optional[str]
+    width: int
+    height: int
+    mime_type: str
+    file_size: int
+    status: ContentStatus
+    suggestion_id: int = strawberry.field(name="suggestionId")
+    suggestion: "MediaSuggestion"
+
+
+@strawberry.type
+class MediaSuggestion:
+    id: int
+    research_id: int = strawberry.field(name="researchId")
+    commons_categories: List[str] = strawberry.field(name="commonsCategories")
+    search_queries: List[str] = strawberry.field(name="searchQueries")
+    illustration_topics: List[str] = strawberry.field(name="illustrationTopics")
+    reasoning: str
+    research: Research
+    candidates: List[MediaCandidate]
 
 
 @strawberry.input
@@ -257,6 +278,18 @@ class Query:
         from content.models import Article
 
         return Article.query.get(id)
+
+    @strawberry.field
+    def media_suggestions(self) -> List[MediaSuggestion]:
+        """Get all media suggestions with their candidates."""
+        from content.models import MediaSuggestion
+        from sqlalchemy.orm import joinedload
+
+        return (
+            MediaSuggestion.query.options(joinedload(MediaSuggestion.research))
+            .options(joinedload(MediaSuggestion.candidates))
+            .all()
+        )
 
 
 # Mutations
@@ -618,6 +651,38 @@ class Mutation:
                 )
             )
             return article
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def fetch_media_candidates(
+        self, suggestion_id: int, max_per_query: int = 20
+    ) -> MediaSuggestion:
+        """Fetch media candidates from Wikimedia Commons."""
+        from content.models import MediaSuggestion
+        from content.services import WikimediaService
+        from sqlalchemy.orm import joinedload
+        import asyncio
+
+        # Create service and event loop for async operation
+        async def run_wikimedia_service():
+            async with WikimediaService() as service:
+                await service.process_suggestion(
+                    suggestion_id=suggestion_id, max_per_query=max_per_query
+                )
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(run_wikimedia_service())
+            # Refresh the suggestion to get the newly created candidates
+            suggestion = MediaSuggestion.query.options(
+                joinedload(MediaSuggestion.candidates)
+            ).get(suggestion_id)
+            return suggestion
+        except Exception as e:
+            raise ValueError(f"Failed to fetch candidates: {str(e)}")
         finally:
             loop.close()
 

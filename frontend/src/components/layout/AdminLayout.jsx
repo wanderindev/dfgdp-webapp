@@ -37,7 +37,12 @@ const navItems = [
   {
     title: 'Media Manager',
     icon: Image,
-    href: '/media'
+    href: '/media',
+    subItems: [
+      { title: 'Media Suggestions', href: '/media/suggestions' },
+      { title: 'Media Candidates', href: '/media/candidates' },
+      { title: 'Media Library', href: '/media/library' }
+    ]
   },
   {
     title: 'Social Media',

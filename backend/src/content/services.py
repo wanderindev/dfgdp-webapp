@@ -1031,7 +1031,7 @@ class WikimediaService:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=4, max=10),
     )
-    async def search_images(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def search_images(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
         """
         Search for images using the Wikimedia API
 
@@ -1075,7 +1075,7 @@ class WikimediaService:
         wait=wait_exponential(multiplier=1, min=4, max=10),
     )
     async def search_category(
-        self, category: str, limit: int = 10
+        self, category: str, limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
         Search for images in a specific Commons category
@@ -1098,7 +1098,7 @@ class WikimediaService:
         return await self._fetch_files_metadata(titles)
 
     async def process_suggestion(
-        self, suggestion_id: int, max_per_query: int = 5
+        self, suggestion_id: int, max_per_query: int = 10
     ) -> List[MediaCandidate]:
         """
         Process a MediaSuggestion and create MediaCandidate entries

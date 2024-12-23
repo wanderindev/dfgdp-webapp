@@ -94,7 +94,30 @@ const QUERIES = {
         }
       }
     }
-  `
+  `,
+
+  GET_MEDIA_SUGGESTIONS: `
+    query GetMediaSuggestions {
+      mediaSuggestions {
+        id
+        research {
+          id
+          suggestion {
+            title
+          }
+        }
+        commonsCategories
+        searchQueries
+        illustrationTopics
+        reasoning
+        candidates {
+          id
+          status
+        }
+      }
+    }
+  `,
+
 };
 
 const MUTATIONS = {
@@ -303,6 +326,18 @@ const MUTATIONS = {
     mutation GenerateDidYouKnowPosts($articleId: Int!, $count: Int!) {
       generateDidYouKnowPosts(articleId: $articleId, count: $count) {
         id
+      }
+    }
+  `,
+
+  FETCH_MEDIA_CANDIDATES: `
+    mutation FetchMediaCandidates($suggestionId: Int!, $maxPerQuery: Int!) {
+      fetchMediaCandidates(suggestionId: $suggestionId, maxPerQuery: $maxPerQuery) {
+        id
+        candidates {
+          id
+          status
+        }
       }
     }
   `,
@@ -526,5 +561,28 @@ export const contentService = {
       count
     });
     return data.generateDidYouKnowPosts;
+  },
+
+  // Get all media suggestions
+  async getMediaSuggestions() {
+    const data = await fetchGraphQL(QUERIES.GET_MEDIA_SUGGESTIONS);
+    return data.mediaSuggestions;
+  },
+
+  // Fetch candidates for a suggestion
+  async fetchCandidates(suggestionId, maxPerQuery = 5) {
+    const data = await fetchGraphQL(MUTATIONS.FETCH_MEDIA_CANDIDATES, {
+      suggestionId,
+      maxPerQuery,
+    });
+    return data.fetchMediaCandidates;
+  },
+
+  // Helper to count candidates by status
+  getCandidateStatusCounts(candidates) {
+    return candidates.reduce((acc, candidate) => {
+      acc[candidate.status] = (acc[candidate.status] || 0) + 1;
+      return acc;
+    }, {});
   },
 };
