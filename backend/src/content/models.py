@@ -273,6 +273,10 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
         db.DateTime(timezone=True), nullable=True
     )
 
+    article: Mapped[Optional["Article"]] = relationship(
+        "Article", back_populates="research", uselist=False
+    )
+
     __table_args__ = (
         Index("idx_research_status", "status"),
         {"comment": "Research content for article suggestions"},
@@ -327,7 +331,9 @@ class Article(
     )
 
     category: Mapped["Category"] = relationship("Category", backref="articles")
-    research: Mapped["Research"] = relationship("Research", backref="article")
+    research: Mapped["Research"] = relationship(
+        "Research", back_populates="article", uselist=False
+    )
     tags: Mapped[List["Tag"]] = relationship(
         "Tag", secondary=article_tags, backref="articles"
     )

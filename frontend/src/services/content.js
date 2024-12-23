@@ -51,6 +51,24 @@ const QUERIES = {
       }
     }
   `,
+
+  GET_RESEARCH: `
+    query GetResearch($status: ContentStatus) {
+      research(status: $status) {
+        id
+        content
+        status
+        suggestion {
+          id
+          title
+          level
+        }
+        article {
+          id
+        }
+      }
+    }
+  `,
 };
 
 const MUTATIONS = {
@@ -183,6 +201,34 @@ const MUTATIONS = {
       }
     }
   `,
+
+  UPDATE_RESEARCH: `
+    mutation UpdateResearch($id: Int!, $content: String!) {
+      updateResearch(id: $id, content: $content) {
+        id
+        content
+        status
+      }
+    }
+  `,
+
+  UPDATE_RESEARCH_STATUS: `
+    mutation UpdateResearchStatus($id: Int!, $status: ContentStatus!) {
+      updateResearchStatus(id: $id, status: $status) {
+        id
+        status
+      }
+    }
+  `,
+
+  GENERATE_ARTICLE: `
+    mutation GenerateArticle($researchId: Int!) {
+      generateArticle(researchId: $researchId) {
+        id
+        status
+      }
+    }
+  `,
 };
 
 // Helper function for GraphQL requests
@@ -263,7 +309,7 @@ export const contentService = {
 
   // Tag operations
   async getTags(status = null) {
-    const data = await fetchGraphQL(QUERIES.GET_TAGS, { status });
+    const data = await fetchGraphQL(MUTATIONS.GET_TAGS, { status });
     return data.tags;
   },
 
@@ -321,5 +367,34 @@ export const contentService = {
   async generateResearch(suggestionId) {
     const data = await fetchGraphQL(MUTATIONS.GENERATE_RESEARCH, { suggestionId });
     return data.generateResearch;
+  },
+
+   // Research operations
+  async getResearch(status = null) {
+    const data = await fetchGraphQL(QUERIES.GET_RESEARCH, { status });
+    return data.research;
+  },
+
+  async updateResearch(id, { content }) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_RESEARCH, {
+      id,
+      content
+    });
+    return data.updateResearch;
+  },
+
+  async updateResearchStatus(id, status) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_RESEARCH_STATUS, {
+      id,
+      status
+    });
+    return data.updateResearchStatus;
+  },
+
+  async generateArticle(researchId) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_ARTICLE, {
+      researchId
+    });
+    return data.generateArticle;
   },
 };

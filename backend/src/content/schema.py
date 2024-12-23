@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -8,13 +8,6 @@ from sqlalchemy.orm import joinedload
 
 
 # Enums
-@strawberry.enum
-class ContentStatus(str, Enum):
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
-
-
 @strawberry.enum
 class ContentStatus(str, Enum):
     PENDING = "PENDING"
@@ -68,8 +61,11 @@ class Research:
     suggestion_id: int = strawberry.field(name="suggestionId")
     content: str
     status: ContentStatus
+    tokens_used: Optional[int] = None
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
+    suggestion: "ArticleSuggestion"
+    article: Optional["Article"] = strawberry.field(default=None)
 
 
 @strawberry.type
@@ -86,6 +82,25 @@ class ArticleSuggestion:
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     category: Category
     research: Optional[Research] = None
+
+
+@strawberry.type
+class Article:
+    id: int
+    research_id: int = strawberry.field(name="researchId")
+    category_id: int = strawberry.field(name="categoryId")
+    feature_image_id: Optional[int] = strawberry.field(name="featureImageId")
+    title: str
+    content: str
+    excerpt: Optional[str] = None
+    ai_summary: Optional[str] = strawberry.field(name="aiSummary", default=None)
+    level: ArticleLevel
+    status: ContentStatus
+    approved_by_id: Optional[int] = strawberry.field(name="approvedById")
+    approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
+    published_at: Optional[datetime] = strawberry.field(name="publishedAt")
+    category: Category
+    research: Research
 
 
 # Inputs
@@ -177,6 +192,29 @@ class Query:
             query = query.filter_by(status=status)
         query = query.options(joinedload(ArticleSuggestion.research))
         return query.order_by(ArticleSuggestion.created_at.desc()).all()
+
+    @strawberry.field
+    def research(self, status: Optional[ContentStatus] = None) -> List[Research]:
+        """Get research items with optional status filter."""
+        from content.models import Research
+
+        query = Research.query
+
+        if status:
+            query = query.filter_by(status=status)
+
+        query = query.options(
+            joinedload(Research.suggestion), joinedload(Research.article)
+        )
+
+        return query.order_by(Research.created_at.desc()).all()
+
+    @strawberry.field
+    def research_item(self, id: int) -> Optional[Research]:
+        """Get a specific research item by ID."""
+        from content.models import Research
+
+        return Research.query.get_or_404(id)
 
 
 # Mutations
@@ -369,5 +407,65 @@ class Mutation:
         finally:
             loop.close()
 
+    @strawberry.mutation
+    def update_research(self, id: int, content: str) -> Research:
+        """Update research content."""
+        from content.models import Research
+        from extensions import db
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+        research = Research.query.get_or_404(id)
+        research.content = content
+        db.session.commit()
+        return research
+
+    @strawberry.mutation
+    def update_research_status(self, id: int, status: ContentStatus) -> Research:
+        """Update research status."""
+        from content.models import Research
+        from extensions import db
+
+        research = Research.query.get_or_404(id)
+        research.status = status
+
+        if status == ContentStatus.APPROVED:
+            research.approved_by_id = current_user.id
+            research.approved_at = datetime.now(timezone.utc)
+        elif status == ContentStatus.REJECTED:
+            research.approved_by_id = None
+            research.approved_at = None
+
+        db.session.commit()
+        return research
+
+    @strawberry.mutation
+    def generate_article(self, research_id: int) -> Research:
+        """Generate article from approved research."""
+        from content.models import Research, ContentStatus
+        from content.services import WriterService
+        import asyncio
+
+        research = Research.query.get_or_404(research_id)
+
+        if research.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate articles from approved research")
+
+        if research.article:
+            raise ValueError("Article already exists for this research")
+
+        # Initialize writer service and use event loop
+        service = WriterService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(service.generate_article(research_id=research_id))
+            return research
+        finally:
+            loop.close()
+
+
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    types=[Taxonomy, Category, Tag, ArticleSuggestion, Research, Article],
+)
