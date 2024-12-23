@@ -56,6 +56,16 @@ class Tag:
 
 
 @strawberry.type
+class MediaSuggestion:
+    id: int
+    research_id: int = strawberry.field(name="researchId")
+    commons_categories: List[str] = strawberry.field(name="commonsCategories")
+    search_queries: List[str]
+    illustration_topics: List[str]
+    reasoning: str
+
+
+@strawberry.type
 class Research:
     id: int
     suggestion_id: int = strawberry.field(name="suggestionId")
@@ -491,6 +501,29 @@ class Mutation:
 
         try:
             loop.run_until_complete(service.generate_article(research_id=research_id))
+            return research
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def generate_media_suggestions(self, research_id: int) -> Research:
+        """Generate media suggestions for approved research."""
+        from content.models import Research, ContentStatus
+        from content.services import MediaManagerService
+        import asyncio
+
+        research = Research.query.get_or_404(research_id)
+        if research.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate suggestions for approved research")
+
+        service = MediaManagerService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(
+                service.generate_suggestions(research_id=research_id)
+            )
             return research
         finally:
             loop.close()

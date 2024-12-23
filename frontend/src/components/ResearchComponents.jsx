@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, MoreHorizontal, X, FileEdit, BookOpen, History } from 'lucide-react';
+import { Check, MoreHorizontal, X, FileEdit, BookOpen, History, Image } from 'lucide-react';
 import {
   flexRender,
   getCoreRowModel,
@@ -157,6 +157,7 @@ export const ResearchTable = ({
   loading,
   onReview,
   onGenerateArticle,
+  onGenerateMedia,
   onStatusFilterChange,
   currentStatusFilter,
   onMakePending,
@@ -194,11 +195,17 @@ export const ResearchTable = ({
                 <FileEdit className="h-4 w-4 mr-2" />
                 Review Research
               </DropdownMenuItem>
-              {status === 'APPROVED' && !hasArticle && (
-                <DropdownMenuItem onClick={() => onGenerateArticle?.(research)}>
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Generate Article
-                </DropdownMenuItem>
+              {status === 'APPROVED' && !research.article && (
+                <>
+                  <DropdownMenuItem onClick={() => onGenerateArticle?.(research)}>
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Generate Article
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onGenerateMedia?.(research)}>
+                    <Image className="h-4 w-4 mr-2" />
+                    Generate Media
+                  </DropdownMenuItem>
+                </>
               )}
               {(status === 'APPROVED' && !hasArticle || status === 'REJECTED') && (
                 <DropdownMenuItem onClick={() => onMakePending?.(research.id)}>

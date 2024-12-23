@@ -256,6 +256,14 @@ const MUTATIONS = {
     }
   `,
 
+  GENERATE_MEDIA_SUGGESTIONS: `
+    mutation GenerateMediaSuggestions($researchId: Int!) {
+      generateMediaSuggestions(researchId: $researchId) {
+        id
+      }
+    }
+  `,
+
   UPDATE_ARTICLE: `
     mutation UpdateArticle($id: Int!, $input: ArticleInput!) {
       updateArticle(id: $id, input: $input) {
@@ -465,6 +473,13 @@ export const contentService = {
       researchId
     });
     return data.generateArticle;
+  },
+
+  async generateMediaSuggestions(researchId) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_MEDIA_SUGGESTIONS, {
+      researchId
+    });
+    return data.generateMediaSuggestions;
   },
 
   // Get articles

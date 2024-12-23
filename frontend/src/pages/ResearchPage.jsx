@@ -109,6 +109,23 @@ export const ResearchPage = () => {
     }
   };
 
+  const handleGenerateMedia = async (research) => {
+    try {
+      await contentService.generateMediaSuggestions(research.id);
+      setGenerationInProgress(true);
+      toast({
+        title: "Success",
+        description: "Media suggestions generation started. They will be available in a few minutes.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to start media suggestions generation. Please try again.",
+      });
+    }
+  };
+
   const showConfirmDialog = (title, description, action) => {
     setConfirmDialog({
       open: true,
@@ -148,6 +165,11 @@ export const ResearchPage = () => {
           "Generate Article",
           `Are you sure you want to generate an article for "${research.suggestion.title}"?`,
           () => handleGenerateArticle(research)
+        )}
+        onGenerateMedia={(research) => showConfirmDialog(
+          "Generate Media",
+          `Are you sure you want to generate media suggestions for "${research.suggestion.title}"?`,
+          () => handleGenerateMedia(research)
         )}
         onMakePending={(researchId) => showConfirmDialog(
           "Make Pending",
