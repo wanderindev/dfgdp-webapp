@@ -24,6 +24,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from '@/lib/utils';
+import { Unlink } from "lucide-react"
 
 // Utility functions
 const markdownToHtml = (markdown) => {
@@ -314,6 +315,14 @@ const RichTextEditor = ({ content, onChange, editable = true }) => {
           tooltip="Add Link"
         >
           <LinkIcon className="h-4 w-4" />
+        </MenuButton>
+
+        <MenuButton
+          onClick={() => editor.chain().focus().unsetLink().run()}
+          disabled={!editor.isActive('link')}
+          tooltip="Remove Link"
+        >
+          <Unlink className="h-4 w-4" />
         </MenuButton>
 
         <div className="flex-1" />

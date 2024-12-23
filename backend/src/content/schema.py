@@ -87,20 +87,28 @@ class ArticleSuggestion:
 @strawberry.type
 class Article:
     id: int
-    research_id: int = strawberry.field(name="researchId")
-    category_id: int = strawberry.field(name="categoryId")
-    feature_image_id: Optional[int] = strawberry.field(name="featureImageId")
     title: str
     content: str
-    excerpt: Optional[str] = None
-    ai_summary: Optional[str] = strawberry.field(name="aiSummary", default=None)
+    excerpt: Optional[str]
+    ai_summary: Optional[str]
     level: ArticleLevel
     status: ContentStatus
+    research: Research
+    category: Category
+    tags: List[Tag]
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     published_at: Optional[datetime] = strawberry.field(name="publishedAt")
-    category: Category
-    research: Research
+
+
+@strawberry.input
+class ArticleInput:
+    title: str
+    content: str
+    excerpt: Optional[str]
+    ai_summary: Optional[str]
+    level: ArticleLevel
+    tag_ids: List[int] = strawberry.field(name="tagIds")
 
 
 # Inputs
@@ -215,6 +223,30 @@ class Query:
         from content.models import Research
 
         return Research.query.get_or_404(id)
+
+    @strawberry.field
+    def articles(self, status: Optional[ContentStatus] = None) -> List[Article]:
+        """Get articles with optional status filter."""
+        from content.models import Article
+
+        query = Article.query
+        if status:
+            query = query.filter_by(status=status)
+
+        query = query.options(
+            joinedload(Article.research),
+            joinedload(Article.category),
+            joinedload(Article.tags),
+        )
+
+        return query.order_by(Article.created_at.desc()).all()
+
+    @strawberry.field
+    def article(self, id: int) -> Optional[Article]:
+        """Get a specific article by ID."""
+        from content.models import Article
+
+        return Article.query.get(id)
 
 
 # Mutations
@@ -460,6 +492,99 @@ class Mutation:
         try:
             loop.run_until_complete(service.generate_article(research_id=research_id))
             return research
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def update_article(self, id: int, input: ArticleInput) -> Article:
+        """Update article content and metadata."""
+        from content.models import Article, Tag
+        from extensions import db
+
+        article = Article.query.get_or_404(id)
+        article.title = input.title
+        article.content = input.content
+        article.excerpt = input.excerpt
+        article.ai_summary = input.ai_summary
+        article.level = input.level
+
+        # Update tags
+        article.tags = []
+        if input.tag_ids:
+            tags = Tag.query.filter(Tag.id.in_(input.tag_ids)).all()
+            article.tags.extend(tags)
+
+        db.session.commit()
+        return article
+
+    @strawberry.mutation
+    def update_article_status(self, id: int, status: ContentStatus) -> Article:
+        """Update article status."""
+        from content.models import Article
+        from extensions import db
+        from datetime import datetime, timezone
+
+        article = Article.query.get_or_404(id)
+        article.status = status
+
+        if status == ContentStatus.APPROVED:
+            article.approved_by_id = current_user.id
+            article.approved_at = datetime.now(timezone.utc)
+        elif status == ContentStatus.PENDING:
+            article.approved_by_id = None
+            article.approved_at = None
+
+        db.session.commit()
+        return article
+
+    @strawberry.mutation
+    def generate_story_promotion(self, article_id: int) -> Article:
+        """Generate Instagram story promotion for an article."""
+        from content.models import Article, ContentStatus
+        from content.services import SocialMediaManagerService
+        import asyncio
+
+        article = Article.query.get_or_404(article_id)
+        if article.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate promotions for approved articles")
+
+        service = SocialMediaManagerService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(
+                service.generate_story_promotion(article_id=article_id)
+            )
+            return article
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def generate_did_you_know_posts(self, article_id: int, count: int = 3) -> Article:
+        """Generate Instagram feed posts with interesting facts."""
+        from content.models import Article, ContentStatus
+        from content.services import SocialMediaManagerService
+        import asyncio
+
+        article = Article.query.get_or_404(article_id)
+        if article.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate posts for approved articles")
+
+        if count < 1 or count > 10:
+            raise ValueError("Count must be between 1 and 10")
+
+        service = SocialMediaManagerService()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(
+                service.generate_did_you_know_posts(
+                    article_id=article_id, num_posts=count
+                )
+            )
+            return article
         finally:
             loop.close()
 

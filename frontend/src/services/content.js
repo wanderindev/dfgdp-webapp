@@ -69,6 +69,32 @@ const QUERIES = {
       }
     }
   `,
+
+  GET_ARTICLES: `
+    query GetArticles($status: ContentStatus) {
+      articles(status: $status) {
+        id
+        title
+        content
+        excerpt
+        aiSummary
+        level
+        status
+        research {
+          id
+          suggestion {
+            id
+            title
+            level
+          }
+        }
+        tags {
+          id
+          name
+        }
+      }
+    }
+  `
 };
 
 const MUTATIONS = {
@@ -229,6 +255,49 @@ const MUTATIONS = {
       }
     }
   `,
+
+  UPDATE_ARTICLE: `
+    mutation UpdateArticle($id: Int!, $input: ArticleInput!) {
+      updateArticle(id: $id, input: $input) {
+        id
+        title
+        content
+        excerpt
+        aiSummary
+        level
+        status
+        tags {
+          id
+          name
+        }
+      }
+    }
+  `,
+
+  UPDATE_ARTICLE_STATUS: `
+    mutation UpdateArticleStatus($id: Int!, $status: ContentStatus!) {
+      updateArticleStatus(id: $id, status: $status) {
+        id
+        status
+      }
+    }
+  `,
+
+  GENERATE_STORY_PROMOTION: `
+    mutation GenerateStoryPromotion($articleId: Int!) {
+      generateStoryPromotion(articleId: $articleId) {
+        id
+      }
+    }
+  `,
+
+  GENERATE_DID_YOU_KNOW_POSTS: `
+    mutation GenerateDidYouKnowPosts($articleId: Int!, $count: Int!) {
+      generateDidYouKnowPosts(articleId: $articleId, count: $count) {
+        id
+      }
+    }
+  `,
 };
 
 // Helper function for GraphQL requests
@@ -309,7 +378,7 @@ export const contentService = {
 
   // Tag operations
   async getTags(status = null) {
-    const data = await fetchGraphQL(MUTATIONS.GET_TAGS, { status });
+    const data = await fetchGraphQL(QUERIES.GET_TAGS, { status });
     return data.tags;
   },
 
@@ -396,5 +465,51 @@ export const contentService = {
       researchId
     });
     return data.generateArticle;
+  },
+
+  // Get articles
+  async getArticles(status = null) {
+    const data = await fetchGraphQL(QUERIES.GET_ARTICLES, { status });
+    return data.articles;
+  },
+
+  // Update article
+  async updateArticle(id, articleData) {
+    const input = {
+      title: articleData.title,
+      content: articleData.content,
+      excerpt: articleData.excerpt,
+      aiSummary: articleData.aiSummary,
+      level: articleData.level,
+      tagIds: articleData.tagIds,
+    };
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_ARTICLE, { id, input });
+    return data.updateArticle;
+  },
+
+  // Update article status
+  async updateArticleStatus(id, status) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_ARTICLE_STATUS, {
+      id,
+      status
+    });
+    return data.updateArticleStatus;
+  },
+
+  // Generate Instagram story promotion
+  async generateStoryPromotion(articleId) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_STORY_PROMOTION, {
+      articleId
+    });
+    return data.generateStoryPromotion;
+  },
+
+  // Generate Did You Know posts
+  async generateDidYouKnowPosts(articleId, count = 3) {
+    const data = await fetchGraphQL(MUTATIONS.GENERATE_DID_YOU_KNOW_POSTS, {
+      articleId,
+      count
+    });
+    return data.generateDidYouKnowPosts;
   },
 };
