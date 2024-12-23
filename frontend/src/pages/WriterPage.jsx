@@ -19,7 +19,7 @@ import {
 import {
   ArticlesTable,
   ArticleEditor,
-} from '@/components/content/ArticleComponents';
+} from '@/components/ArticleComponents';
 import { contentService } from '@/services/content';
 
 export const WriterPage = () => {

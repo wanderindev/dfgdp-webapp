@@ -107,6 +107,81 @@ const GenerateDYKDialog = ({
   );
 };
 
+const TagsSelect = ({ tags, selectedTagIds = [], onChange }) => {
+  // Make sure we always have an array
+  const selected = Array.isArray(selectedTagIds) ? selectedTagIds : [];
+
+  // Function to handle selection changes
+  const handleSelectionChange = (value) => {
+    const tagId = parseInt(value, 10);
+    let newSelection;
+
+    if (selected.includes(tagId)) {
+      // Remove tag if already selected
+      newSelection = selected.filter(id => id !== tagId);
+    } else {
+      // Add tag if not selected
+      newSelection = [...selected, tagId];
+    }
+
+    onChange(newSelection);
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>Tags</Label>
+      <Select
+        value=""
+        onValueChange={handleSelectionChange}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Select tags">
+            {selected.length ? `${selected.length} tags selected` : 'Select tags'}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {tags.map((tag) => (
+            <SelectItem
+              key={tag.id}
+              value={tag.id.toString()}
+              className="flex items-center justify-between py-2"
+            >
+              <span>{tag.name}</span>
+              {selected.includes(tag.id) && (
+                <Check className="h-4 w-4 ml-2"/>
+              )}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selected.map(tagId => {
+            const tag = tags.find(t => t.id === tagId);
+            if (!tag) return null;
+            return (
+              <div
+                key={tagId}
+                className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-secondary"
+              >
+                <span>{tag.name}</span>
+                <button
+                  type="button"
+                  className="ml-1 hover:text-primary"
+                  onClick={() => handleSelectionChange(tagId.toString())}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Article editor dialog
 export const ArticleEditor = ({
   article,
@@ -137,7 +212,7 @@ export const ArticleEditor = ({
         excerpt: article.excerpt || '',
         aiSummary: article.aiSummary || '',
         level: article.level || '',
-        tagIds: article.tags?.map(tag => tag.id.toString()) || [],
+        tagIds: article.tags?.map(tag => tag.id) || [],
       };
       setFormData(data);
       lastSavedDataRef.current = JSON.parse(JSON.stringify(data));
@@ -145,17 +220,10 @@ export const ArticleEditor = ({
     }
   }, [article]);
 
-  const getSelectedTagNames = () => {
-    const tagIds = formData.tagIds || [];
-    return tagIds
-      .map(id => tags.find(tag => tag.id.toString() === id)?.name)
-      .filter(Boolean);
-  };
-
   const handleSave = async () => {
     const dataToSave = {
       ...formData,
-      tagIds: (formData.tagIds || []).map(id => parseInt(id, 10))
+      tagIds: formData.tagIds || []
     };
     await onSave?.(dataToSave);
     lastSavedDataRef.current = formData;
@@ -245,31 +313,11 @@ export const ArticleEditor = ({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Tags</Label>
-                <Select
-                  multiple
-                  value={formData.tagIds || []}
-                  onValueChange={(values) => {
-                    handleChange('tagIds', Array.isArray(values) ? values : []);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select tags">
-                      {getSelectedTagNames().length > 0
-                        ? getSelectedTagNames().join(', ')
-                        : 'Select tags'}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tags.map((tag) => (
-                      <SelectItem key={tag.id} value={tag.id.toString()}>
-                        {tag.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <TagsSelect
+                tags={tags}
+                selectedTagIds={formData.tagIds}
+                onChange={(tagIds) => handleChange('tagIds', tagIds)}
+              />
             </div>
           </div>
 

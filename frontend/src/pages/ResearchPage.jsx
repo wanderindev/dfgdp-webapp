@@ -1,6 +1,6 @@
 import React from 'react';
 import { useToast } from "@/components/ui/use-toast";
-import { ResearchTable, ResearchReviewDialog } from '@/components/content/ResearchComponents';
+import { ResearchTable, ResearchReviewDialog } from '@/components/ResearchComponents';
 import {
   AlertDialog,
   AlertDialogAction,
