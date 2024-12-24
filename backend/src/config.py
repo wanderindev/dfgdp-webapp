@@ -11,6 +11,7 @@ class BaseConfig:
     """Base configuration."""
 
     BASE_DIR: str = os.path.abspath(os.path.dirname(__file__))
+    print(f"BASE_DIR: {BASE_DIR}")
 
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key")

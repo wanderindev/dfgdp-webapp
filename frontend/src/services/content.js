@@ -1,4 +1,5 @@
 const API_URL = `${import.meta.env.VITE_API_URL}/content/graphql`;
+const UPLOAD_URL = `${import.meta.env.VITE_UPLOAD_URL}`;
 
 // GraphQL query/mutation strings
 const QUERIES = {
@@ -142,6 +143,29 @@ const QUERIES = {
             }
           }
         }
+      }
+    }
+  `,
+
+  GET_MEDIA_LIBRARY: `
+    query GetMediaLibrary($mediaType: MediaType) {
+      mediaLibrary(mediaType: $mediaType) {
+        id
+        filename
+        originalFilename
+        filePath
+        fileSize
+        mimeType
+        mediaType
+        source
+        title
+        caption
+        altText
+        externalUrl
+        width
+        height
+        attribution
+        instagramMediaType
       }
     }
   `,
@@ -384,6 +408,27 @@ const MUTATIONS = {
         id
         status
         mediaId
+      }
+    }
+  `,
+
+  UPDATE_MEDIA_METADATA: `
+    mutation UpdateMediaMetadata($id: Int!, $input: MediaMetadataInput!) {
+      updateMediaMetadata(id: $id, input: $input) {
+        id
+        title
+        caption
+        altText
+      }
+    }
+  `,
+
+  UPLOAD_MEDIA: `
+    mutation UploadMedia($file: Upload!) {
+      uploadMedia(file: $file) {
+        id
+        filename
+        filePath
       }
     }
   `,
@@ -655,5 +700,41 @@ export const contentService = {
       notes,
     });
     return data.approveCandidateAndCreateMedia;
+  },
+
+  // Get media library items with optional type filter
+  async getMediaLibrary(mediaType = null) {
+    const data = await fetchGraphQL(QUERIES.GET_MEDIA_LIBRARY, { mediaType });
+    return data.mediaLibrary;
+  },
+
+  // Update media metadata
+  async updateMediaMetadata(id, metadata) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_MEDIA_METADATA, {
+      id,
+      input: metadata,
+    });
+    return data.updateMediaMetadata;
+  },
+
+  // Upload new media file
+  async uploadMedia(file) {
+    // Note: We'll need to handle file upload differently since GraphQL
+    // doesn't directly support file uploads. We'll use a regular REST
+    // endpoint for this.
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${UPLOAD_URL}`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload media');
+    }
+
+    return response.json();
   },
 };

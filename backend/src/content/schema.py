@@ -24,6 +24,16 @@ class ArticleLevel(str, Enum):
     GENERAL = "GENERAL"
 
 
+@strawberry.enum
+class MediaType(str, Enum):
+    IMAGE = "IMAGE"
+    VIDEO = "VIDEO"
+    DOCUMENT = "DOCUMENT"
+    PDF = "PDF"
+    SPREADSHEET = "SPREADSHEET"
+    OTHER = "OTHER"
+
+
 @strawberry.type
 class Category:
     id: int
@@ -131,6 +141,34 @@ class MediaSuggestion:
     reasoning: str
     research: Research
     candidates: List[MediaCandidate]
+
+
+@strawberry.type
+class Media:
+    id: int
+    filename: str
+    original_filename: str = strawberry.field(name="originalFilename")
+    file_path: str = strawberry.field(name="filePath")
+    file_size: int = strawberry.field(name="fileSize")
+    mime_type: str = strawberry.field(name="mimeType")
+    media_type: str = strawberry.field(name="mediaType")
+    source: str
+    title: Optional[str]
+    caption: Optional[str]
+    alt_text: Optional[str] = strawberry.field(name="altText")
+    external_url: Optional[str] = strawberry.field(name="externalUrl")
+    width: Optional[int]
+    height: Optional[int]
+    attribution: Optional[str]
+    instagram_media_type: Optional[str] = strawberry.field(name="instagramMediaType")
+
+
+@strawberry.input
+class MediaMetadataInput:
+    title: Optional[str]
+    caption: Optional[str]
+    alt_text: Optional[str] = strawberry.field(name="altText")
+    instagram_media_type: Optional[str] = strawberry.field(name="instagramMediaType")
 
 
 @strawberry.input
@@ -309,6 +347,17 @@ class Query:
             .order_by(MediaCandidate.created_at.desc())
             .all()
         )
+
+    @strawberry.field
+    def media_library(self, media_type: Optional[str] = None) -> List[Media]:
+        """Get media library items with optional type filter."""
+        from content.models import Media, MediaType
+
+        query = Media.query
+        if media_type:
+            query = query.filter_by(media_type=MediaType(media_type))
+
+        return query.order_by(Media.created_at.desc()).all()
 
 
 # Mutations
@@ -766,6 +815,26 @@ class Mutation:
             raise ValueError(f"Failed to fetch candidates: {str(e)}")
         finally:
             loop.close()
+
+    @strawberry.mutation
+    def update_media_metadata(self, id: int, input: MediaMetadataInput) -> Media:
+        """Update media metadata."""
+        from content.models import Media
+        from extensions import db
+
+        media = Media.query.get_or_404(id)
+
+        if input.title is not None:
+            media.title = input.title
+        if input.caption is not None:
+            media.caption = input.caption
+        if input.alt_text is not None:
+            media.alt_text = input.alt_text
+        if input.instagram_media_type is not None:
+            media.instagram_media_type = input.instagram_media_type
+
+        db.session.commit()
+        return media
 
 
 schema = strawberry.Schema(
