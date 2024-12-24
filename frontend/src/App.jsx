@@ -11,6 +11,7 @@ import { TagsPage } from './pages/content/TagsPage';
 import { SuggestionsPage } from './pages/content/SuggestionsPage';
 import { ResearchPage } from './pages/ResearchPage';
 import { WriterPage } from './pages/WriterPage';
+import { MediaCandidatesPage } from './pages/media/MediaCandidatesPage';
 import { MediaSuggestionsPage } from './pages/media/MediaSuggestionsPage.jsx';
 import { SocialAccountsPage } from './pages/social/AccountsPage';
 import { SocialPostsPage } from './pages/social/PostsPage';
@@ -41,6 +42,7 @@ const App = () => {
             <Route path="/research" element={<ResearchPage />} />
             <Route path="/writer" element={<WriterPage />} />
             <Route path="/media/suggestions" element={<MediaSuggestionsPage />} />
+            <Route path="/media/candidates" element={<MediaCandidatesPage />} />
             <Route path="/social/accounts" element={<SocialAccountsPage />} />
             <Route path="/social/posts" element={<SocialPostsPage />} />
             <Route path="/social/hashtags" element={<HashtagsPage />} />

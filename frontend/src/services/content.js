@@ -118,6 +118,33 @@ const QUERIES = {
     }
   `,
 
+  GET_MEDIA_CANDIDATES: `
+    query GetMediaCandidates($status: ContentStatus) {
+      mediaCandidates(status: $status) {
+        id
+        commonsId
+        commonsUrl
+        title
+        description
+        author
+        license
+        licenseUrl
+        width
+        height
+        mimeType
+        fileSize
+        status
+        suggestion {
+          id
+          research {
+            suggestion {
+              title
+            }
+          }
+        }
+      }
+    }
+  `,
 };
 
 const MUTATIONS = {
@@ -338,6 +365,25 @@ const MUTATIONS = {
           id
           status
         }
+      }
+    }
+  `,
+
+  UPDATE_CANDIDATE_STATUS: `
+    mutation UpdateCandidateStatus($id: Int!, $status: ContentStatus!, $notes: String) {
+      updateCandidateStatus(id: $id, status: $status, notes: $notes) {
+        id
+        status
+      }
+    }
+  `,
+
+  APPROVE_AND_CREATE_MEDIA: `
+    mutation ApproveCandidateAndCreateMedia($id: Int!, $notes: String) {
+      approveCandidateAndCreateMedia(id: $id, notes: $notes) {
+        id
+        status
+        mediaId
       }
     }
   `,
@@ -584,5 +630,30 @@ export const contentService = {
       acc[candidate.status] = (acc[candidate.status] || 0) + 1;
       return acc;
     }, {});
+  },
+
+  // Get media candidates with optional status filter
+  async getMediaCandidates(status = null) {
+    const data = await fetchGraphQL(QUERIES.GET_MEDIA_CANDIDATES, { status });
+    return data.mediaCandidates;
+  },
+
+  // Update candidate status
+  async updateCandidateStatus(id, status, notes = null) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_CANDIDATE_STATUS, {
+      id,
+      status,
+      notes,
+    });
+    return data.updateCandidateStatus;
+  },
+
+  // Approve candidate and create media entry
+  async approveCandidateAndCreateMedia(id, notes = null) {
+    const data = await fetchGraphQL(MUTATIONS.APPROVE_AND_CREATE_MEDIA, {
+      id,
+      notes,
+    });
+    return data.approveCandidateAndCreateMedia;
   },
 };

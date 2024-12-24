@@ -118,6 +118,7 @@ class MediaCandidate:
     status: ContentStatus
     suggestion_id: int = strawberry.field(name="suggestionId")
     suggestion: "MediaSuggestion"
+    media_id: Optional[int] = strawberry.field(name="mediaId")
 
 
 @strawberry.type
@@ -288,6 +289,24 @@ class Query:
         return (
             MediaSuggestion.query.options(joinedload(MediaSuggestion.research))
             .options(joinedload(MediaSuggestion.candidates))
+            .all()
+        )
+
+    @strawberry.field
+    def media_candidates(
+        self, status: Optional[ContentStatus] = None
+    ) -> List[MediaCandidate]:
+        """Get media candidates with optional status filter."""
+        from content.models import MediaCandidate
+        from sqlalchemy.orm import joinedload
+
+        query = MediaCandidate.query
+        if status:
+            query = query.filter_by(status=status)
+
+        return (
+            query.options(joinedload(MediaCandidate.suggestion))
+            .order_by(MediaCandidate.created_at.desc())
             .all()
         )
 
@@ -680,6 +699,68 @@ class Mutation:
             suggestion = MediaSuggestion.query.options(
                 joinedload(MediaSuggestion.candidates)
             ).get(suggestion_id)
+            return suggestion
+        except Exception as e:
+            raise ValueError(f"Failed to fetch candidates: {str(e)}")
+        finally:
+            loop.close()
+
+    @strawberry.mutation
+    def update_candidate_status(
+        self, id: int, status: ContentStatus, notes: Optional[str] = None
+    ) -> MediaCandidate:
+        """Update media candidate status."""
+        from content.models import MediaCandidate
+        from extensions import db
+        from datetime import datetime, timezone
+
+        candidate = MediaCandidate.query.get_or_404(id)
+        candidate.status = status
+        candidate.review_notes = notes
+        candidate.reviewed_by_id = current_user.id
+        candidate.reviewed_at = datetime.now(timezone.utc)
+
+        db.session.commit()
+        return candidate
+
+    @strawberry.mutation
+    def approve_candidate_and_create_media(
+        self, id: int, notes: Optional[str] = None
+    ) -> MediaCandidate:
+        """Approve candidate and create media entry."""
+        from content.models import MediaCandidate
+
+        candidate = MediaCandidate.query.get_or_404(id)
+        media = candidate.approve(current_user.id, notes)
+
+        if not media:
+            raise ValueError("Failed to create media entry")
+
+        return candidate
+
+    @strawberry.mutation
+    def fetch_media_candidates(
+        self, suggestion_id: int, max_per_query: int = 5
+    ) -> MediaSuggestion:
+        """Fetch media candidates from Wikimedia Commons."""
+        from content.models import MediaSuggestion
+        from content.services import WikimediaService
+        import asyncio
+
+        suggestion = MediaSuggestion.query.get_or_404(suggestion_id)
+
+        # Create service and event loop for async operation
+        async def run_service():
+            async with WikimediaService() as service:
+                return await service.process_suggestion(
+                    suggestion_id=suggestion_id, max_per_query=max_per_query
+                )
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(run_service())
             return suggestion
         except Exception as e:
             raise ValueError(f"Failed to fetch candidates: {str(e)}")

@@ -529,7 +529,7 @@ class MediaSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
     __table_args__ = (Index("idx_media_suggestion_research", "research_id"),)
 
 
-# noinspection PyArgumentList
+# noinspection PyArgumentList,PyAttributeOutsideInit,PyUnboundLocalVariable
 class MediaCandidate(db.Model, TimestampMixin):
     """Potential media items found from suggestions"""
 
@@ -599,26 +599,69 @@ class MediaCandidate(db.Model, TimestampMixin):
             Created Media object if successful, None otherwise
         """
         try:
-            # Extract filename from commons_id (remove "File:" prefix if present)
+            # First make sure the upload directory exists
+            media_dir = Path(current_app.config["UPLOAD_FOLDER"])
+            try:
+                media_dir.mkdir(exist_ok=True)
+            except (PermissionError, OSError) as e:
+                current_app.logger.error(f"Failed to create upload directory: {str(e)}")
+                return None
+
+            # Generate unique filename for local storage
             filename = self.commons_id
             if filename.startswith("File:"):
                 filename = filename[5:]
+            filename = secure_filename(filename)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            name, ext = os.path.splitext(filename)
+            local_filename = f"{name}_{timestamp}{ext}"
+            file_path = media_dir / local_filename
+
+            # Download file from Wikimedia
+            try:
+                import aiohttp
+                import asyncio
+
+                async def download_file():
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(self.commons_url) as response:
+                            if response.status != 200:
+                                raise ValueError(
+                                    f"Failed to download file: {response.status}"
+                                )
+                            with open(file_path, "wb") as f:
+                                f.write(await response.read())
+
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(download_file())
+                finally:
+                    loop.close()
+
+            except Exception as e:
+                current_app.logger.error(f"Failed to download file from Commons: {e}")
+                if file_path.exists():
+                    file_path.unlink()
+                return None
 
             # Create Media entry
             media = Media(
                 title=self.title,
-                filename=filename,
+                filename=local_filename,
                 original_filename=self.commons_id,
-                file_path=self.commons_url,
+                file_path=str(file_path),
                 file_size=self.file_size,
                 mime_type=self.mime_type,
                 media_type=MediaType.IMAGE,
                 source=MediaSource.WIKIMEDIA,
+                source_url=self.commons_url,
                 width=self.width,
                 height=self.height,
                 caption=self.description,
                 attribution=f"Author: {self.author}\nLicense: {self.license}",
                 license_url=self.license_url,
+                commons_id=self.commons_id,
             )
             db.session.add(media)
 
@@ -627,6 +670,7 @@ class MediaCandidate(db.Model, TimestampMixin):
             self.review_notes = notes
             self.reviewed_by_id = user_id
             self.reviewed_at = datetime.now(timezone.utc)
+            self.media_id = media.id
 
             db.session.commit()
             return media
@@ -634,6 +678,8 @@ class MediaCandidate(db.Model, TimestampMixin):
         except Exception as e:
             current_app.logger.error(f"Error approving media candidate: {e}")
             db.session.rollback()
+            if "file_path" in locals() and file_path.exists():
+                file_path.unlink()  # Clean up file if it was created
             return None
 
     def reject(self, user_id: int, notes: Optional[str] = None) -> bool:
