@@ -60,13 +60,13 @@ export const MediaGrid = ({ items, onSelect, selectedId }) => {
           <div className="aspect-square relative">
             {item.mediaType === 'IMAGE' ? (
               <img
-                src={item.filePath}
+                src={`${import.meta.env.VITE_API_URL}${item.publicUrl}`}
                 alt={item.title || item.originalFilename}
                 className="absolute inset-0 w-full h-full object-cover"
               />
             ) : (
               <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-muted">
-                <MediaTypeBadge type={item.mediaType} />
+                <MediaTypeBadge type={item.mediaType}/>
               </div>
             )}
           </div>
@@ -110,197 +110,215 @@ export const MediaDetails = ({
 
   const handleChange = (field, value) => {
     setFormData(prev => {
-      const newData = { ...prev, [field]: value };
+      const newData = { ...prev, [field]: value || null };
       setHasUnsavedChanges(true);
       return newData;
     });
   };
 
   const handleSave = async () => {
-    await onUpdate?.(media.id, formData);
+    const metadata = {
+      title: formData.title || null,
+      caption: formData.caption || null,
+      altText: formData.altText || null,
+      instagramMediaType: formData.instagramMediaType || null
+    };
+  
+    // Remove null values
+    Object.keys(metadata).forEach(key =>
+      metadata[key] === null && delete metadata[key]
+    );
+
+    await onUpdate?.(media.id, metadata);
     setHasUnsavedChanges(false);
   };
 
   if (!media) return null;
 
   return (
-    <Card className={`w-full ${className}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-medium">Media Details</CardTitle>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+    <Card className="h-full border-0">
+      <CardHeader className="sticky top-0 z-10 bg-background px-4 py-3 -my-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-medium">Media Details</CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[calc(100vh-12rem)]">
-          <div className="space-y-6">
-            {/* Preview */}
+      <CardContent className="px-4">
+        <div className="space-y-6">
+          {media.mediaType === 'IMAGE' && (
+            <div className="relative aspect-video">
+              <img
+                src={`${import.meta.env.VITE_API_URL}${media.publicUrl}`}
+                alt={media.title || media.originalFilename}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+            </div>
+          )}
+
+          {/* Form fields */}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+                placeholder="Enter media title"
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="caption">Caption</Label>
+              <Textarea
+                id="caption"
+                value={formData.caption}
+                onChange={(e) => handleChange('caption', e.target.value)}
+                placeholder="Enter caption"
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="altText">Alt Text</Label>
+              <Input
+                id="altText"
+                value={formData.altText}
+                onChange={(e) => handleChange('altText', e.target.value)}
+                placeholder="Enter alt text"
+                className="w-full"
+              />
+            </div>
+
             {media.mediaType === 'IMAGE' && (
-              <div className="aspect-video relative">
-                <img
-                  src={media.filePath}
-                  alt={media.title || media.originalFilename}
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
+              <div>
+                <Label htmlFor="instagramMediaType">Instagram Media Type</Label>
+                <Select
+                  value={formData.instagramMediaType}
+                  onValueChange={(value) => handleChange('instagramMediaType', value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select media type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SQUARE">Square (1:1)</SelectItem>
+                    <SelectItem value="PORTRAIT">Portrait (4:5)</SelectItem>
+                    <SelectItem value="LANDSCAPE">Landscape (1.91:1)</SelectItem>
+                    <SelectItem value="STORY">Story (9:16)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
-            {/* Editable Metadata */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleChange('title', e.target.value)}
-                  placeholder="Enter media title"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="caption">Caption</Label>
-                <Textarea
-                  id="caption"
-                  value={formData.caption}
-                  onChange={(e) => handleChange('caption', e.target.value)}
-                  placeholder="Enter caption"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="altText">Alt Text</Label>
-                <Input
-                  id="altText"
-                  value={formData.altText}
-                  onChange={(e) => handleChange('altText', e.target.value)}
-                  placeholder="Enter alt text"
-                />
-              </div>
-
-              {media.mediaType === 'IMAGE' && (
+            {/* File Info */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="instagramMediaType">Instagram Media Type</Label>
-                  <Select
-                    value={formData.instagramMediaType}
-                    onValueChange={(value) => handleChange('instagramMediaType', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select media type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SQUARE">Square (1:1)</SelectItem>
-                      <SelectItem value="PORTRAIT">Portrait (4:5)</SelectItem>
-                      <SelectItem value="LANDSCAPE">Landscape (1.91:1)</SelectItem>
-                      <SelectItem value="STORY">Story (9:16)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Type</Label>
+                  <div className="text-sm mt-1">
+                    <MediaTypeBadge type={media.mediaType} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Size</Label>
+                  <div className="text-sm mt-1">
+                    {Math.round(media.fileSize / 1024)} KB
+                  </div>
+                </div>
+              </div>
+
+              {media.width && media.height && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Dimensions</Label>
+                    <div className="text-sm mt-1">
+                      {media.width} × {media.height}
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Aspect Ratio</Label>
+                    <div className="text-sm mt-1">
+                      {(media.width / media.height).toFixed(2)}:1
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* File Info */}
-              <div className="space-y-2 pt-4 border-t">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Type</Label>
-                    <div className="text-sm mt-1">
-                      <MediaTypeBadge type={media.mediaType} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Size</Label>
-                    <div className="text-sm mt-1">
-                      {Math.round(media.fileSize / 1024)} KB
-                    </div>
-                  </div>
-                </div>
+              <div>
+                <Label>Original Filename</Label>
+                <div className="text-sm mt-1">{media.originalFilename}</div>
+              </div>
 
-                {media.width && media.height && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>Dimensions</Label>
-                      <div className="text-sm mt-1">
-                        {media.width} × {media.height}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
+              {media.source === 'WIKIMEDIA' && media.attribution && (
                 <div>
-                  <Label>Original Filename</Label>
-                  <div className="text-sm mt-1">{media.originalFilename}</div>
-                </div>
-
-                {media.source === 'WIKIMEDIA' && media.attribution && (
-                  <div>
-                    <Label>Attribution</Label>
-                    <div className="text-sm mt-1 space-y-1">
-                      <div>{media.attribution}</div>
-                      {media.licenseUrl && (
-                        <a
-                          href={media.licenseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline inline-flex items-center"
-                        >
-                          License details
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {media.source === 'WIKIMEDIA' && media.commonsId && (
-                  <div>
-                    <Label>Wikimedia Commons</Label>
-                    <div className="text-sm mt-1">
+                  <Label>Attribution</Label>
+                  <div className="text-sm mt-1 space-y-1">
+                    <div>{media.attribution}</div>
+                    {media.licenseUrl && (
                       <a
-                        href={`https://commons.wikimedia.org/wiki/${encodeURIComponent(media.commonsId)}`}
+                        href={media.licenseUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline inline-flex items-center"
                       >
-                        View on Commons
+                        License details
                         <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
-                    </div>
+                    )}
                   </div>
-                )}
-
-                {/* Path */}
-                <div>
-                  <Label>File Path</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-xs bg-muted p-1 rounded flex-1 overflow-x-auto">
-                      {media.filePath}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigator.clipboard.writeText(media.filePath)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Save Button */}
-              {hasUnsavedChanges && (
-                <div className="pt-4 border-t">
-                  <Button className="w-full" onClick={handleSave}>
-                    Save Changes
-                  </Button>
                 </div>
               )}
+
+              {media.source === 'WIKIMEDIA' && media.commonsId && (
+                <div>
+                  <Label>Wikimedia Commons</Label>
+                  <div className="text-sm mt-1">
+                    <a
+                      href={`https://commons.wikimedia.org/wiki/${encodeURIComponent(media.commonsId)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center"
+                    >
+                      View on Commons
+                      <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* Path */}
+              <div>
+                <Label>File Path</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="text-xs bg-muted p-1 rounded flex-1 overflow-x-auto">
+                    {media.filePath}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(media.filePath)}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
+      {hasUnsavedChanges && (
+        <div className="sticky bottom-0 border-t bg-background p-4">
+          <Button className="w-full" onClick={handleSave}>
+            Save Changes
+          </Button>
+        </div>
+      )}
     </Card>
   );
 };

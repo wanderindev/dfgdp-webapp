@@ -154,6 +154,7 @@ const QUERIES = {
         filename
         originalFilename
         filePath
+        publicUrl
         fileSize
         mimeType
         mediaType
@@ -419,6 +420,7 @@ const MUTATIONS = {
         title
         caption
         altText
+        instagramMediaType
       }
     }
   `,
@@ -725,14 +727,15 @@ export const contentService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${UPLOAD_URL}`, {
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/content/api/media/upload`, {
       method: 'POST',
       credentials: 'include',
       body: formData,
     });
 
     if (!response.ok) {
-      throw new Error('Failed to upload media');
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload media');
     }
 
     return response.json();

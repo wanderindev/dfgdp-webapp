@@ -34,6 +34,14 @@ class MediaType(str, Enum):
     OTHER = "OTHER"
 
 
+@strawberry.enum
+class InstagramMediaType(str, Enum):
+    SQUARE = "SQUARE"
+    PORTRAIT = "PORTRAIT"
+    LANDSCAPE = "LANDSCAPE"
+    STORY = "STORY"
+
+
 @strawberry.type
 class Category:
     id: int
@@ -156,6 +164,7 @@ class Media:
     title: Optional[str]
     caption: Optional[str]
     alt_text: Optional[str] = strawberry.field(name="altText")
+    public_url: Optional[str] = strawberry.field(name="publicUrl")
     external_url: Optional[str] = strawberry.field(name="externalUrl")
     width: Optional[int]
     height: Optional[int]
@@ -165,10 +174,12 @@ class Media:
 
 @strawberry.input
 class MediaMetadataInput:
-    title: Optional[str]
-    caption: Optional[str]
-    alt_text: Optional[str] = strawberry.field(name="altText")
-    instagram_media_type: Optional[str] = strawberry.field(name="instagramMediaType")
+    title: Optional[str] = strawberry.field(default=None)
+    caption: Optional[str] = strawberry.field(default=None)
+    altText: Optional[str] = strawberry.field(name="altText", default=None)
+    instagramMediaType: Optional[InstagramMediaType] = strawberry.field(
+        name="instagramMediaType", default=None
+    )
 
 
 @strawberry.input
@@ -349,14 +360,13 @@ class Query:
         )
 
     @strawberry.field
-    def media_library(self, media_type: Optional[str] = None) -> List[Media]:
+    def media_library(self, media_type: Optional[MediaType] = None) -> List[Media]:
         """Get media library items with optional type filter."""
-        from content.models import Media, MediaType
+        from content.models import Media, MediaType as DBMediaType
 
         query = Media.query
         if media_type:
-            query = query.filter_by(media_type=MediaType(media_type))
-
+            query = query.filter_by(media_type=DBMediaType[media_type])
         return query.order_by(Media.created_at.desc()).all()
 
 
@@ -828,13 +838,17 @@ class Mutation:
             media.title = input.title
         if input.caption is not None:
             media.caption = input.caption
-        if input.alt_text is not None:
-            media.alt_text = input.alt_text
-        if input.instagram_media_type is not None:
-            media.instagram_media_type = input.instagram_media_type
+        if input.altText is not None:
+            media.alt_text = input.altText
+        if input.instagramMediaType is not None:
+            media.instagram_media_type = input.instagramMediaType
 
-        db.session.commit()
-        return media
+        try:
+            db.session.commit()
+            return media
+        except Exception as e:
+            db.session.rollback()
+            raise Exception(f"Failed to update media metadata: {str(e)}")
 
 
 schema = strawberry.Schema(

@@ -772,8 +772,8 @@ class Media(db.Model, TimestampMixin, TranslatableMixin):
         """Get the URL for accessing the media file"""
         if self.source == MediaSource.YOUTUBE:
             return self.external_url
-        elif self.source == MediaSource.LOCAL:
-            return f"/media/{self.filename}"
+        elif self.source in [MediaSource.LOCAL, MediaSource.WIKIMEDIA]:
+            return f"/content/uploads/{os.path.basename(self.file_path)}"
         else:
             return self.file_path
 

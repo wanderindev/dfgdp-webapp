@@ -51,10 +51,11 @@ export const MediaLibraryPage = () => {
       });
       fetchMediaItems();
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to upload media. Please try again.",
+        description: error.message || "Failed to upload media. Please try again.",
       });
       throw error; // Re-throw to be handled by upload component
     }
@@ -90,57 +91,56 @@ export const MediaLibraryPage = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Media Library</h1>
+    <div>
+      <div className={`transition-all ${selectedMedia ? 'pr-80' : ''}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Media Library</h1>
 
-        <div className="flex items-center space-x-2">
-          <Label>Type:</Label>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All types</SelectItem>
-              <SelectItem value="IMAGE">Images</SelectItem>
-              <SelectItem value="VIDEO">Videos</SelectItem>
-              <SelectItem value="DOCUMENT">Documents</SelectItem>
-              <SelectItem value="PDF">PDFs</SelectItem>
-              <SelectItem value="SPREADSHEET">Spreadsheets</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <MediaUpload onUpload={handleUpload} className="mb-4" />
-
-      <div className="flex gap-4">
-        {/* Main content area */}
-        <div className={`flex-1 transition-all ${selectedMedia ? 'pr-80' : ''}`}>
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : (
-            <MediaGrid
-              items={mediaItems}
-              selectedId={selectedMedia?.id}
-              onSelect={setSelectedMedia}
-            />
-          )}
-        </div>
-
-        {/* Details sidebar */}
-        {selectedMedia && (
-          <div className="fixed top-0 right-0 w-80 h-screen bg-background border-l p-4 overflow-y-auto">
-            <MediaDetails
-              media={selectedMedia}
-              onClose={() => setSelectedMedia(null)}
-              onUpdate={handleUpdateMetadata}
-            />
+          <div className="flex items-center space-x-2">
+            <Label>Type:</Label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All types</SelectItem>
+                <SelectItem value="IMAGE">Images</SelectItem>
+                <SelectItem value="VIDEO">Videos</SelectItem>
+                <SelectItem value="DOCUMENT">Documents</SelectItem>
+                <SelectItem value="PDF">PDFs</SelectItem>
+                <SelectItem value="SPREADSHEET">Spreadsheets</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <MediaUpload onUpload={handleUpload} />
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <MediaGrid
+            items={mediaItems}
+            selectedId={selectedMedia?.id}
+            onSelect={setSelectedMedia}
+          />
         )}
       </div>
+
+      {/* Details sidebar */}
+      {selectedMedia && (
+        <div className="fixed top-0 right-0 w-80 h-screen bg-background border-l shadow-lg overflow-y-auto">
+          <MediaDetails
+            media={selectedMedia}
+            onClose={() => setSelectedMedia(null)}
+            onUpdate={handleUpdateMetadata}
+          />
+        </div>
+      )}
     </div>
   );
 };
