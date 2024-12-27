@@ -322,8 +322,8 @@ export const ArticleEditor = ({
           </div>
 
           <DialogFooter className="mt-4">
-            <div className="flex justify-between w-full">
-              <div className="space-x-2">
+            <div className="flex justify-between w-full items-center"> {/* Added items-center */}
+              <div className="space-x-2 flex items-center"> {/* Added flex and items-center */}
                 <Button
                   variant="default"
                   onClick={handleSave}
@@ -333,17 +333,12 @@ export const ArticleEditor = ({
                 </Button>
                 {hasUnsavedChanges && (
                   <span className="text-sm text-muted-foreground">
-                  * You have unsaved changes
-                </span>
+                    * You have unsaved changes
+                  </span>
                 )}
               </div>
-              <div className="space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                >
-                  Close
-                </Button>
+              <div className="space-x-2 flex items-center"> {/* Added flex and items-center */}
+                <Button variant="outline" onClick={onClose}>Close</Button>
                 {article?.status !== 'APPROVED' && (
                   <Button
                     variant="default"
@@ -368,6 +363,7 @@ export const ArticleEditor = ({
                     variant="secondary"
                     onClick={() => onMakePending?.(article.id)}
                     disabled={hasUnsavedChanges}
+                    className="inline-flex items-center"
                   >
                     <History className="w-4 h-4 mr-2"/>
                     Make Pending
