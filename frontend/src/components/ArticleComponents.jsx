@@ -163,7 +163,7 @@ const TagsSelect = ({ tags, selectedTagIds = [], onChange }) => {
             return (
               <div
                 key={tagId}
-                className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-secondary"
+                className="inline-flex items-center px-2 py-1 text-xs rounded-full bg-secondary text-secondary-foreground"
               >
                 <span>{tag.name}</span>
                 <button
@@ -425,7 +425,7 @@ export const ArticlesTable = ({
         return (
           <div className="flex flex-wrap gap-1">
             {tags.map(tag => (
-              <span key={tag.id} className="px-2 py-1 text-xs rounded-full bg-secondary">
+              <span key={tag.id} className="px-2 py-1 text-xs rounded-full bg-secondary text-secondary-foreground">
                 {tag.name}
               </span>
             ))}
