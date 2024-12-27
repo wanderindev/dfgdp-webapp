@@ -48,7 +48,7 @@ export const MediaGrid = ({ items, onSelect, selectedId }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="media-grid">
       {items.map((item) => (
         <Card
           key={item.id}
@@ -83,10 +83,10 @@ export const MediaGrid = ({ items, onSelect, selectedId }) => {
 
 // Media details sidebar
 export const MediaDetails = ({
-  media,
-  onClose,
-  onUpdate,
-  className = "",
+ media,
+ onClose,
+ onUpdate,
+ className = "",
 }) => {
   const [formData, setFormData] = React.useState({
     title: '',
@@ -136,7 +136,7 @@ export const MediaDetails = ({
   if (!media) return null;
 
   return (
-    <Card className="h-full border-0">
+    <Card className="h-[calc(100vh_+_10px)] border-0">
       <CardHeader className="sticky top-0 z-10 bg-background px-4 py-3 -my-4">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-medium">Media Details</CardTitle>

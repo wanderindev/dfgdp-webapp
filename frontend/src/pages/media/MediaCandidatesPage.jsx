@@ -86,16 +86,15 @@ export const MediaCandidatesPage = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <div className={`transition-all ${selectedCandidate ? 'pr-80' : ''}`}>
+    <div>
+      <div className={`details-sidebar-layout ${selectedCandidate ? 'sidebar-open' : ''}`}>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Media Candidates</h1>
-
           <div className="flex items-center space-x-2">
             <Label>Status:</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select status" />
+                <SelectValue placeholder="Select status"/>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All statuses</SelectItem>
@@ -122,7 +121,7 @@ export const MediaCandidatesPage = () => {
 
       {/* Details sidebar */}
       {selectedCandidate && (
-        <div className="fixed top-0 right-0 w-80 h-screen bg-background border-l p-4 overflow-y-auto">
+        <div className="details-sidebar">
           <CandidateDetails
             candidate={selectedCandidate}
             onClose={() => setSelectedCandidate(null)}

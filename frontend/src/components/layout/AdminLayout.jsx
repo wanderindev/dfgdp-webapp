@@ -105,7 +105,7 @@ const AdminLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="lg:hidden flex items-center justify-between p-4 border-b">
+      <div className="xl:hidden flex items-center justify-between p-4 border-b">
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
@@ -122,7 +122,7 @@ const AdminLayout = ({ children }) => {
       <aside className={cn(
         "fixed left-0 top-0 z-40 h-screen w-64 transform transition-transform duration-200 ease-in-out bg-background border-r",
         sidebarOpen ? "translate-x-0" : "-translate-x-full",
-        "lg:translate-x-0" // Always visible on large screens
+        "hidden lg:block xl:translate-x-0"
       )}>
         {/* Logo Area */}
         <div className="h-16 flex items-center justify-center border-b">
@@ -172,7 +172,7 @@ const AdminLayout = ({ children }) => {
               className="w-full justify-start text-red-600 hover:text-red-600 hover:bg-red-100"
               onClick={handleLogout}
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4"/>
               Logout
             </Button>
           </div>
@@ -185,7 +185,7 @@ const AdminLayout = ({ children }) => {
         sidebarOpen ? "lg:ml-64" : "lg:ml-0",
         "p-4 lg:p-8"
       )}>
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-full">
           <Outlet/>
         </div>
       </main>
@@ -193,7 +193,7 @@ const AdminLayout = ({ children }) => {
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 lg:hidden z-30"
+          className="fixed inset-0 bg-black/50 xl:hidden z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}

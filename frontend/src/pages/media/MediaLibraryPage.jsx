@@ -92,15 +92,14 @@ export const MediaLibraryPage = () => {
 
   return (
     <div>
-      <div className={`transition-all ${selectedMedia ? 'pr-80' : ''}`}>
+      <div className={`details-sidebar-layout ${selectedMedia ? 'sidebar-open' : ''}`}>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Media Library</h1>
-
           <div className="flex items-center space-x-2">
             <Label>Type:</Label>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All types" />
+                <SelectValue placeholder="All types"/>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All types</SelectItem>
@@ -115,7 +114,7 @@ export const MediaLibraryPage = () => {
         </div>
 
         <div className="mb-4">
-          <MediaUpload onUpload={handleUpload} />
+          <MediaUpload onUpload={handleUpload}/>
         </div>
 
         {loading ? (
@@ -133,7 +132,7 @@ export const MediaLibraryPage = () => {
 
       {/* Details sidebar */}
       {selectedMedia && (
-        <div className="fixed top-0 right-0 w-80 h-screen bg-background border-l shadow-lg overflow-y-auto">
+        <div className="details-sidebar">
           <MediaDetails
             media={selectedMedia}
             onClose={() => setSelectedMedia(null)}

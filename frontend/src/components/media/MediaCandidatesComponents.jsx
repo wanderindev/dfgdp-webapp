@@ -57,7 +57,7 @@ export const CandidatesGrid = ({ candidates, onSelect, selectedId }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div className="media-grid">
       {candidates.map((candidate) => (
         <Card
           key={candidate.id}
@@ -75,7 +75,7 @@ export const CandidatesGrid = ({ candidates, onSelect, selectedId }) => {
           </div>
           <CardContent className="p-2">
             <div className="truncate text-sm">{candidate.title}</div>
-            <CandidateStatus status={candidate.status} />
+            <CandidateStatus status={candidate.status}/>
           </CardContent>
         </Card>
       ))}
@@ -113,120 +113,120 @@ export const CandidateDetails = ({
 
   return (
     <>
-      <Card className={`w-full ${className}`}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg font-medium">Candidate Details</CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+      <Card className="h-[calc(100vh_+_10px)] border-0">
+        <CardHeader className="sticky top-0 z-10 bg-background px-4 py-3 -my-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-medium">Candidate Details</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[calc(100vh-12rem)]">
-            <div className="space-y-6">
-              {/* Preview Image */}
-              <div className="aspect-video relative">
-                <img
-                  src={candidate.commonsUrl}
-                  alt={candidate.title}
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
-              </div>
-
-              {/* Metadata */}
-              <div className="space-y-4">
-                <div>
-                  <Label>Title</Label>
-                  <div className="text-sm mt-1">{candidate.title}</div>
-                </div>
-
-                {candidate.description && (
-                  <div>
-                    <Label>Description</Label>
-                    <div className="text-sm mt-1">{candidate.description}</div>
-                  </div>
-                )}
-
-                <div>
-                  <Label>Author</Label>
-                  <div className="text-sm mt-1">{candidate.author || 'Unknown'}</div>
-                </div>
-
-                <div>
-                  <Label>License</Label>
-                  <div className="text-sm mt-1">
-                    <a
-                      href={candidate.licenseUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      {candidate.license}
-                    </a>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Dimensions</Label>
-                    <div className="text-sm mt-1">
-                      {candidate.width} × {candidate.height}
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Size</Label>
-                    <div className="text-sm mt-1">
-                      {Math.round(candidate.fileSize / 1024)} KB
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Status</Label>
-                  <div className="mt-1">
-                    <CandidateStatus status={candidate.status} />
-                  </div>
-                </div>
-
-                {/* Review Notes */}
-                {candidate.status === 'PENDING' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Review Notes</Label>
-                    <Input
-                      id="notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add notes about this candidate..."
-                    />
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                {candidate.status === 'PENDING' && (
-                  <div className="flex space-x-2">
-                    <Button
-                      className="w-full"
-                      onClick={handleApprove}
-                    >
-                      <Check className="w-4 h-4 mr-2" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      className="w-full"
-                      onClick={handleReject}
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Reject
-                    </Button>
-                  </div>
-                )}
-              </div>
+        <CardContent className="px-4">
+          <div className="space-y-6">
+            {/* Preview Image */}
+            <div className="aspect-video relative">
+              <img
+                src={candidate.commonsUrl}
+                alt={candidate.title}
+                className="absolute inset-0 w-full h-full object-contain"
+              />
             </div>
-          </ScrollArea>
+
+            {/* Metadata */}
+            <div className="space-y-4">
+              <div>
+                <Label>Title</Label>
+                <div className="text-sm mt-1">{candidate.title}</div>
+              </div>
+
+              {candidate.description && (
+                <div>
+                  <Label>Description</Label>
+                  <div className="text-sm mt-1">{candidate.description}</div>
+                </div>
+              )}
+
+              <div>
+                <Label>Author</Label>
+                <div className="text-sm mt-1">{candidate.author || 'Unknown'}</div>
+              </div>
+
+              <div>
+                <Label>License</Label>
+                <div className="text-sm mt-1">
+                  <a
+                    href={candidate.licenseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {candidate.license}
+                  </a>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Dimensions</Label>
+                  <div className="text-sm mt-1">
+                    {candidate.width} × {candidate.height}
+                  </div>
+                </div>
+                <div>
+                  <Label>Size</Label>
+                  <div className="text-sm mt-1">
+                    {Math.round(candidate.fileSize / 1024)} KB
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label>Status</Label>
+                <div className="mt-1">
+                  <CandidateStatus status={candidate.status} />
+                </div>
+              </div>
+
+              {/* Review Notes */}
+              {candidate.status === 'PENDING' && (
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Review Notes</Label>
+                  <Input
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Add notes about this candidate..."
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              {candidate.status === 'PENDING' && (
+                <div className="flex space-x-2">
+                  <Button
+                    className="w-full"
+                    onClick={handleApprove}
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Approve
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="w-full"
+                    onClick={handleReject}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -105,3 +105,32 @@
     @apply font-heading;
   }
 }
+
+@layer components {
+  .details-sidebar-layout {
+    @apply transition-all duration-200;
+  }
+
+  .details-sidebar-layout .media-grid {
+    @apply grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5;
+  }
+
+  .details-sidebar-layout.sidebar-open .media-grid {
+    @apply xl:grid-cols-3;
+  }
+
+  /* Base - full overlay */
+  .details-sidebar {
+    @apply fixed top-0 right-0 w-full h-screen bg-background border-l shadow-lg overflow-y-auto z-30;
+  }
+
+  /* Large screens */
+  @media (min-width: 1280px) {
+    .details-sidebar-layout.sidebar-open {
+      @apply mr-[calc(40%_-_102.4px_*_0.4_+_64px)];
+    }
+    .details-sidebar {
+      @apply w-[calc(40%_-_256px_*_0.4)];
+    }
+  }
+}
