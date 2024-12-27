@@ -2,8 +2,8 @@ import React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { Users, Layers, BookOpen, PenTool, Image, Share2, Globe2, Menu, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/ui/logo';
 import { cn } from '@/lib/utils';
 
 
@@ -114,7 +114,6 @@ const AdminLayout = ({ children }) => {
           >
             <Menu className="h-6 w-6"/>
           </Button>
-          <span className="font-semibold text-lg">Panama In Context</span>
         </div>
       </div>
 
@@ -125,8 +124,8 @@ const AdminLayout = ({ children }) => {
         "hidden lg:block xl:translate-x-0"
       )}>
         {/* Logo Area */}
-        <div className="h-16 flex items-center justify-center border-b">
-          <Link to="/" className="font-semibold text-lg">Panama In Context</Link>
+        <div className="h-32 flex items-center justify-center border-b">
+          <Logo className="h-32 flex items-center justify-center" />
         </div>
 
         {/* Navigation */}
