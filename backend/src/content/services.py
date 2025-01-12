@@ -1,8 +1,9 @@
 import asyncio
 import json
+import re
 from datetime import datetime, timezone
 from html import unescape
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -433,7 +434,6 @@ class WriterService:
         Raises:
             ValueError: If parameters are invalid or API call fails
         """
-        # Get research and validate
         research = Research.query.get(research_id)
         if not research:
             raise ValueError(f"Research {research_id} not found")
@@ -441,7 +441,6 @@ class WriterService:
         if research.status != ContentStatus.APPROVED:
             raise ValueError(f"Research {research_id} is not approved")
 
-        # Get suggestion and category information
         suggestion = research.suggestion
         if not suggestion:
             raise ValueError(f"No suggestion found for research {research_id}")
@@ -450,16 +449,16 @@ class WriterService:
         if not category:
             raise ValueError(f"No category found for suggestion {suggestion.id}")
 
-        # Get level specifications
         level_specs = ARTICLE_LEVELS.get(suggestion.level.value)
         if not level_specs:
             raise ValueError(f"Invalid article level: {suggestion.level}")
 
         try:
             generation_started_at = datetime.now(timezone.utc)
+            total_tokens = 0
             message_history = []
 
-            # Prepare template variables
+            # Step 1: Prepare initial template variables
             template_vars = {
                 "context": {
                     "taxonomy": category.taxonomy.name,
@@ -480,79 +479,92 @@ class WriterService:
             if not template:
                 raise ValueError("Article writing template not found")
 
-            # Generate article content
+            # Step 2: Generate outline
             initial_prompt = template.render(**template_vars)
             message_history.append({"role": "user", "content": initial_prompt})
 
-            content_response = self.client._generate_content(
+            outline_response = self.client._generate_content(
                 prompt=initial_prompt,
                 message_history=[],
             )
 
-            if not content_response:
-                raise ValueError("Empty response from API")
+            if not outline_response:
+                raise ValueError("Empty outline response from API")
 
-            article_content = WriterService._clean_article_content(
-                self.client._extract_content(content_response)
+            outline = self.client._extract_content(outline_response)
+            total_tokens += self.client._track_usage(outline_response)
+            message_history.append({"role": "assistant", "content": outline})
+
+            # Step 3: Process outline into sections
+            sections = WriterService._extract_sections_from_outline(outline)
+
+            # Step 4: Generate each section
+            sections_content = []
+
+            for section_title, subsections in sections:
+                # Build continuation prompt for this section
+                continuation_prompt = (
+                    f"Now let's focus on writing the complete '{section_title}' section. "
+                    f"This section should be developed in full detail, with clear transitions "
+                    f"between ideas and thorough explanations. Remember to maintain the "
+                    f"friendly and engaging tone established in the outline."
+                )
+
+                if subsections:
+                    continuation_prompt += (
+                        f"\n\nThis section includes the following subsections which "
+                        f"should be included using ### headers:\n"
+                        f"{', '.join(subsections)}"
+                    )
+
+                message_history.append({"role": "user", "content": continuation_prompt})
+
+                section_response = self.client._generate_content(
+                    prompt=continuation_prompt,
+                    message_history=message_history[:2],  # Initial prompt and outline
+                )
+
+                if not section_response:
+                    raise ValueError(f"Empty response for section: {section_title}")
+
+                section_content = self.client._extract_content(section_response)
+                total_tokens += self.client._track_usage(section_response)
+
+                sections_content.append(section_content)
+                message_history.append(
+                    {"role": "assistant", "content": section_content}
+                )
+
+                # Small delay between sections
+                await asyncio.sleep(2)
+
+            # Step 5: Add sources section from research
+            sources_section = WriterService._extract_sources_section(research.content)
+            if sources_section:
+                sections_content.append("\n\n## Further Reading\n" + sources_section)
+
+            # Step 6: Combine all content
+            complete_content = "\n\n".join(sections_content)
+
+            # Step 7: Generate excerpt and AI summary
+            excerpt_response = await self._generate_excerpt(
+                complete_content, message_history[:2]
             )
-            total_tokens = self.client._track_usage(content_response)
+            total_tokens += excerpt_response["tokens"]
 
-            # Add article content to message history
-            message_history.append({"role": "assistant", "content": article_content})
-
-            # Generate excerpt
-            excerpt_prompt = (
-                "Based on the article content you just generated and keeping in mind "
-                "the blog's focus on Panama's cultural identity, generate an engaging "
-                "excerpt of maximum 480 characters that will make readers want to read "
-                "the full article. Write the excerpt as plain text without quotes."
+            ai_summary_response = await self._generate_ai_summary(
+                complete_content, message_history[:2]
             )
-
-            message_history.append({"role": "user", "content": excerpt_prompt})
-            excerpt_response = self.client._generate_content(
-                prompt=excerpt_prompt,
-                message_history=message_history[:2],  # Initial prompt and article only
-            )
-
-            if not excerpt_response:
-                raise ValueError("Empty excerpt response")
-
-            excerpt = WriterService._clean_excerpt(
-                self.client._extract_content(excerpt_response)
-            )
-            total_tokens += self.client._track_usage(excerpt_response)
-
-            # Generate AI summary
-            summary_prompt = (
-                "Generate a brief technical summary of the article content "
-                "(maximum 100 words) that captures its key topics and arguments. "
-                "This summary will be used by the content management system to "
-                "track article coverage and suggest new topics. Write the summary "
-                "as plain text without any prefix or keywords section."
-            )
-
-            message_history.append({"role": "user", "content": summary_prompt})
-            summary_response = self.client._generate_content(
-                prompt=summary_prompt,
-                message_history=message_history[:2],
-            )
-
-            if not summary_response:
-                raise ValueError("Empty summary response")
-
-            ai_summary = WriterService._clean_summary(
-                self.client._extract_content(summary_response)
-            )
-            total_tokens += self.client._track_usage(summary_response)
+            total_tokens += ai_summary_response["tokens"]
 
             # Create article
             article = Article(
                 research_id=research_id,
                 category_id=category.id,
                 title=suggestion.title,
-                content=article_content,
-                excerpt=excerpt,
-                ai_summary=ai_summary,
+                content=complete_content,
+                excerpt=excerpt_response["excerpt"],
+                ai_summary=ai_summary_response["summary"],
                 level=suggestion.level,
                 status=ContentStatus.PENDING,
                 model_id=self.agent.model_id,
@@ -568,6 +580,116 @@ class WriterService:
             db.session.rollback()
             current_app.logger.error(f"Error generating article: {e}")
             raise
+
+    @staticmethod
+    def _extract_sections_from_outline(outline: str) -> List[Tuple[str, List[str]]]:
+        """
+        Extract sections and their subsections from the outline.
+
+        Returns:
+            List of tuples (section_title, [subsection_titles])
+        """
+        sections = []
+        current_section = None
+        current_subsections = []
+
+        for line in outline.split("\n"):
+            if line.startswith("## "):
+                if current_section:
+                    sections.append((current_section, current_subsections))
+                current_section = line[3:].strip()
+                current_subsections = []
+            elif line.startswith("### ") and current_section:
+                current_subsections.append(line[4:].strip())
+
+        if current_section:
+            sections.append((current_section, current_subsections))
+
+        return sections
+
+    @staticmethod
+    def _extract_sources_section(research_content: str) -> Optional[str]:
+        """Extract the sources section from research content."""
+        pattern = r"(?:## Sources and Further Reading|## Sources|## Further Reading)(.*?)(?=##|$)"
+        match = re.search(pattern, research_content, re.DOTALL)
+        return match.group(1).strip() if match else None
+
+    async def _generate_excerpt(
+        self, content: str, base_message_history: List[Dict[str, str]]
+    ) -> Dict[str, Any]:
+        """
+        Generate excerpt from article content.
+
+        Args:
+            content: The full article content
+            base_message_history: Initial message history to use for context
+
+        Returns:
+            Dictionary containing excerpt and tokens used
+        """
+        excerpt_prompt = (
+            "Based on the article content you just generated and keeping in mind "
+            "the blog's focus on Panama's cultural identity, generate an engaging "
+            "excerpt of maximum 480 characters that will make readers want to read "
+            "the full article. Write the excerpt as plain text without quotes."
+        )
+
+        message_history = base_message_history.copy()
+        message_history.append({"role": "user", "content": excerpt_prompt})
+
+        excerpt_response = self.client._generate_content(
+            prompt=excerpt_prompt,
+            message_history=base_message_history,
+        )
+
+        if not excerpt_response:
+            raise ValueError("Empty excerpt response")
+
+        excerpt = WriterService._clean_excerpt(
+            self.client._extract_content(excerpt_response)
+        )
+        tokens = self.client._track_usage(excerpt_response)
+
+        return {"excerpt": excerpt, "tokens": tokens}
+
+    async def _generate_ai_summary(
+        self, content: str, base_message_history: List[Dict[str, str]]
+    ) -> Dict[str, Any]:
+        """
+        Generate technical AI summary from article content.
+
+        Args:
+            content: The full article content
+            base_message_history: Initial message history to use for context
+
+        Returns:
+            Dictionary containing summary and tokens used
+        """
+        summary_prompt = (
+            "Generate a brief technical summary of the article content "
+            "(maximum 100 words) that captures its key topics and arguments. "
+            "This summary will be used by the content management system to "
+            "track article coverage and suggest new topics. Write the summary "
+            "as plain text without any prefix or keywords section."
+        )
+
+        message_history = base_message_history.copy()
+        message_history.append({"role": "user", "content": summary_prompt})
+
+        summary_response = self.client._generate_content(
+            prompt=summary_prompt,
+            message_history=base_message_history,  # Use base history for context
+        )
+
+        if not summary_response:
+            raise ValueError("Empty summary response")
+
+        ai_summary = WriterService._clean_summary(
+            self.client._extract_content(summary_response)
+        )
+        tokens = self.client._track_usage(summary_response)
+
+        return {"summary": ai_summary, "tokens": tokens}
 
     @staticmethod
     def _clean_article_content(content: str) -> str:

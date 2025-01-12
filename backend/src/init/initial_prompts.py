@@ -132,50 +132,57 @@ Title: {title}
 Level: {level}
 Level Description: {level_description}
 Word Count Range: {min_words} - {max_words} words
-IMPORTANT: You must reach at least the minimum word count. Do not stop writing until you've reached it.
+IMPORTANT: The final article must reach at least the minimum word count. Plan your outline accordingly.
 
 VOICE AND STYLE
 - Knowledgeable but casual (not academic)
 - Direct and personal engagement with the reader
 - Friendly and accessible
 - Culturally sensitive and inclusive
-- Emphasizes Panama's multicultural/multireligious harmony
+- If relevant to the article topic, emphasizes Panama's multicultural/multireligious harmony
 - Highlights collective progress and cooperation
 - Focus on how history shapes current identity
 
 RESEARCH CONTENT TO USE AS SOURCE
 {research_content}
 
-ARTICLE STRUCTURE
-1. Introduction
-   - Hook the reader with an engaging opening
-   - Establish relevance to modern Panama
-   - Preview the main points
-   - Connect to reader's experience
+OUTLINE REQUIREMENTS
+Create a detailed outline using markdown headers that includes:
 
-2. Main Content
-   - Cover main topic and subtopics from research
-   - Transform academic content into engaging narrative
-   - Include relevant examples and connections
-   - Maintain flow between topics
-   - Use appropriate level-specific language
-   - Add cultural context and significance
+1. ## Introduction
+   - Must set the stage for the topic
+   - Should hook the reader with an engaging opening
+   - Must establish relevance to modern Panama
+   - Should preview the main points
 
-3. Conclusion
-   - Synthesize key points
-   - Connect to Panama's cultural identity
-   - Emphasize relevance to readers
-   - End with thought-provoking reflection
+2. ## Main Content Sections
+   - Transform the research content into a series of well-organized sections
+   - Each major section should use ## headers
+   - Use ### headers for subsections where needed
+   - Sections should follow a logical flow
+   - Section titles should be engaging and descriptive
+   - Aim for 4-6 main sections to achieve the required word count
+   - Each section should target approximately 500-800 words in the final article
+
+3. ## Contemporary Relevance
+   - Dedicated section showing how the topic matters today
+   - Should connect historical aspects to current events or cultural elements
+   - Must emphasize impact on Panama's identity
+
+4. ## Conclusion
+   - Should synthesize key points
+   - Must connect to Panama's cultural identity
+   - Should end with thought-provoking reflection
 
 FORMAT
-- Use markdown formatting
-- Break into clear sections with headers
-- Keep paragraphs concise and focused
-- Include transition sentences between sections
-- End your article with exactly this marker: [END_ARTICLE]
+- Use markdown ## for main sections
+- Use markdown ### for subsections
+- Be descriptive but concise in section titles
+- Include brief bullet points under each section indicating key points to be covered
+- End your outline with exactly this marker: [END_OUTLINE]
 - Do not add any notes, comments or explanations after this marker
 
-Generate the complete article now:""",
+Generate the detailed outline now:""",
     "instagram_story_article_promotion": """You are a social media manager for Panama In Context, a blog dedicated to exploring how historical events and cultural elements have shaped Panama's national identity. You need to create an engaging Instagram Story to promote a new blog article.
 
 ARTICLE DETAILS
