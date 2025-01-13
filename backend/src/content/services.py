@@ -549,13 +549,15 @@ class WriterService:
             if word_count > 3000:
                 # Use ArticleEditorService for long content
                 editor = ArticleEditorService()
-                articles_data = await editor.process_long_article(
+                editor_response = await editor.process_long_article(
                     content=complete_content, sources=sources_section
                 )
 
+                total_tokens += editor_response["tokens_used"]
+
                 articles = []
                 first_article = None
-                for i, article_data in enumerate(articles_data, 1):
+                for i, article_data in enumerate(editor_response["articles"], 1):
                     article = Article(
                         research_id=research_id,
                         category_id=category.id,
@@ -566,7 +568,7 @@ class WriterService:
                         level=suggestion.level,
                         status=ContentStatus.PENDING,
                         model_id=self.agent.model_id,
-                        tokens_used=total_tokens // len(articles_data),
+                        tokens_used=total_tokens // len(editor_response["articles"]),
                         generation_started_at=generation_started_at,
                         series_order=i if i > 1 else None,
                     )
@@ -600,13 +602,11 @@ class WriterService:
 
             else:
                 # Generate excerpt and AI summary as before
-                excerpt_response = await self._generate_excerpt(
-                    complete_content, message_history[:2]
-                )
+                excerpt_response = await self._generate_excerpt(message_history[:2])
                 total_tokens += excerpt_response["tokens"]
 
                 ai_summary_response = await self._generate_ai_summary(
-                    complete_content, message_history[:2]
+                    message_history[:2]
                 )
                 total_tokens += ai_summary_response["tokens"]
 
@@ -855,7 +855,7 @@ class ArticleEditorService:
 
     async def process_long_article(
         self, content: str, sources: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Process a long article into a series of shorter articles.
 
@@ -864,17 +864,17 @@ class ArticleEditorService:
             sources: Optional sources section to include in last article
 
         Returns:
-            List of dictionaries containing processed articles
+            Dictionary containing:
+                - articles: List of processed article data
+                - tokens_used: Total tokens used in processing
         """
-        # Get and validate prompt template
-        template = self.agent.get_template("article_editor_prompt")
-        if not template:
-            raise ValueError("Article editor prompt template not found")
-
+        tokens_used = 0
         try:
-            prompt = template.render(content=content)
+            template = self.agent.get_template("article_editor")
+            if not template:
+                raise ValueError("Article editor prompt template not found")
 
-            # Generate edited content
+            prompt = template.render(content=content)
             response = self.client._generate_content(
                 prompt=prompt,
                 message_history=[],
@@ -883,15 +883,21 @@ class ArticleEditorService:
             if not response:
                 raise ValueError("Empty response from editor")
 
+            tokens_used += self.client._track_usage(response)
+
             # Parse response into article parts
             edited_content = self.client._extract_content(response)
             articles_data = json.loads(edited_content)
 
             # Add sources to last article if provided
             if sources:
+                cleaned_sources_response = await self._clean_sources_section(sources)
+                tokens_used += cleaned_sources_response["tokens"]
+
                 last_article = articles_data[-1]
-                cleaned_sources = self._clean_sources_section(sources)
-                last_article["content"] += f"\n\n## Sources\n{cleaned_sources}"
+                last_article[
+                    "content"
+                ] += f"\n\n## Sources\n{cleaned_sources_response['content']}"
 
             # Add sources note to other articles
             for i in range(len(articles_data) - 1):
@@ -900,7 +906,7 @@ class ArticleEditorService:
                     f"found in [{articles_data[-1]['title']}].*"
                 )
 
-            return articles_data
+            return {"articles": articles_data, "tokens_used": tokens_used}
 
         except json.JSONDecodeError as e:
             current_app.logger.error(f"Failed to parse editor response: {e}")
@@ -909,23 +915,18 @@ class ArticleEditorService:
             current_app.logger.error(f"Error in article editor: {e}")
             raise
 
-    def _clean_sources_section(self, sources: str) -> str:
+    async def _clean_sources_section(self, sources: str) -> Dict[str, Any]:
         """
         Clean up and format the sources section.
 
-        Args:
-            sources: Raw sources content from research
-
         Returns:
-            Cleaned and formatted sources section
+            Dictionary containing cleaned content and tokens used
         """
         try:
-            # Get template for sources cleaning
-            template = self.agent.get_template("sources_cleanup_prompt")
+            template = self.agent.get_template("sources_cleanup")
             if not template:
                 raise ValueError("Sources cleanup template not found")
 
-            # Generate cleaned sources
             prompt = template.render(sources=sources)
             response = self.client._generate_content(
                 prompt=prompt,
@@ -935,12 +936,15 @@ class ArticleEditorService:
             if not response:
                 raise ValueError("Empty response from sources cleanup")
 
-            return self.client._extract_content(response)
+            return {
+                "content": self.client._extract_content(response),
+                "tokens": self.client._track_usage(response),
+            }
 
         except Exception as e:
-            current_app.logger.error(f"Error cleaning sources: {e}")
+            current_app.logger.error(f"Error cleaning sources: {str(e)}")
             # Return original sources if cleaning fails
-            return sources
+            return {"content": sources, "tokens": 0}
 
 
 # noinspection PyProtectedMember,PyArgumentList
