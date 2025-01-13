@@ -69,7 +69,17 @@ INITIAL_AGENTS = [
                 "name": "article_writing",
                 "description": "Template for writing articles",
                 "template": INITIAL_PROMPTS["writer_prompt"],
-            }
+            },
+            {
+                "name": "article_editor",
+                "description": "Template for editing articles",
+                "template": INITIAL_PROMPTS["editor_prompt"],
+            },
+            {
+                "name": "sources_cleanup",
+                "description": "Template for cleaning article sources",
+                "template": INITIAL_PROMPTS["sources_cleanup_prompt"],
+            },
         ],
     },
     {

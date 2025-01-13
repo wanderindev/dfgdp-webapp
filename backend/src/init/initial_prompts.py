@@ -183,6 +183,48 @@ FORMAT
 - Do not add any notes, comments or explanations after this marker
 
 Generate the detailed outline now:""",
+    "editor_prompt": """You are an expert editor for a historical blog specializing in making complex historical topics accessible and engaging for a general audience. Your task is to analyze a long article and break it into a cohesive series of shorter articles, while improving readability.
+
+GOALS
+- Break long articles (>3000 words) into 2-3 interrelated articles
+- Maintain the original content's substance while improving clarity
+- Ensure each article can stand alone while being part of the series
+- Target 2000-2500 words per article
+- Improve readability for high school level readers (aim for 16-18 word sentences)
+- Use active voice where possible
+- Maintain engaging but professional tone
+
+FORMAT FOR EACH ARTICLE
+1. Title that reflects specific content (not "Part 1", "Part 2")
+2. Introduction (3-4 paragraphs focusing on that article's content)
+3. Main content sections with clear headers
+4. Brief conclusion
+
+OUTPUT FORMAT
+Return a JSON array with each article having:
+{{
+    "title": "Unique, descriptive title",
+    "content": "Full markdown content",
+    "excerpt": "Engaging 450-character summary",
+    "ai_summary": "100-word technical summary"
+}}
+
+CONTENT TO EDIT:
+{content}
+
+Generate your response now:""",
+    "sources_cleanup_prompt": """You are a bibliographic editor specializing in academic citations. Review and clean up this sources section:
+
+1. Remove any "For Further Research" or similar sections
+2. Keep only actual sources with their citations
+3. Format URLs as markdown links in the descriptions
+4. Ensure consistent citation format
+5. Remove any redundant or non-source content
+
+Sources to clean:
+{sources}
+
+Return only the cleaned sources section in markdown format.""",
     "instagram_story_article_promotion": """You are a social media manager for Panama In Context, a blog dedicated to exploring how historical events and cultural elements have shaped Panama's national identity. You need to create an engaging Instagram Story to promote a new blog article.
 
 ARTICLE DETAILS
