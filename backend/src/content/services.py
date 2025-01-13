@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime, timezone
 from html import unescape
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiohttp
 from bs4 import BeautifulSoup
@@ -421,7 +421,7 @@ class WriterService:
 
         self.client._init_client()
 
-    async def generate_article(self, research_id: int) -> Article:
+    async def generate_article(self, research_id: int) -> Union[Article, List[Article]]:
         """
         Generate an article based on research content.
 
@@ -429,7 +429,7 @@ class WriterService:
             research_id: ID of the Research to use as source
 
         Returns:
-            Created Article object
+            Either a single Article or a List of Articles if content is split into series
 
         Raises:
             ValueError: If parameters are invalid or API call fails
@@ -538,43 +538,100 @@ class WriterService:
                 # Small delay between sections
                 await asyncio.sleep(2)
 
-            # Step 5: Add sources section from research
+            # Extract sources before combining content
             sources_section = WriterService._extract_sources_section(research.content)
-            if sources_section:
-                sections_content.append("\n\n## Further Reading\n" + sources_section)
 
-            # Step 6: Combine all content
+            # Combine all content
             complete_content = "\n\n".join(sections_content)
 
-            # Step 7: Generate excerpt and AI summary
-            excerpt_response = await self._generate_excerpt(
-                complete_content, message_history[:2]
-            )
-            total_tokens += excerpt_response["tokens"]
+            # Check length and process accordingly
+            word_count = len(complete_content.split())
+            if word_count > 3000:
+                # Use ArticleEditorService for long content
+                editor = ArticleEditorService()
+                articles_data = await editor.process_long_article(
+                    content=complete_content, sources=sources_section
+                )
 
-            ai_summary_response = await self._generate_ai_summary(
-                complete_content, message_history[:2]
-            )
-            total_tokens += ai_summary_response["tokens"]
+                articles = []
+                first_article = None
+                for i, article_data in enumerate(articles_data, 1):
+                    article = Article(
+                        research_id=research_id,
+                        category_id=category.id,
+                        title=article_data["title"],
+                        content=article_data["content"],
+                        excerpt=article_data["excerpt"],
+                        ai_summary=article_data["ai_summary"],
+                        level=suggestion.level,
+                        status=ContentStatus.PENDING,
+                        model_id=self.agent.model_id,
+                        tokens_used=total_tokens // len(articles_data),
+                        generation_started_at=generation_started_at,
+                        series_order=i if i > 1 else None,
+                    )
 
-            # Create article
-            article = Article(
-                research_id=research_id,
-                category_id=category.id,
-                title=suggestion.title,
-                content=complete_content,
-                excerpt=excerpt_response["excerpt"],
-                ai_summary=ai_summary_response["summary"],
-                level=suggestion.level,
-                status=ContentStatus.PENDING,
-                model_id=self.agent.model_id,
-                tokens_used=total_tokens,
-                generation_started_at=generation_started_at,
-            )
+                    if i == 1:
+                        first_article = article
+                    else:
+                        article.series_parent = first_article
 
-            db.session.add(article)
-            db.session.commit()
-            return article
+                    articles.append(article)
+
+                # Add to session but don't commit yet so we can get IDs
+                db.session.add_all(articles)
+                db.session.flush()
+
+                # Now generate and add about sections
+                for article in articles:
+                    about_section = self._generate_about_section(
+                        articles=articles,
+                        current_article=article,
+                        suggestion_title=suggestion.title,
+                    )
+                    article.content = f"{about_section}\n\n{article.content}"
+
+                try:
+                    db.session.commit()
+                    return articles
+                except Exception as e:
+                    db.session.rollback()
+                    raise ValueError(f"Failed to save article series: {str(e)}")
+
+            else:
+                # Generate excerpt and AI summary as before
+                excerpt_response = await self._generate_excerpt(
+                    complete_content, message_history[:2]
+                )
+                total_tokens += excerpt_response["tokens"]
+
+                ai_summary_response = await self._generate_ai_summary(
+                    complete_content, message_history[:2]
+                )
+                total_tokens += ai_summary_response["tokens"]
+
+                # Create single article
+                article = Article(
+                    research_id=research_id,
+                    category_id=category.id,
+                    title=suggestion.title,
+                    content=complete_content,
+                    excerpt=excerpt_response["excerpt"],
+                    ai_summary=ai_summary_response["summary"],
+                    level=suggestion.level,
+                    status=ContentStatus.PENDING,
+                    model_id=self.agent.model_id,
+                    tokens_used=total_tokens,
+                    generation_started_at=generation_started_at,
+                )
+
+                try:
+                    db.session.add(article)
+                    db.session.commit()
+                    return article
+                except Exception as e:
+                    db.session.rollback()
+                    raise ValueError(f"Failed to save article: {str(e)}")
 
         except Exception as e:
             db.session.rollback()
@@ -615,13 +672,12 @@ class WriterService:
         return match.group(1).strip() if match else None
 
     async def _generate_excerpt(
-        self, content: str, base_message_history: List[Dict[str, str]]
+        self, base_message_history: List[Dict[str, str]]
     ) -> Dict[str, Any]:
         """
         Generate excerpt from article content.
 
         Args:
-            content: The full article content
             base_message_history: Initial message history to use for context
 
         Returns:
@@ -653,13 +709,12 @@ class WriterService:
         return {"excerpt": excerpt, "tokens": tokens}
 
     async def _generate_ai_summary(
-        self, content: str, base_message_history: List[Dict[str, str]]
+        self, base_message_history: List[Dict[str, str]]
     ) -> Dict[str, Any]:
         """
         Generate technical AI summary from article content.
 
         Args:
-            content: The full article content
             base_message_history: Initial message history to use for context
 
         Returns:
@@ -726,6 +781,166 @@ class WriterService:
         elif excerpt.endswith('"'):
             excerpt = excerpt[:-1]
         return excerpt.strip()
+
+    @staticmethod
+    def _generate_about_section(
+        articles: List[Article], current_article: Article, suggestion_title: str
+    ) -> str:
+        """
+        Generate the About this Article section with proper links.
+
+        Args:
+            articles: List of all articles in the series
+            current_article: The article we're generating the section for
+            suggestion_title: Original title of the article suggestion
+
+        Returns:
+            Formatted about section with links
+        """
+        # Get series info
+        total_articles = len(articles)
+        current_index = articles.index(current_article)
+
+        # Build the about section
+        about = (
+            "*About this Article*\n\n"
+            f"This article is part {current_index + 1} of a {total_articles}-part series "
+            f"about {suggestion_title}. "
+        )
+
+        # Add list of articles
+        about += "\n\nArticles in this series:\n"
+        for article in articles:
+            if article.id == current_article.id:
+                about += f"\n- {article.title} (You are here)"
+            else:
+                about += f"\n- [{article.title}]({article.public_url})"
+
+        # Add separator
+        about += "\n\n---\n"
+
+        return about
+
+
+# noinspection PyArgumentList,PyProtectedMember
+class ArticleEditorService:
+    """Service for editing and splitting long articles into series"""
+
+    def __init__(self) -> None:
+        # Get agent configuration (similar to other services)
+        self.agent: Optional[Agent] = Agent.query.filter_by(
+            type=AgentType.WRITER, is_active=True
+        ).first()
+
+        if not self.agent:
+            raise ValueError("No active writer agent found")
+
+        # Initialize the appropriate client
+        if self.agent.model.provider == Provider.ANTHROPIC:
+            self.client = AnthropicClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        elif self.agent.model.provider == Provider.OPENAI:
+            self.client = OpenAIClient(
+                model=self.agent.model.model_id,
+                temperature=self.agent.temperature,
+                max_tokens=self.agent.max_tokens,
+            )
+        else:
+            raise ValueError(f"Unsupported provider: {self.agent.model.provider}")
+
+        self.client._init_client()
+
+    async def process_long_article(
+        self, content: str, sources: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Process a long article into a series of shorter articles.
+
+        Args:
+            content: The full article content
+            sources: Optional sources section to include in last article
+
+        Returns:
+            List of dictionaries containing processed articles
+        """
+        # Get and validate prompt template
+        template = self.agent.get_template("article_editor_prompt")
+        if not template:
+            raise ValueError("Article editor prompt template not found")
+
+        try:
+            prompt = template.render(content=content)
+
+            # Generate edited content
+            response = self.client._generate_content(
+                prompt=prompt,
+                message_history=[],
+            )
+
+            if not response:
+                raise ValueError("Empty response from editor")
+
+            # Parse response into article parts
+            edited_content = self.client._extract_content(response)
+            articles_data = json.loads(edited_content)
+
+            # Add sources to last article if provided
+            if sources:
+                last_article = articles_data[-1]
+                cleaned_sources = self._clean_sources_section(sources)
+                last_article["content"] += f"\n\n## Sources\n{cleaned_sources}"
+
+            # Add sources note to other articles
+            for i in range(len(articles_data) - 1):
+                articles_data[i]["content"] += (
+                    f"\n\n---\n*The sources consulted for this article series can be "
+                    f"found in [{articles_data[-1]['title']}].*"
+                )
+
+            return articles_data
+
+        except json.JSONDecodeError as e:
+            current_app.logger.error(f"Failed to parse editor response: {e}")
+            raise ValueError("Invalid editor response format")
+        except Exception as e:
+            current_app.logger.error(f"Error in article editor: {e}")
+            raise
+
+    def _clean_sources_section(self, sources: str) -> str:
+        """
+        Clean up and format the sources section.
+
+        Args:
+            sources: Raw sources content from research
+
+        Returns:
+            Cleaned and formatted sources section
+        """
+        try:
+            # Get template for sources cleaning
+            template = self.agent.get_template("sources_cleanup_prompt")
+            if not template:
+                raise ValueError("Sources cleanup template not found")
+
+            # Generate cleaned sources
+            prompt = template.render(sources=sources)
+            response = self.client._generate_content(
+                prompt=prompt,
+                message_history=[],
+            )
+
+            if not response:
+                raise ValueError("Empty response from sources cleanup")
+
+            return self.client._extract_content(response)
+
+        except Exception as e:
+            current_app.logger.error(f"Error cleaning sources: {e}")
+            # Return original sources if cleaning fails
+            return sources
 
 
 # noinspection PyProtectedMember,PyArgumentList

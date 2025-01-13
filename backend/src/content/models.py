@@ -314,6 +314,16 @@ class Article(
     level: Mapped[ArticleLevel] = db.Column(
         db.Enum(ArticleLevel, name="article_level_type"), nullable=False
     )
+    series_order: Mapped[Optional[int]] = db.Column(
+        db.Integer, nullable=True, comment="Order in article series, null if standalone"
+    )
+    series_parent_id: Mapped[Optional[int]] = db.Column(
+        db.Integer,
+        db.ForeignKey("articles.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="First article in the series",
+    )
 
     status: Mapped[ContentStatus] = db.Column(
         db.Enum(ContentStatus, name="content_status_type"),
@@ -338,6 +348,15 @@ class Article(
         "Tag", secondary=article_tags, backref="articles"
     )
 
+    series_parent: Mapped[Optional["Article"]] = relationship(
+        "Article",
+        remote_side=[id],
+        backref=backref(
+            "series_articles",
+            order_by="Article.series_order",
+            cascade="all, delete-orphan",
+        ),
+    )
     related_articles: Mapped[List["Article"]] = relationship(
         "Article",
         secondary=article_relationships,
@@ -350,6 +369,7 @@ class Article(
         Index("idx_article_status", "status"),
         Index("idx_article_level", "level"),
         Index("idx_article_published", "published_at"),
+        Index("idx_article_series", "series_parent_id", "series_order"),
         {"comment": "Main article content with translations and relationships"},
     )
 
@@ -419,6 +439,69 @@ class Article(
 
         except Exception as e:
             current_app.logger.error(f"Error generating public url: {str(e)}")
+            return None
+
+    @property
+    def is_series(self) -> bool:
+        """Check if article is part of a series."""
+        return bool(self.series_parent_id or self.series_articles)
+
+    @property
+    def is_series_parent(self) -> bool:
+        """Check if article is the first in a series."""
+        return bool(self.series_articles)
+
+    @property
+    def full_series(self) -> List["Article"]:
+        """Get all articles in the series, ordered."""
+        if self.is_series_parent:
+            return [self] + self.series_articles
+        elif self.series_parent:
+            return [self.series_parent] + [
+                a for a in self.series_parent.series_articles if a.id != self.id
+            ]
+        return [self]
+
+    @property
+    def next_in_series(self) -> Optional["Article"]:
+        """Get next article in series if it exists."""
+        if not self.is_series:
+            return None
+
+        if self.is_series_parent:
+            return self.series_articles[0] if self.series_articles else None
+
+        parent = self.series_parent
+        if not parent:
+            return None
+
+        series = parent.full_series
+        try:
+            current_index = series.index(self)
+            return (
+                series[current_index + 1] if current_index < len(series) - 1 else None
+            )
+        except ValueError:
+            return None
+
+    @property
+    def previous_in_series(self) -> Optional["Article"]:
+        """Get previous article in series if it exists."""
+        if not self.is_series:
+            return None
+
+        if self.is_series_parent:
+            return None
+
+        parent = self.series_parent
+        if not parent:
+            return None
+
+        series = parent.full_series
+        try:
+            current_index = series.index(self)
+            return series[current_index - 1] if current_index > 0 else None
+        except ValueError:
             return None
 
     def tag_article(self, tag_names: List[str]) -> List[Tag]:
