@@ -92,6 +92,9 @@ class Category(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     )
     name: Mapped[str] = db.Column(db.String(100), nullable=False)
     description: Mapped[str] = db.Column(db.Text, nullable=False)
+    is_long_form: Mapped[bool] = db.Column(
+        db.Boolean, nullable=False, server_default=text("true")
+    )
 
     __table_args__ = (
         db.UniqueConstraint("taxonomy_id", "name", name="uq_category_taxonomy_name"),

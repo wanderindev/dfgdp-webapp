@@ -163,31 +163,31 @@ INITIAL_CATEGORIES = [
         "taxonomy": "Notable Figures",
         "name": "Colonial Era Figures",
         "description": "Biographical sketches of key figures from Panama's colonial period.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Notable Figures",
         "name": "Republican Era Leaders",
         "description": "Profiles of presidents, politicians, and reformers who shaped Panama after independence.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Notable Figures",
         "name": "Canal Builders & Engineers",
         "description": "Short bios of individuals instrumental in planning, building, and managing the Panama Canal.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Notable Figures",
         "name": "Military & Revolutionary Figures",
         "description": "Highlights of influential military leaders, revolutionaries, and key actors in independence movements.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Notable Figures",
         "name": "Cultural Icons (Artists & Musicians)",
         "description": "Brief overviews of Panamanian artists, musicians, and other cultural trendsetters.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Notable Figures",
@@ -195,42 +195,42 @@ INITIAL_CATEGORIES = [
         "description": (
             "Profiles of influential Guna, Ngäbe, Emberá, and other indigenous leaders in Panamanian history."
         ),
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Colonial Forts & Ruins",
         "description": "Short overviews of Panama's colonial fortifications and ruins, highlighting their historic significance.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Historic & Modern Landmarks",  # <-- renamed
         "description": "Snapshots of both historically significant and contemporary landmark sites, including Casco Viejo, the Panama Canal, Panama Viejo, and other major urban or engineering icons.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Museums & Cultural Centers",
         "description": "Short descriptions of key museums and cultural institutions, including their main exhibits and significance.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Religious Landmarks",
         "description": "Introductions to Panama's notable churches, cathedrals, and other religious heritage sites.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Archaeological Sites",
         "description": "Concise features on pre-Columbian dig sites, ruins, and other places of archaeological importance.",
-        "is_long": False,
+        "is_long_form": False,
     },
     {
         "taxonomy": "Sites & Landmarks",
         "name": "Natural Heritage Attractions",
         "description": "Overviews of national parks, protected areas, and biodiversity hotspots important to Panamanian culture and tourism.",
-        "is_long": False,
+        "is_long_form": False,
     },
 ]
