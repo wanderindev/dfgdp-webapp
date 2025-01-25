@@ -18,7 +18,7 @@ from content.models import (
 )
 from extensions import db
 from translations.models import ApprovedLanguage, Translation
-from translations.services import TranslationService
+from services.translator_service import TranslatorService
 
 # Create CLI group
 translations_cli = AppGroup("translations")
@@ -28,7 +28,7 @@ translations_cli = AppGroup("translations")
 class MissingTranslationChecker:
     """Utility class for checking missing translations"""
 
-    def __init__(self, service: TranslationService) -> None:
+    def __init__(self, service: TranslatorService) -> None:
         self.service = service
         self.model_registry = {
             "articles": Article,
@@ -44,14 +44,6 @@ class MissingTranslationChecker:
     ) -> Dict[str, Set[str]]:
         """
         Check missing translations for a single entity.
-
-        Args:
-            entity: Entity to check
-            languages: Optional list of language codes to check.
-                      If None, checks all active languages.
-
-        Returns:
-            Dict mapping field names to set of missing language codes
         """
         handler = self.service.initialized_handlers.get(entity.__tablename__)
         if not handler:
@@ -89,12 +81,16 @@ class MissingTranslationChecker:
 
             for lang in languages:
                 # Check if translation exists
-                translation = Translation.query.filter_by(
-                    entity_type=entity.__tablename__,
-                    entity_id=entity_id,
-                    field=field,
-                    language=lang,
-                ).first()
+                translation = (
+                    db.session.query(Translation)
+                    .filter_by(
+                        entity_type=entity.__tablename__,
+                        entity_id=entity_id,
+                        field=field,
+                        language=lang,
+                    )
+                    .first()
+                )
 
                 if not translation:
                     missing_langs.add(lang)
@@ -112,14 +108,6 @@ class MissingTranslationChecker:
     ) -> List[Tuple[Any, Dict[str, Set[str]]]]:
         """
         Check missing translations for all entities of a model type.
-
-        Args:
-            model_type: Name of model to check
-            languages: Optional list of language codes to check
-            report_progress: Whether to report progress (for CLI use)
-
-        Returns:
-            List of tuples (entity, missing_translations)
         """
         handler = self.service.initialized_handlers.get(model_type)
         if not handler:
@@ -178,7 +166,7 @@ def check_missing_translations(
 ) -> None:
     """Check for missing translations and optionally fix them."""
     try:
-        service = TranslationService()
+        service = TranslatorService()
         checker = MissingTranslationChecker(service)
 
         with get_event_loop() as loop:
@@ -199,9 +187,11 @@ def check_missing_translations(
             # Determine which languages to check
             languages = None
             if language:
-                if not ApprovedLanguage.query.filter_by(
-                    code=language, is_active=True
-                ).first():
+                if (
+                    not db.session.query(ApprovedLanguage)
+                    .filter_by(code=language, is_active=True)
+                    .first()
+                ):
                     click.echo(f"Error: Language {language} not approved")
                     return
                 languages = [language]
@@ -276,9 +266,11 @@ def check_missing_translations(
 @translations_cli.command("list-languages")
 def list_languages() -> None:
     """List all approved languages and their status."""
-    langs = ApprovedLanguage.query.order_by(
-        ApprovedLanguage.is_default.desc(), ApprovedLanguage.code
-    ).all()
+    langs = (
+        db.session.query(ApprovedLanguage)
+        .order_by(ApprovedLanguage.is_default.desc(), ApprovedLanguage.code)
+        .all()
+    )
 
     if not langs:
         click.echo("No languages configured")
@@ -336,15 +328,14 @@ def translate_entity(
 ) -> None:
     """
     Translate specific entity content to target language.
-
-    Examples:
-        flask translations translate article 1 -l es
-        flask translations translate taxonomy 2 -l es -f name -f description
-        flask translations translate category 3 -l es --fields name --fields description
     """
     try:
         # Validate language
-        if not ApprovedLanguage.query.filter_by(code=language, is_active=True).first():
+        if (
+            not db.session.query(ApprovedLanguage)
+            .filter_by(code=language, is_active=True)
+            .first()
+        ):
             click.echo(f"Error: Language {language} not approved")
             return
 
@@ -359,7 +350,7 @@ def translate_entity(
             return
 
         # Initialize service
-        service = TranslationService()
+        service = TranslatorService()
 
         # Get handler for validation
         handler = service.initialized_handlers.get(entity.__tablename__)
@@ -409,10 +400,6 @@ def translate_entity(
 def list_translatable_content(entity_type: str, entity_id: int) -> None:
     """
     List translatable fields and their current translations for an entity.
-
-    Examples:
-        flask translations list-translatable article 1
-        flask translations list-translatable taxonomy 2
     """
     try:
         # Get entity
@@ -426,7 +413,7 @@ def list_translatable_content(entity_type: str, entity_id: int) -> None:
             return
 
         # Initialize service
-        service = TranslationService()
+        service = TranslatorService()
 
         # Get handler
         handler = service.initialized_handlers.get(entity.__tablename__)

@@ -3,8 +3,7 @@ import asyncio
 import click
 from flask.cli import AppGroup
 
-from .constants import ARTICLE_LEVELS
-from .models import (
+from content.models import (
     Category,
     Article,
     ArticleSuggestion,
@@ -12,14 +11,13 @@ from .models import (
     ContentStatus,
     MediaSuggestion,
 )
-from .services import (
-    ContentManagerService,
-    ResearcherService,
-    WriterService,
-    SocialMediaManagerService,
-    MediaManagerService,
-    WikimediaService,
-)
+from extensions import db
+from services.content_manager_service import ContentManagerService
+from services.media_manager_service import MediaManagerService
+from services.researcher_service import ResearcherService
+from services.social_media_manager_service import SocialMediaManagerService
+from services.wikimedia_service import WikimediaService
+from services.writer_service import WriterService
 
 # Create the CLI group
 content_cli = AppGroup("content")
@@ -27,9 +25,6 @@ content_cli = AppGroup("content")
 
 @content_cli.command("generate-suggestions")
 @click.argument("category_id", type=int)
-@click.argument(
-    "level", type=click.Choice(list(ARTICLE_LEVELS.keys()), case_sensitive=False)
-)
 @click.option(
     "--count",
     "-n",
@@ -37,23 +32,17 @@ content_cli = AppGroup("content")
     help="Number of suggestions to generate",
     type=click.IntRange(1, 10),
 )
-def generate_suggestions(category_id: int, level: str, count: int) -> None:
+def generate_suggestions(category_id: int, count: int) -> None:
     """
     Generate article suggestions for a category.
-
-    Arguments:
-        category_id: ID of the category to generate suggestions for
-        level: Article level (ELEMENTARY, MIDDLE_SCHOOL, HIGH_SCHOOL, COLLEGE, GENERAL)
-        count: Number of suggestions to generate (default: 3)
     """
     # Verify category exists
-    category = Category.query.get(category_id)
+    category = db.session.query(Category).get(category_id)
     if not category:
         click.echo(f"Error: Category {category_id} not found", err=True)
         return
 
     click.echo(f"Generating {count} suggestions for category: {category.name}")
-    click.echo(f"Level: {ARTICLE_LEVELS[level].description}")
 
     try:
         # Initialize service
@@ -66,7 +55,7 @@ def generate_suggestions(category_id: int, level: str, count: int) -> None:
         with click.progressbar(length=count, label="Generating suggestions") as bar:
             suggestions = loop.run_until_complete(
                 service.generate_suggestions(
-                    category_id=category_id, level=level, num_suggestions=count
+                    category_id=category_id, num_suggestions=count
                 )
             )
             bar.update(count)
@@ -95,18 +84,14 @@ def generate_suggestions(category_id: int, level: str, count: int) -> None:
 def generate_research(suggestion_id: int) -> None:
     """
     Generate research content for an article suggestion.
-
-    Arguments:
-        suggestion_id: ID of the suggestion to research
     """
     # Verify suggestion exists
-    suggestion = ArticleSuggestion.query.get(suggestion_id)
+    suggestion = db.session.query(ArticleSuggestion).get(suggestion_id)
     if not suggestion:
         click.echo(f"Error: ArticleSuggestion {suggestion_id} not found", err=True)
         return
 
     click.echo(f"Generating research for article suggestion: {suggestion.title}")
-    click.echo(f"Level: {suggestion.level.value}")
 
     try:
         # Initialize service
@@ -125,7 +110,6 @@ def generate_research(suggestion_id: int) -> None:
         # Display results
         click.echo("\nResearch generated successfully!")
         click.echo(f"Word count: {len(research.content.split())}")
-        click.echo(f"Tokens used: {research.tokens_used}")
 
         # Show preview of first 200 characters
         preview = (
@@ -155,7 +139,7 @@ def generate_article(research_id: int) -> None:
         research_id: ID of the research to use as source
     """
     # Verify research exists and is approved
-    research = Research.query.get(research_id)
+    research = db.session.query(Research).get(research_id)
     if not research:
         click.echo(f"Error: Research {research_id} not found", err=True)
         return
@@ -191,7 +175,6 @@ def generate_article(research_id: int) -> None:
         click.echo("\nArticle generated successfully!")
         click.echo(f"Title: {article.title}")
         click.echo(f"Word count: {article.word_count}")
-        click.echo(f"Tokens used: {article.tokens_used}")
 
         # Show excerpt
         click.echo("\nExcerpt:")
@@ -232,7 +215,7 @@ def generate_story(article_id: int) -> None:
         article_id: ID of the article to promote
     """
     # Verify article exists
-    article = Article.query.get(article_id)
+    article = db.session.query(Article).get(article_id)
     if not article:
         click.echo(f"Error: Article {article_id} not found", err=True)
         return
@@ -264,7 +247,6 @@ def generate_story(article_id: int) -> None:
         click.echo(", ".join([f"#{tag}" for tag in post.hashtags]))
 
         click.echo(f"\nStory Link: {article.full_url}")
-        click.echo(f"Tokens used: {post.tokens_used}")
 
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
@@ -284,13 +266,9 @@ def generate_story(article_id: int) -> None:
 def generate_did_you_know(article_id: int, count: int) -> None:
     """
     Generate Instagram feed posts with interesting facts from an article's research.
-
-    Arguments:
-        article_id: ID of the article whose research to use
-        count: Number of posts to generate (default: 3)
     """
     # Verify article exists
-    article = Article.query.get(article_id)
+    article = db.session.query(Article).get(article_id)
     if not article:
         click.echo(f"Error: Article {article_id} not found", err=True)
         return
@@ -323,7 +301,6 @@ def generate_did_you_know(article_id: int, count: int) -> None:
             click.echo("-" * 40)
             click.echo("Hashtags:")
             click.echo(", ".join([f"#{tag}" for tag in post.hashtags]))
-            click.echo(f"Tokens used: {post.tokens_used}")
 
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
@@ -337,12 +314,9 @@ def generate_did_you_know(article_id: int, count: int) -> None:
 def generate_media_suggestions(research_id: int) -> None:
     """
     Generate media suggestions for research content.
-
-    Arguments:
-        research_id: ID of the research to analyze
     """
     # Verify research exists and is approved
-    research = Research.query.get(research_id)
+    research = db.session.query(Research).get(research_id)
     if not research:
         click.echo(f"Error: Research {research_id} not found", err=True)
         return
@@ -395,8 +369,6 @@ def generate_media_suggestions(research_id: int) -> None:
         click.echo(media_suggestion.reasoning)
         click.echo("-" * 40)
 
-        click.echo(f"\nTokens used: {media_suggestion.tokens_used}")
-
     except ValueError as e:
         click.echo(f"Error: {str(e)}", err=True)
     except Exception as e:
@@ -415,13 +387,9 @@ def generate_media_suggestions(research_id: int) -> None:
 def fetch_media_candidates(suggestion_id: int, max_per_query: int) -> None:
     """
     Fetch media candidates from Wikimedia Commons for a suggestion.
-
-    Arguments:
-        suggestion_id: ID of the media suggestion to process
-        max_per_query: Maximum images to fetch per query/category (default: 5)
     """
     # Verify suggestion exists
-    suggestion = MediaSuggestion.query.get(suggestion_id)
+    suggestion = db.session.query(MediaSuggestion).get(suggestion_id)
     if not suggestion:
         click.echo(f"Error: MediaSuggestion {suggestion_id} not found", err=True)
         return

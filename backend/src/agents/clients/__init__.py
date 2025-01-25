@@ -1,5 +1,5 @@
 from .anthropic_client import AnthropicClient
-from .base import BaseAIClient
+from .base_ai_client import BaseAIClient
 from .openai_client import OpenAIClient
 
-__all__ = ["BaseAIClient", "OpenAIClient", "AnthropicClient"]
+__all__ = ["BaseAIClient", "AnthropicClient"]

@@ -7,7 +7,7 @@ from flask import current_app
 from content.models import ContentStatus
 from extensions import db
 from translations.models import Translation
-from translations.services import TranslationHandler
+from services.translator_service import TranslationHandler
 
 
 class TaxonomyTranslationHandler(TranslationHandler):
@@ -166,7 +166,6 @@ class SocialMediaPostTranslationHandler(TranslationHandler):
         language: str,
         content: str,
         generation_started_at: Optional[datetime] = None,
-        tokens_used: Optional[int] = None,
         model_id: Optional[int] = None,
     ) -> Optional[Translation]:
         """

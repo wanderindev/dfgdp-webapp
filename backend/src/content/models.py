@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, List, Any, Dict
 
 from flask import current_app
-from sqlalchemy import event, func, text, Index
+from sqlalchemy import event, text, Index
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Mapped, relationship, backref
 from werkzeug.utils import secure_filename
@@ -14,15 +14,6 @@ from extensions import db
 from mixins.mixins import AIGenerationMixin, SlugMixin, TimestampMixin
 from mixins.mixins import TranslatableMixin
 from translations.models import ApprovedLanguage
-
-
-# Enums
-class ArticleLevel(str, enum.Enum):
-    ELEMENTARY = "ELEMENTARY"
-    MIDDLE_SCHOOL = "MIDDLE_SCHOOL"
-    HIGH_SCHOOL = "HIGH_SCHOOL"
-    COLLEGE = "COLLEGE"
-    GENERAL = "GENERAL"
 
 
 class ContentStatus(str, enum.Enum):
@@ -150,7 +141,7 @@ class Tag(db.Model, TimestampMixin, TranslatableMixin, SlugMixin):
     @classmethod
     def get_or_create(cls, name: str) -> Optional["Tag"]:
         """Get an existing tag by name or create a new one if it doesn't exist."""
-        tag = cls.query.filter_by(name=name).first()
+        tag = db.session.query(cls).filter_by(name=name).first()
         if tag:
             return tag
 
@@ -176,24 +167,6 @@ article_tags = db.Table(
     Index("idx_article_tags_tag", "tag_id"),
 )
 
-article_relationships = db.Table(
-    "article_relationships",
-    db.Column(
-        "article_id",
-        db.Integer,
-        db.ForeignKey("articles.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    db.Column(
-        "related_article_id",
-        db.Integer,
-        db.ForeignKey("articles.id", ondelete="CASCADE"),
-        primary_key=True,
-    ),
-    Index("idx_article_relationships_article", "article_id"),
-    Index("idx_article_relationships_related", "related_article_id"),
-)
-
 
 class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
     """Content manager's article suggestions"""
@@ -215,9 +188,6 @@ class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
         server_default=text("ARRAY[]::varchar[]"),
     )
     point_of_view: Mapped[str] = db.Column(db.Text, nullable=False)
-    level: Mapped[ArticleLevel] = db.Column(
-        db.Enum(ArticleLevel, name="article_level_type"), nullable=False
-    )
     status: Mapped[ContentStatus] = db.Column(
         db.Enum(ContentStatus, name="content_status_type"),
         nullable=False,
@@ -273,8 +243,9 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
         db.DateTime(timezone=True), nullable=True
     )
 
-    article: Mapped[Optional["Article"]] = relationship(
-        "Article", back_populates="research", uselist=False
+    articles: Mapped[Optional["Article"]] = relationship(
+        "Article",
+        back_populates="research",
     )
 
     __table_args__ = (
@@ -311,9 +282,6 @@ class Article(
     content: Mapped[str] = db.Column(db.Text, nullable=False)
     excerpt: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
     ai_summary: Mapped[Optional[str]] = db.Column(db.Text, nullable=True)
-    level: Mapped[ArticleLevel] = db.Column(
-        db.Enum(ArticleLevel, name="article_level_type"), nullable=False
-    )
     series_order: Mapped[Optional[int]] = db.Column(
         db.Integer, nullable=True, comment="Order in article series, null if standalone"
     )
@@ -342,7 +310,8 @@ class Article(
 
     category: Mapped["Category"] = relationship("Category", backref="articles")
     research: Mapped["Research"] = relationship(
-        "Research", back_populates="article", uselist=False
+        "Research",
+        back_populates="articles",
     )
     tags: Mapped[List["Tag"]] = relationship(
         "Tag", secondary=article_tags, backref="articles"
@@ -356,13 +325,6 @@ class Article(
             order_by="Article.series_order",
             cascade="all, delete-orphan",
         ),
-    )
-    related_articles: Mapped[List["Article"]] = relationship(
-        "Article",
-        secondary=article_relationships,
-        primaryjoin=(id == article_relationships.c.article_id),
-        secondaryjoin=(id == article_relationships.c.related_article_id),
-        backref=backref("referenced_by", lazy="select"),
     )
 
     __table_args__ = (
@@ -379,58 +341,19 @@ class Article(
         return len(self.content.split()) if self.content else 0
 
     @property
-    def relevance_score(self) -> float:
-        """Calculate article relevance score"""
-        score = 0.0
-
-        # Base score from status
-        if self.status == ContentStatus.APPROVED:
-            score += 2.0
-
-        # Category relevance
-        category_count = (
-            db.session.query(func.count(Article.id))
-            .filter(Article.category_id == self.category_id)
-            .scalar()
-        )
-        if category_count is not None:
-            score += min(category_count * 0.5, 5.0)  # Cap at 5.0
-
-        # Tags count (approved tags weight more)
-        approved_tags = sum(
-            1 for tag in self.tags if tag.status == ContentStatus.APPROVED
-        )
-        pending_tags = len(self.tags) - approved_tags
-        score += (approved_tags * 0.5) + (pending_tags * 0.2)
-
-        # Related articles
-        score += len(self.related_articles) * 0.3
-        score += len(self.referenced_by) * 0.4  # Being referenced worth more
-
-        return score
-
-    @property
     def public_url(self) -> Optional[str]:
         """
         Generate the full URL for the article using the default language.
-
-        The URL follows the pattern:
-        {base_url}/{language_code}/{taxonomy_slug}/{category_slug}/{article_slug}
-
-        Returns:
-            str or None: Full URL if generation succeeds, None if it fails
+        Pattern: {base_url}/{language_code}/{taxonomy_slug}/{category_slug}/{article_slug}
         """
         try:
-            # Get base URL from config
             base_url = current_app.config["BLOG_URL"].rstrip("/")
 
-            # Get default language code
             default_lang = ApprovedLanguage.get_default_language()
             if not default_lang:
                 current_app.logger.error("No default language configured")
                 return None
 
-            # Get category and taxonomy
             category = self.category
             taxonomy = category.taxonomy
 
@@ -677,9 +600,6 @@ class MediaCandidate(db.Model, TimestampMixin):
     def approve(self, user_id: int, notes: Optional[str] = None) -> Optional["Media"]:
         """
         Approve candidate and create Media entry
-
-        Returns:
-            Created Media object if successful, None otherwise
         """
         try:
             # First make sure the upload directory exists
@@ -1063,12 +983,6 @@ class Media(db.Model, TimestampMixin, TranslatableMixin):
     def set_wikimedia_metadata(self, commons_data: Dict[str, Any]) -> bool:
         """
         Update media metadata from Wikimedia Commons data
-
-        Args:
-            commons_data: Dictionary containing Wikimedia Commons metadata
-
-        Returns:
-            bool: True if update successful, False otherwise
         """
         try:
             self.commons_id = commons_data.get("title")
@@ -1094,12 +1008,6 @@ class Media(db.Model, TimestampMixin, TranslatableMixin):
     def get_attribution_text(self, format_: str = "html") -> Optional[str]:
         """
         Get properly formatted attribution text
-
-        Args:
-            format_: Output format ('html' or 'markdown')
-
-        Returns:
-            Formatted attribution string or None if no attribution required
         """
         if format_ == "html":
             return self.attribution_html
@@ -1160,22 +1068,8 @@ class SocialMediaAccount(db.Model, TimestampMixin):
 
 
 class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableMixin):
-    """Generated social media content with platform-specific constraints.
-
-    Instagram-specific constraints:
-    - Caption (content): Maximum 2,200 characters
-    - Carousel posts: Maximum 10 images/videos
-    - Mentions: Maximum 30 mentions per post
-    - Hashtags: While Instagram allows up to 30 hashtags, best practices suggest using 3-15 relevant hashtags
-    - Media aspect ratios:
-        * Square: 1:1
-        * Portrait: 4:5
-        * Landscape: 1.91:1
-        * Stories/Reels: 9:16
-
-    Post Types:
-    - FEED: Regular feed posts (Did You Know?) that remain permanently on the profile
-    - STORY: 24-hour stories used for article promotion, can be saved as highlights
+    """
+    Generated social media content with platform-specific constraints.
     """
 
     __tablename__ = "social_media_posts"
@@ -1264,15 +1158,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     def upload_image(self, file, position: Optional[int] = None) -> Optional[Media]:
         """
         Upload and add an image to the social media post.
-
-        Args:
-            file: The image file to upload
-            position: Position in carousel (0-based). If None, appends to end.
-                     If position is specified and already occupied, shifts existing
-                     images to make room.
-
-        Returns:
-            Media: The created Media object if successful, None otherwise
         """
         # Create media object
         media = Media.create_from_upload(
@@ -1326,12 +1211,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     def remove_image(self, position: int) -> bool:
         """
         Remove an image from the specified carousel position.
-
-        Args:
-            position: The position (0-based) of the image to remove
-
-        Returns:
-            bool: True if successful, False otherwise
         """
         try:
             if position < 0 or position >= len(self.media_items):
@@ -1364,13 +1243,6 @@ class SocialMediaPost(db.Model, TimestampMixin, AIGenerationMixin, TranslatableM
     def reorder_images(self, old_position: int, new_position: int) -> bool:
         """
         Reorder images by moving an image from one position to another.
-
-        Args:
-            old_position: Current position of the image (0-based)
-            new_position: New desired position (0-based)
-
-        Returns:
-            bool: True if successful, False otherwise
         """
         try:
             if (

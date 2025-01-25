@@ -40,8 +40,6 @@ class TimestampMixin:
 class AIGenerationMixin:
     """Mixin for tracking AI content generation metadata"""
 
-    tokens_used: Mapped[Optional[int]] = db.Column(db.Integer, nullable=True)
-
     @declared_attr
     def model_id(cls) -> Mapped[Optional[int]]:
         return db.Column(
@@ -64,16 +62,7 @@ class TranslatableMixin:
     def get_translation(self: T, field: str, language: Optional[str] = None) -> Any:
         """
         Get translation for a field in specified language.
-
-        Args:
-            field: Name of the field to get translation for
-            language: Language code. If None, uses current language from Flask g
-                     or falls back to default language
-
-        Returns:
-            Translated content or original field value if no translation exists
         """
-        # Import here to avoid circular import
         from translations.models import ApprovedLanguage, Translation
 
         if language is None:
@@ -93,12 +82,16 @@ class TranslatableMixin:
             return getattr(self, field)
 
         # Look for translation
-        translation = Translation.query.filter_by(
-            entity_type=self.__tablename__,
-            entity_id=entity_id,
-            field=field,
-            language=language,
-        ).first()
+        translation = (
+            db.session.query(Translation)
+            .filter_by(
+                entity_type=self.__tablename__,
+                entity_id=entity_id,
+                field=field,
+                language=language,
+            )
+            .first()
+        )
 
         if translation:
             try:
@@ -113,12 +106,6 @@ class TranslatableMixin:
     def get_available_translations(self: T, field: str) -> List[str]:
         """
         Get list of available language codes for a field.
-
-        Args:
-            field: Name of the field to check translations for
-
-        Returns:
-            List of language codes that have translations
         """
         # Import here to avoid circular import
         from translations.models import Translation
@@ -132,22 +119,17 @@ class TranslatableMixin:
         except (AttributeError, IndexError):
             return []
 
-        translations = Translation.query.filter_by(
-            entity_type=self.__tablename__, entity_id=entity_id, field=field
-        ).all()
+        translations = (
+            db.session.query(Translation)
+            .filter_by(entity_type=self.__tablename__, entity_id=entity_id, field=field)
+            .all()
+        )
 
         return [t.language for t in translations]
 
     def has_translation(self: T, field: str, language: str) -> bool:
         """
         Check if a translation exists for a field in a specific language.
-
-        Args:
-            field: Name of the field to check
-            language: Language code to check for
-
-        Returns:
-            bool: True if translation exists, False otherwise
         """
         # Import here to avoid circular import
         from translations.models import Translation
@@ -162,12 +144,14 @@ class TranslatableMixin:
             return False
 
         return (
-            Translation.query.filter_by(
+            db.session.query(Translation)
+            .filter_by(
                 entity_type=self.__tablename__,
                 entity_id=entity_id,
                 field=field,
                 language=language,
-            ).first()
+            )
+            .first()
             is not None
         )
 
@@ -220,13 +204,6 @@ class SlugMixin:
     def get_slug(self, language: Optional[str] = None) -> str:
         """
         Get slug for a specific language.
-
-        Args:
-            language: Language code. If None, uses current language
-                     from Flask g object or falls back to default language.
-
-        Returns:
-            str: URL-friendly slug for the specified language
         """
         from translations.models import ApprovedLanguage
 

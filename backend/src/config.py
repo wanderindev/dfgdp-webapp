@@ -53,6 +53,8 @@ class BaseConfig:
     # Site Settings
     BLOG_URL: str = os.getenv("BLOG_URL", "https://panamaincontext.com")
 
+    WIKIMEDIA_URL = "https://commons.wikimedia.org/w/api.php"
+
 
 class DevelopmentConfig(BaseConfig):
     """Development configuration."""

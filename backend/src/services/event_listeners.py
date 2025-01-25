@@ -15,7 +15,7 @@ from content.models import (
     Taxonomy,
 )
 from translations.models import ApprovedLanguage
-from translations.services import TranslationService
+from services.translator_service import TranslatorService
 
 
 def async_handler(f):
@@ -29,17 +29,10 @@ def async_handler(f):
     return wrapper
 
 
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyUnresolvedReferences
 def get_changed_translatable_fields(target: Any, handler) -> Set[str]:
     """
     Get list of translatable fields that have changed.
-
-    Args:
-        target: The model instance being modified
-        handler: Translation handler for the model
-
-    Returns:
-        Set of changed field names that require translation
     """
     if not hasattr(target, "_sa_instance_state"):
         return set()
@@ -62,15 +55,10 @@ def get_changed_translatable_fields(target: Any, handler) -> Set[str]:
 
 
 async def handle_translation(
-    target: Any, service: TranslationService, fields: Optional[Set[str]] = None
+    target: Any, service: TranslatorService, fields: Optional[Set[str]] = None
 ) -> None:
     """
     Handle translation for an entity.
-
-    Args:
-        target: The model instance to translate
-        service: Translation service instance
-        fields: Optional set of specific fields to translate
     """
     try:
         # Get active languages except default
@@ -101,7 +89,7 @@ async def handle_translation(
 
 
 # Article events
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyUnresolvedReferences
 @event.listens_for(Article, "after_update")
 @async_handler
 async def article_translation_trigger(_1, _2, target):
@@ -109,7 +97,7 @@ async def article_translation_trigger(_1, _2, target):
     if not isinstance(target, Article):
         return
 
-    service = TranslationService()
+    service = TranslatorService()
     handler = service.initialized_handlers.get("articles")
     if not handler:
         return
@@ -129,7 +117,7 @@ async def article_translation_trigger(_1, _2, target):
 
 
 # Tag events
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyUnresolvedReferences
 @event.listens_for(Tag, "after_update")
 @async_handler
 async def tag_translation_trigger(_1, _2, target):
@@ -137,7 +125,7 @@ async def tag_translation_trigger(_1, _2, target):
     if not isinstance(target, Tag):
         return
 
-    service = TranslationService()
+    service = TranslatorService()
     handler = service.initialized_handlers.get("tags")
     if not handler:
         return
@@ -165,7 +153,7 @@ async def taxonomy_translation_trigger(_1, _2, target):
     if not isinstance(target, Taxonomy):
         return
 
-    service = TranslationService()
+    service = TranslatorService()
     handler = service.initialized_handlers.get("taxonomies")
     if not handler:
         return
@@ -188,7 +176,7 @@ async def category_translation_trigger(_1, _2, target):
     if not isinstance(target, Category):
         return
 
-    service = TranslationService()
+    service = TranslatorService()
     handler = service.initialized_handlers.get("categories")
     if not handler:
         return
@@ -204,7 +192,7 @@ async def category_translation_trigger(_1, _2, target):
 
 
 # SocialMediaPost events
-# noinspection PyProtectedMember
+# noinspection PyProtectedMember,PyUnresolvedReferences
 @event.listens_for(SocialMediaPost, "after_update")
 @async_handler
 async def social_media_post_translation_trigger(_1, _2, target):
@@ -212,7 +200,7 @@ async def social_media_post_translation_trigger(_1, _2, target):
     if not isinstance(target, SocialMediaPost):
         return
 
-    service = TranslationService()
+    service = TranslatorService()
     handler = service.initialized_handlers.get("social_media_posts")
     if not handler:
         return

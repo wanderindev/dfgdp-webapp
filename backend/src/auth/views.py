@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
 from typing import Tuple
 
 from flask import jsonify, request
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.wrappers import Response
 
-from . import auth_bp
-from .models import User, db
+from auth import auth_bp
+from auth.models import User, db
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -19,13 +18,13 @@ def login() -> Tuple[Response, int]:
     if not data or not data.get("email") or not data.get("password"):
         return jsonify({"message": "Missing email or password"}), 400
 
-    user = User.query.filter_by(email=data["email"]).first()
+    user = db.session.query(User).filter_by(email=data["email"]).first()
     if user and user.check_password(data["password"]):
         if not user.active:
             return jsonify({"message": "Account is deactivated"}), 403
 
         login_user(user, remember=data.get("remember", False))
-        user.last_login_at = datetime.now(timezone.utc)
+        user.update_last_login()
         db.session.commit()
 
         return (
@@ -115,7 +114,7 @@ def list_users() -> Response:
 @login_required
 def update_user(user_id: int) -> Tuple[Response, int]:
     """Update user details."""
-    user = User.query.get_or_404(user_id)
+    user = db.session.query(User).get_or_404(user_id)
     data = request.get_json()
 
     if not data:
@@ -124,9 +123,11 @@ def update_user(user_id: int) -> Tuple[Response, int]:
     # Update allowed fields
     if "email" in data:
         # Check if email is taken by another user
-        existing = User.query.filter(
-            User.email == data["email"], User.id != user_id
-        ).first()
+        existing = (
+            db.session.query(User)
+            .filter(User.email == data["email"], User.id != user_id)
+            .first()
+        )
         if existing:
             return jsonify({"message": "Email already taken"}), 400
         user.email = data["email"]
@@ -159,13 +160,13 @@ def update_user(user_id: int) -> Tuple[Response, int]:
 @login_required
 def activate_user(user_id: int) -> Tuple[Response, int]:
     """Activate a user account."""
-    user = User.query.get_or_404(user_id)
+    user = db.session.query(User).get_or_404(user_id)
 
     if user.active:
         return jsonify({"message": "User is already active"}), 400
 
     try:
-        user.active = True
+        user.reactivate()
         db.session.commit()
         return (
             jsonify(
@@ -190,7 +191,7 @@ def activate_user(user_id: int) -> Tuple[Response, int]:
 @login_required
 def deactivate_user(user_id: int) -> Tuple[Response, int]:
     """Deactivate a user account."""
-    user = User.query.get_or_404(user_id)
+    user = db.session.query(User).get_or_404(user_id)
 
     # Prevent deactivating own account
     if user.id == current_user.id:
@@ -200,7 +201,7 @@ def deactivate_user(user_id: int) -> Tuple[Response, int]:
         return jsonify({"message": "User is already inactive"}), 400
 
     try:
-        user.active = False
+        user.deactivate()
         db.session.commit()
         return (
             jsonify(
@@ -225,7 +226,7 @@ def deactivate_user(user_id: int) -> Tuple[Response, int]:
 @login_required
 def reset_user_password(user_id: int) -> Tuple[Response, int]:
     """Reset a user's password."""
-    user = User.query.get_or_404(user_id)
+    user = db.session.query(User).get_or_404(user_id)
     data = request.get_json()
 
     if not data or "password" not in data:

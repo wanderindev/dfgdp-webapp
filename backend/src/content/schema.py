@@ -16,15 +16,6 @@ class ContentStatus(str, Enum):
 
 
 @strawberry.enum
-class ArticleLevel(str, Enum):
-    ELEMENTARY = "ELEMENTARY"
-    MIDDLE_SCHOOL = "MIDDLE_SCHOOL"
-    HIGH_SCHOOL = "HIGH_SCHOOL"
-    COLLEGE = "COLLEGE"
-    GENERAL = "GENERAL"
-
-
-@strawberry.enum
 class MediaType(str, Enum):
     IMAGE = "IMAGE"
     VIDEO = "VIDEO"
@@ -79,7 +70,6 @@ class Research:
     suggestion_id: int = strawberry.field(name="suggestionId")
     content: str
     status: ContentStatus
-    tokens_used: Optional[int] = None
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     suggestion: "ArticleSuggestion"
@@ -94,7 +84,6 @@ class ArticleSuggestion:
     main_topic: str = strawberry.field(name="mainTopic")
     sub_topics: List[str] = strawberry.field(name="subTopics")
     point_of_view: str = strawberry.field(name="pointOfView")
-    level: ArticleLevel
     status: ContentStatus
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
@@ -109,7 +98,6 @@ class Article:
     content: str
     excerpt: Optional[str]
     ai_summary: Optional[str]
-    level: ArticleLevel
     status: ContentStatus
     research: Research
     category: Category
@@ -188,7 +176,6 @@ class ArticleInput:
     content: str
     excerpt: Optional[str]
     ai_summary: Optional[str]
-    level: ArticleLevel
     tag_ids: List[int] = strawberry.field(name="tagIds")
 
 
@@ -217,7 +204,6 @@ class ArticleSuggestionInput:
     main_topic: str = strawberry.field(name="mainTopic")
     sub_topics: List[str] = strawberry.field(name="subTopics")
     point_of_view: str = strawberry.field(name="pointOfView")
-    level: ArticleLevel
 
 
 # Queries
@@ -480,7 +466,7 @@ class Mutation:
         self, category_id: int, level: str, count: int = 3
     ) -> List[ArticleSuggestion]:
         """Generate new article suggestions."""
-        from content.services import ContentManagerService
+        from services.content_manager_service import ContentManagerService
         import asyncio
 
         service = ContentManagerService()
@@ -510,7 +496,6 @@ class Mutation:
         suggestion.main_topic = input.main_topic
         suggestion.sub_topics = input.sub_topics
         suggestion.point_of_view = input.point_of_view
-        suggestion.level = input.level
 
         db.session.commit()
         return suggestion
@@ -540,7 +525,7 @@ class Mutation:
     @strawberry.mutation
     def generate_research(self, suggestion_id: int) -> ArticleSuggestion:
         """Generate research for an approved article suggestion."""
-        from content.services import ResearcherService
+        from services.researcher_service import ResearcherService
         from content.models import ArticleSuggestion, ContentStatus
         import asyncio
 
@@ -594,7 +579,7 @@ class Mutation:
     def generate_article(self, research_id: int) -> Research:
         """Generate article from approved research."""
         from content.models import Research, ContentStatus
-        from content.services import WriterService
+        from services.writer_service import WriterService
         import asyncio
 
         research = Research.query.get_or_404(research_id)
@@ -620,7 +605,7 @@ class Mutation:
     def generate_media_suggestions(self, research_id: int) -> Research:
         """Generate media suggestions for approved research."""
         from content.models import Research, ContentStatus
-        from content.services import MediaManagerService
+        from services.media_manager_service import MediaManagerService
         import asyncio
 
         research = Research.query.get_or_404(research_id)
@@ -650,7 +635,6 @@ class Mutation:
         article.content = input.content
         article.excerpt = input.excerpt
         article.ai_summary = input.ai_summary
-        article.level = input.level
 
         # Update tags
         article.tags = []
@@ -685,7 +669,7 @@ class Mutation:
     def generate_story_promotion(self, article_id: int) -> Article:
         """Generate Instagram story promotion for an article."""
         from content.models import Article, ContentStatus
-        from content.services import SocialMediaManagerService
+        from services.social_media_manager_service import SocialMediaManagerService
         import asyncio
 
         article = Article.query.get_or_404(article_id)
@@ -708,7 +692,7 @@ class Mutation:
     def generate_did_you_know_posts(self, article_id: int, count: int = 3) -> Article:
         """Generate Instagram feed posts with interesting facts."""
         from content.models import Article, ContentStatus
-        from content.services import SocialMediaManagerService
+        from services.social_media_manager_service import SocialMediaManagerService
         import asyncio
 
         article = Article.query.get_or_404(article_id)
@@ -738,7 +722,7 @@ class Mutation:
     ) -> MediaSuggestion:
         """Fetch media candidates from Wikimedia Commons."""
         from content.models import MediaSuggestion
-        from content.services import WikimediaService
+        from services.wikimedia_service import WikimediaService
         from sqlalchemy.orm import joinedload
         import asyncio
 
@@ -803,7 +787,7 @@ class Mutation:
     ) -> MediaSuggestion:
         """Fetch media candidates from Wikimedia Commons."""
         from content.models import MediaSuggestion
-        from content.services import WikimediaService
+        from services.wikimedia_service import WikimediaService
         import asyncio
 
         suggestion = MediaSuggestion.query.get_or_404(suggestion_id)

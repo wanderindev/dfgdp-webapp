@@ -15,4 +15,16 @@ INITIAL_TAXONOMIES = [
         "name": "Geographic Identity",
         "description": "Examines how Panama's unique geographic position has influenced its development, including its role as a global crossroads, environmental diversity, and the relationship between different regions and their cultural development.",
     },
+    {
+        "name": "Notable Figures",
+        "description": "Examines how Panama's unique geographic position has influenced its development, including its role as a global crossroads, environmental diversity, and the relationship between different regions and their cultural development.",
+    },
+    {
+        "name": "Notable Figures",
+        "description": "Short-form articles highlighting important individuals in Panamanian history, politics, culture, and society.",
+    },
+    {
+        "name": "Sites & Landmarks",
+        "description": "Short-form articles featuring key historical, cultural, and natural sites throughout Panama.",
+    },
 ]

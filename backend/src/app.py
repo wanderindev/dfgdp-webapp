@@ -12,7 +12,7 @@ from content.commands import content_cli
 from extensions import db, migrate, jwt, redis_client, login_manager
 from middleware.language_middleware import LanguageMiddleware
 from translations.commands import translations_cli
-from translations.services import register_translation_handlers
+from services.translator_service import register_translation_handlers
 
 
 def create_app(config_name: Optional[str] = None) -> Flask:
@@ -51,7 +51,7 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     def load_user(user_id: str) -> Optional[UserMixin]:
         from auth.models import User
 
-        return User.query.get(int(user_id))
+        return db.session.query(User).get(int(user_id))
 
     # Register blueprints
     from agents import agents_bp

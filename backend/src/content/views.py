@@ -1,7 +1,7 @@
 from flask import request, jsonify, current_app, send_from_directory
 from content.models import Media
 
-from . import content_bp
+from content import content_bp
 
 
 @content_bp.route("/uploads/<path:filename>")

@@ -5,7 +5,7 @@ from flask.cli import AppGroup
 from sqlalchemy.exc import IntegrityError
 
 from init.initial_agents import INITIAL_AI_MODELS, INITIAL_AGENTS
-from agents.models import AIModel, Agent, PromptTemplate
+from agents.models import AIModel, Agent
 from init.initial_categories import INITIAL_CATEGORIES
 from init.initial_hashtags import INITIAL_HASHTAG_GROUPS
 from init.initial_languages import INITIAL_LANGUAGES
@@ -34,7 +34,7 @@ def init_agents() -> NoReturn:
     try:
         # First, create AI models
         for model_data in INITIAL_AI_MODELS:
-            if not AIModel.query.filter_by(name=model_data["name"]).first():
+            if not db.session.query(AIModel).filter_by(name=model_data["name"]).first():
                 model = AIModel(**model_data)
                 db.session.add(model)
                 click.echo(f"Created AI model: {model_data['name']}")
@@ -43,13 +43,15 @@ def init_agents() -> NoReturn:
         # Then create agents and their prompt templates
         for agent_data in INITIAL_AGENTS:
             # Get the referenced model
-            model = AIModel.query.filter_by(name=agent_data["model"]).first()
+            model = (
+                db.session.query(AIModel).filter_by(name=agent_data["model"]).first()
+            )
             if not model:
                 click.echo(f"Error: Model {agent_data['model']} not found")
                 continue
 
             # Check if agent already exists
-            if not Agent.query.filter_by(name=agent_data["name"]).first():
+            if not db.session.query(Agent).filter_by(name=agent_data["name"]).first():
                 # Create agent
                 agent = Agent(
                     name=agent_data["name"],
@@ -61,16 +63,6 @@ def init_agents() -> NoReturn:
                 )
                 db.session.add(agent)
                 db.session.commit()
-
-                # Create prompt templates
-                for prompt_data in agent_data["prompts"]:
-                    template = PromptTemplate(
-                        agent_id=agent.id,
-                        name=prompt_data["name"],
-                        description=prompt_data["description"],
-                        template=prompt_data["template"],
-                    )
-                    db.session.add(template)
 
                 click.echo(f"Created agent: {agent_data['name']}")
 
@@ -92,7 +84,11 @@ def init_taxonomies() -> None:
     try:
         # First, create taxonomies
         for taxonomy_data in INITIAL_TAXONOMIES:
-            if not Taxonomy.query.filter_by(name=taxonomy_data["name"]).first():
+            if (
+                not db.session.query(Taxonomy)
+                .filter_by(name=taxonomy_data["name"])
+                .first()
+            ):
                 taxonomy = Taxonomy(**taxonomy_data)
                 db.session.add(taxonomy)
                 click.echo(
@@ -106,7 +102,11 @@ def init_taxonomies() -> None:
             category_dict = category_data.copy()
 
             # Get the referenced taxonomy
-            taxonomy = Taxonomy.query.filter_by(name=category_dict["taxonomy"]).first()
+            taxonomy = (
+                db.session.query(Taxonomy)
+                .filter_by(name=category_dict["taxonomy"])
+                .first()
+            )
             if not taxonomy:
                 click.echo(f"Error: Taxonomy {category_dict['taxonomy']} not found")
                 continue
@@ -116,9 +116,11 @@ def init_taxonomies() -> None:
             category_dict["taxonomy_id"] = taxonomy.id
 
             # Check if category already exists
-            if not Category.query.filter_by(
-                taxonomy_id=taxonomy.id, name=category_dict["name"]
-            ).first():
+            if (
+                not db.session.query(Category)
+                .filter_by(taxonomy_id=taxonomy.id, name=category_dict["name"])
+                .first()
+            ):
                 category = Category(**category_dict)
                 db.session.add(category)
                 click.echo(
@@ -142,13 +144,11 @@ def init_tags() -> None:
     """Initialize tags with sample data."""
     try:
         # Create tags
-        for tag_data in INITIAL_TAGS:
-            if not Tag.query.filter_by(name=tag_data["name"]).first():
-                tag = Tag(
-                    name=tag_data["name"], status=ContentStatus[tag_data["status"]]
-                )
+        for tag_name in INITIAL_TAGS:
+            if not db.session.query(Tag).filter_by(name=tag_name).first():
+                tag = Tag(name=tag_name, status=ContentStatus["APPROVED"])
                 db.session.add(tag)
-                click.echo(f"Created tag: {tag_data['name']}")
+                click.echo(f"Created tag: {tag_name}")
 
         db.session.commit()
         click.echo("Successfully initialized tags.")
@@ -168,9 +168,13 @@ def init_social_accounts() -> None:
     try:
         # Create social media accounts
         for account_data in INITIAL_SOCIAL_MEDIA_ACCOUNTS:
-            if not SocialMediaAccount.query.filter_by(
-                platform=account_data["platform"], username=account_data["username"]
-            ).first():
+            if (
+                not db.session.query(SocialMediaAccount)
+                .filter_by(
+                    platform=account_data["platform"], username=account_data["username"]
+                )
+                .first()
+            ):
                 account = SocialMediaAccount(**account_data)
                 db.session.add(account)
                 click.echo(
@@ -196,7 +200,11 @@ def init_hashtags() -> None:
     try:
         # Create hashtag groups
         for group_data in INITIAL_HASHTAG_GROUPS:
-            if not HashtagGroup.query.filter_by(name=group_data["name"]).first():
+            if (
+                not db.session.query(HashtagGroup)
+                .filter_by(name=group_data["name"])
+                .first()
+            ):
                 group = HashtagGroup(**group_data)
                 db.session.add(group)
                 click.echo(
@@ -223,7 +231,11 @@ def init_languages() -> None:
     try:
         # Create languages
         for lang_data in INITIAL_LANGUAGES:
-            if not ApprovedLanguage.query.filter_by(code=lang_data["code"]).first():
+            if (
+                not db.session.query(ApprovedLanguage)
+                .filter_by(code=lang_data["code"])
+                .first()
+            ):
                 lang = ApprovedLanguage(**lang_data)
                 db.session.add(lang)
                 click.echo(

@@ -59,9 +59,11 @@ class LanguageMiddleware:
     def _is_valid_language(lang_code: str) -> bool:
         """Check if a language code is valid and active"""
         try:
-            lang = ApprovedLanguage.query.filter_by(
-                code=lang_code, is_active=True
-            ).first()
+            lang = (
+                db.session.query(ApprovedLanguage)
+                .filter_by(code=lang_code, is_active=True)
+                .first()
+            )
             return lang is not None
         except Exception as e:
             current_app.logger.error(f"Error checking language validity: {str(e)}")
