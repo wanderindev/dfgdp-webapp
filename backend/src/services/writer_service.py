@@ -224,7 +224,6 @@ class WriterService(BaseAIService):
             content=complete_content,
             excerpt=excerpt_data["excerpt"],
             ai_summary=summary_data["summary"],
-            level=suggestion.level,  # If you're still using levels
             status=ContentStatus.PENDING,
             model_id=self.agent.model_id,
             generation_started_at=generation_started_at,
@@ -348,7 +347,6 @@ class WriterService(BaseAIService):
                 content=article_dict["content"],
                 excerpt=article_dict["excerpt"],
                 ai_summary=article_dict["ai_summary"],
-                level=suggestion.level,
                 status=ContentStatus.PENDING,
                 model_id=self.agent.model_id,
                 generation_started_at=generation_started_at,

@@ -12,6 +12,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from agents.rate_limiter import AsyncRateLimiter
 from content.models import MediaCandidate, MediaSuggestion
 from extensions import db
+from config import BaseConfig
 
 
 class WikimediaService:
@@ -19,7 +20,7 @@ class WikimediaService:
     Service for interacting with Wikimedia Commons API.
     """
 
-    API_ENDPOINT = current_app.config.get["WIKIMEDIA_API_ENDPOINT"]
+    API_ENDPOINT = BaseConfig.WIKIMEDIA_URL
 
     def __init__(self, calls_per_minute: int = 30) -> None:
         self.session: Optional[aiohttp.ClientSession] = None

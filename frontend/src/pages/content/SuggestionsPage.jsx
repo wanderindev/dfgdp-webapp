@@ -79,7 +79,6 @@ export const SuggestionsPage = () => {
       // Convert string values to integers
       const mutationData = {
         categoryId: parseInt(data.categoryId, 10),
-        level: data.level,
         count: parseInt(data.count, 10)
       };
 

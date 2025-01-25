@@ -39,7 +39,6 @@ const QUERIES = {
         mainTopic
         subTopics
         pointOfView
-        level
         status
         research {
           id
@@ -62,7 +61,6 @@ const QUERIES = {
         suggestion {
           id
           title
-          level
         }
         article {
           id
@@ -79,14 +77,12 @@ const QUERIES = {
         content
         excerpt
         aiSummary
-        level
         status
         research {
           id
           suggestion {
             id
             title
-            level
           }
         }
         tags {
@@ -258,14 +254,13 @@ const MUTATIONS = {
   `,
 
   GENERATE_SUGGESTIONS: `
-    mutation GenerateSuggestions($categoryId: Int!, $level: String!, $count: Int!) {
-      generateSuggestions(categoryId: $categoryId, level: $level, count: $count) {
+    mutation GenerateSuggestions($categoryId: Int!, $count: Int!) {
+      generateSuggestions(categoryId: $categoryId, count: $count) {
         id
         title
         mainTopic
         subTopics
         pointOfView
-        level
         status
       }
     }
@@ -279,7 +274,6 @@ const MUTATIONS = {
         mainTopic
         subTopics
         pointOfView
-        level
         status
       }
     }
@@ -347,7 +341,6 @@ const MUTATIONS = {
         content
         excerpt
         aiSummary
-        level
         status
         tags {
           id
@@ -540,10 +533,9 @@ export const contentService = {
   },
 
   // Generate new suggestions
-  async generateSuggestions({ categoryId, level, count }) {
+  async generateSuggestions({ categoryId, count }) {
     const data = await fetchGraphQL(MUTATIONS.GENERATE_SUGGESTIONS, {
       categoryId,
-      level,
       count,
     });
     return data.generateSuggestions;
@@ -556,7 +548,6 @@ export const contentService = {
       mainTopic: suggestionData.mainTopic,
       subTopics: suggestionData.subTopics,
       pointOfView: suggestionData.pointOfView,
-      level: suggestionData.level,
     };
     const data = await fetchGraphQL(MUTATIONS.UPDATE_SUGGESTION, { id, input });
     return data.updateSuggestion;
@@ -623,7 +614,6 @@ export const contentService = {
       content: articleData.content,
       excerpt: articleData.excerpt,
       aiSummary: articleData.aiSummary,
-      level: articleData.level,
       tagIds: articleData.tagIds,
     };
     const data = await fetchGraphQL(MUTATIONS.UPDATE_ARTICLE, { id, input });

@@ -16,7 +16,6 @@ REQUIREMENTS
 1. Generate {num_suggestions} unique article suggestions
 2. Each suggestion should:
  - Be distinct from existing articles (if any exist)
- - Be appropriate for the specified level
  - Fit within the taxonomy and category theme
  - Include 3-5 well-defined sub-topics
  - Have a clear point of view or angle

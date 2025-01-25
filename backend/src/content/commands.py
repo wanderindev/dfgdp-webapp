@@ -154,7 +154,6 @@ def generate_article(research_id: int) -> None:
         return
 
     click.echo(f"Generating article from research: {suggestion.title}")
-    click.echo(f"Level: {suggestion.level.value}")
     click.echo(f"Category: {suggestion.category.name}")
 
     try:

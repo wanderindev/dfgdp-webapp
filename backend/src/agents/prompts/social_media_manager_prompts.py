@@ -63,7 +63,7 @@ REQUIREMENTS
  - Be engaging and create curiosity about the article
  - Be concise (Instagram Stories are meant to be quick to read)
  - Include a clear call to action like "Tap here to read more!" or "Swipe up to discover!"
- - Be appropriate for the target audience level
+ - Be appropriate for the target audience
  - Reference the most interesting aspects of the article
  - DO NOT mention "Link in bio" as the story will have a direct link
 

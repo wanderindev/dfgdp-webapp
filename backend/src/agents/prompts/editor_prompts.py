@@ -8,7 +8,7 @@ GOALS
 - Maintain the original content's substance while improving clarity
 - Ensure each article can stand alone while being part of the series
 - Target 1800-2300 words per article
-- Improve readability for high school level readers (aim for 16-18 word sentences)
+- Improve readability for college level readers (aim for 16-18 word sentences)
 - Use active voice where possible
 - Maintain engaging but professional tone
 

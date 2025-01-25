@@ -168,10 +168,6 @@ export const ResearchTable = ({
       header: "Article Title",
     },
     {
-      accessorKey: "suggestion.level",
-      header: "Level",
-    },
-    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => <ResearchStatus status={row.getValue("status")} />,

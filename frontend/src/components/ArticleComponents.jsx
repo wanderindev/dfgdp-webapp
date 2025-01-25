@@ -198,7 +198,6 @@ export const ArticleEditor = ({
     content: '',
     excerpt: '',
     aiSummary: '',
-    level: '',
     tagIds: [],
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
@@ -211,7 +210,6 @@ export const ArticleEditor = ({
         content: article.content || '',
         excerpt: article.excerpt || '',
         aiSummary: article.aiSummary || '',
-        level: article.level || '',
         tagIds: article.tags?.map(tag => tag.id) || [],
       };
       setFormData(data);
@@ -260,25 +258,6 @@ export const ArticleEditor = ({
                   onChange={(e) => handleChange('title', e.target.value)}
                   placeholder="Enter article title"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="level">Level</Label>
-                <Select
-                  value={formData.level}
-                  onValueChange={(value) => handleChange('level', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ELEMENTARY">Elementary</SelectItem>
-                    <SelectItem value="MIDDLE_SCHOOL">Middle School</SelectItem>
-                    <SelectItem value="HIGH_SCHOOL">High School</SelectItem>
-                    <SelectItem value="COLLEGE">College</SelectItem>
-                    <SelectItem value="GENERAL">General</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
@@ -403,10 +382,6 @@ export const ArticlesTable = ({
     {
       accessorKey: "title",
       header: "Title",
-    },
-    {
-      accessorKey: "level",
-      header: "Level",
     },
     {
       accessorKey: "status",

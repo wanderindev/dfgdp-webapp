@@ -215,7 +215,6 @@ class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
 
     __table_args__ = (
         Index("idx_article_suggestion_status", "status"),
-        Index("idx_article_suggestion_level", "level"),
         {"comment": "Article suggestions pending research and development"},
     )
 
@@ -332,7 +331,6 @@ class Article(
 
     __table_args__ = (
         Index("idx_article_status", "status"),
-        Index("idx_article_level", "level"),
         Index("idx_article_published", "published_at"),
         Index("idx_article_series", "series_parent_id", "series_order"),
         {"comment": "Main article content with translations and relationships"},

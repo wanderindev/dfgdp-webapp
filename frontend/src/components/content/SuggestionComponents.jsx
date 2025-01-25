@@ -69,7 +69,6 @@ export const GenerateSuggestionsDialog = ({
   const [formData, setFormData] = React.useState({
     taxonomyId: '',
     categoryId: '',
-    level: 'GENERAL',
     count: 3
   });
 
@@ -135,28 +134,6 @@ export const GenerateSuggestionsDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="level">Level</Label>
-            <Select
-              value={formData.level}
-              onValueChange={(value) => setFormData(prev => ({
-                ...prev,
-                level: value
-              }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ELEMENTARY">Elementary</SelectItem>
-                <SelectItem value="MIDDLE_SCHOOL">Middle School</SelectItem>
-                <SelectItem value="HIGH_SCHOOL">High School</SelectItem>
-                <SelectItem value="COLLEGE">College</SelectItem>
-                <SelectItem value="GENERAL">General</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="count">Number of Suggestions</Label>
             <Input
               id="count"
@@ -200,7 +177,6 @@ export const SuggestionDialog = ({
     mainTopic: '',
     pointOfView: '',
     subTopics: '',
-    level: '',
   });
 
   React.useEffect(() => {
@@ -210,7 +186,6 @@ export const SuggestionDialog = ({
         mainTopic: suggestion.mainTopic || '',
         pointOfView: suggestion.pointOfView || '',
         subTopics: suggestion.subTopics?.join('\n') || '',
-        level: suggestion.level || '',
       });
     }
   }, [suggestion]);
@@ -221,7 +196,6 @@ export const SuggestionDialog = ({
       id: suggestion?.id,
       ...formData,
       subTopics: formData.subTopics.split('\n').filter(Boolean),
-      level: formData.level  // Add this line
     });
   };
 
@@ -289,28 +263,6 @@ export const SuggestionDialog = ({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="level">Level</Label>
-            <Select
-              value={formData.level}
-              onValueChange={(value) => setFormData(prev => ({
-                ...prev,
-                level: value
-              }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a level"/>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ELEMENTARY">Elementary</SelectItem>
-                <SelectItem value="MIDDLE_SCHOOL">Middle School</SelectItem>
-                <SelectItem value="HIGH_SCHOOL">High School</SelectItem>
-                <SelectItem value="COLLEGE">College</SelectItem>
-                <SelectItem value="GENERAL">General</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -341,10 +293,6 @@ export const SuggestionsTable = ({
     {
       accessorKey: "mainTopic",
       header: "Main Topic",
-    },
-    {
-      accessorKey: "level",
-      header: "Level",
     },
     {
       accessorKey: "status",
