@@ -205,7 +205,7 @@ INITIAL_CATEGORIES = [
     },
     {
         "taxonomy": "Sites & Landmarks",
-        "name": "Historic & Modern Landmarks",  # <-- renamed
+        "name": "Historic & Modern Landmarks",
         "description": "Snapshots of both historically significant and contemporary landmark sites, including Casco Viejo, the Panama Canal, Panama Viejo, and other major urban or engineering icons.",
         "is_long_form": False,
     },

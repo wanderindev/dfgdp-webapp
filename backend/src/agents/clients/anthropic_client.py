@@ -71,7 +71,6 @@ class AnthropicClient(BaseAIClient):
             messages = message_history or []
             messages.append({"role": "user", "content": prompt})
 
-            # Hypothetical async call:
             response = await self.client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
@@ -91,7 +90,7 @@ class AnthropicClient(BaseAIClient):
             raise
 
     # noinspection PyArgumentList
-    async def _track_usage(self, response: Any) -> None:
+    def _track_usage(self, response: Any) -> None:
         """Track API usage."""
         from agents.models import Provider, Usage
 
@@ -121,7 +120,7 @@ class AnthropicClient(BaseAIClient):
         """Calculate cost from tokens, using data from the AIModel DB row."""
         from agents.models import AIModel
 
-        model = db.query(AIModel).filter_by(model_id=self.model).first()
+        model = db.session.query(AIModel).filter_by(model_id=self.model).first()
         if not model:
             return 0.0
 
@@ -151,7 +150,7 @@ class AnthropicClient(BaseAIClient):
         )
 
         # track usage
-        await self._track_usage(response)
+        self._track_usage(response)
 
         # extract final content
         return AnthropicClient._extract_content(response)

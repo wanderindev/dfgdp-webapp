@@ -7,7 +7,10 @@ from sqlalchemy.exc import IntegrityError
 
 from agents.models import AgentType
 from agents.prompts.content_manager_prompts import (
-    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT,
+    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_DEFAULT,
+    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_HISTORICAL,
+    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_NOTABLE_FIGURES,
+    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_SITES_LANDMARKS,
 )
 from content.models import Article, ArticleSuggestion, Category
 from extensions import db
@@ -41,6 +44,19 @@ class ContentManagerService(BaseAIService):
             or "No existing articles"
         )
 
+        # Select the prompt based on taxonomy:
+        taxonomy_name = category.taxonomy.name
+
+        if taxonomy_name == "Notable Figures":
+            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_NOTABLE_FIGURES
+        elif taxonomy_name == "Sites & Landmarks":
+            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_SITES_LANDMARKS
+        elif taxonomy_name == "Historical Panama":
+            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_HISTORICAL
+        else:
+            # Default prompt for Cultural Mosaic, Indigenous Heritage, Geographic Identity, etc.
+            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_DEFAULT
+
         prompt_vars = {
             "taxonomy": category.taxonomy.name,
             "taxonomy_description": category.taxonomy.description,
@@ -49,7 +65,7 @@ class ContentManagerService(BaseAIService):
             "num_suggestions": num_suggestions,
             "existing_summaries": existing_summaries,
         }
-        prompt = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT.format(**prompt_vars)
+        prompt = prompt_template.format(**prompt_vars)
 
         try:
             generation_started_at = datetime.now(timezone.utc)
@@ -65,10 +81,10 @@ class ContentManagerService(BaseAIService):
             for item in data["suggestions"]:
                 article_suggestion = ArticleSuggestion(
                     category_id=category.id,
-                    title=item["title"],
-                    main_topic=item["main_topic"],
-                    sub_topics=item["sub_topics"],
-                    point_of_view=item["point_of_view"],
+                    title=item.get("title"),
+                    main_topic=item.get("main_topic"),
+                    sub_topics=item.get("sub_topics"),
+                    point_of_view=item.get("point_of_view"),
                     model_id=self.agent.model_id,
                     generation_started_at=generation_started_at,
                 )

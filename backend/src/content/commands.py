@@ -65,7 +65,9 @@ def generate_suggestions(category_id: int, count: int) -> None:
         for i, suggestion in enumerate(suggestions, 1):
             click.echo(f"\n{i}. {suggestion.title}")
             click.echo("   " + "-" * len(suggestion.title))
-            click.echo(f"   Main topic: {suggestion.main_topic}")
+            click.echo(
+                f"   Main topic: {suggestion.main_topic if suggestion.main_topic else 'N/A'}"
+            )
             click.echo("   Sub-topics:")
             for sub_topic in suggestion.sub_topics:
                 click.echo(f"   - {sub_topic}")

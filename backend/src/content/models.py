@@ -184,10 +184,10 @@ class ArticleSuggestion(db.Model, TimestampMixin, AIGenerationMixin):
         index=True,
     )
     title: Mapped[str] = db.Column(db.String(255), nullable=False)
-    main_topic: Mapped[str] = db.Column(db.Text, nullable=False)
+    main_topic: Mapped[str] = db.Column(db.Text, nullable=True)
     sub_topics: Mapped[List[str]] = db.Column(
         db.ARRAY(db.String(255)),
-        nullable=False,
+        nullable=True,
         server_default=text("ARRAY[]::varchar[]"),
     )
     point_of_view: Mapped[str] = db.Column(db.Text, nullable=False)
