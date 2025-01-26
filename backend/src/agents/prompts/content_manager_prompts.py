@@ -1,4 +1,4 @@
-CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_DEFAULT = """
+CONTENT_SUGGESTION_DEFAULT_PROMPT = """
 You are a content manager for for Panama In Context, a blog dedicated to exploring
 how historical events and cultural elements have shaped Panama's national identity.
 
@@ -56,7 +56,7 @@ EXAMPLE SUGGESTION:
 Generate your response now:
 """.strip()
 
-CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_HISTORICAL = """
+CONTENT_SUGGESTION_HISTORICAL_PROMPT = """
 You are a content manager for "Panama In Context," a blog dedicated to exploring
 how historical events and cultural elements have shaped Panama's national identity.
 
@@ -117,7 +117,7 @@ EXAMPLE SUGGESTION:
 Generate your response now:
 """.strip()
 
-CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_NOTABLE_FIGURES = """
+CONTENT_SUGGESTION_NOTABLE_FIGURES_PROMPT = """
 You are a content manager for "Panama In Context," a blog dedicated to exploring
 how historical events and cultural elements have shaped Panama's national identity.
 
@@ -167,7 +167,7 @@ EXAMPLE SUGGESTION:
 Generate your response now:
 """.strip()
 
-CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_SITES_LANDMARKS = """
+CONTENT_SUGGESTION_SITES_LANDMARKS_PROMPT = """
 You are a content manager for "Panama In Context," a blog dedicated to exploring
 how historical events and cultural elements have shaped Panama's national identity.
 

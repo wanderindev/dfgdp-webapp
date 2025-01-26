@@ -7,10 +7,10 @@ from sqlalchemy.exc import IntegrityError
 
 from agents.models import AgentType
 from agents.prompts.content_manager_prompts import (
-    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_DEFAULT,
-    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_HISTORICAL,
-    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_NOTABLE_FIGURES,
-    CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_SITES_LANDMARKS,
+    CONTENT_SUGGESTION_DEFAULT_PROMPT,
+    CONTENT_SUGGESTION_HISTORICAL_PROMPT,
+    CONTENT_SUGGESTION_NOTABLE_FIGURES_PROMPT,
+    CONTENT_SUGGESTION_SITES_LANDMARKS_PROMPT,
 )
 from content.models import Article, ArticleSuggestion, Category
 from extensions import db
@@ -48,14 +48,14 @@ class ContentManagerService(BaseAIService):
         taxonomy_name = category.taxonomy.name
 
         if taxonomy_name == "Notable Figures":
-            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_NOTABLE_FIGURES
+            prompt_template = CONTENT_SUGGESTION_NOTABLE_FIGURES_PROMPT
         elif taxonomy_name == "Sites & Landmarks":
-            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_SITES_LANDMARKS
+            prompt_template = CONTENT_SUGGESTION_SITES_LANDMARKS_PROMPT
         elif taxonomy_name == "Historical Panama":
-            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_HISTORICAL
+            prompt_template = CONTENT_SUGGESTION_HISTORICAL_PROMPT
         else:
             # Default prompt for Cultural Mosaic, Indigenous Heritage, Geographic Identity, etc.
-            prompt_template = CONTENT_MANAGER_CONTENT_SUGGESTION_PROMPT_DEFAULT
+            prompt_template = CONTENT_SUGGESTION_DEFAULT_PROMPT
 
         prompt_vars = {
             "taxonomy": category.taxonomy.name,
