@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional
 
 from flask import current_app
@@ -193,5 +194,11 @@ class EditorService(BaseAIService):
     @staticmethod
     def _extract_intro_and_conclusion(raw_response: str) -> tuple[str, str]:
         """Extract introduction and conclusion from JSON response."""
-        data = json.loads(raw_response)
-        return data["introduction"].strip(), data["conclusion"].strip()
+        # Find the index of the double quotes
+        quote_positions = [m.start() for m in re.finditer('"', raw_response)]
+
+        # Extract the introduction and conclusion
+        introduction = raw_response[quote_positions[2] + 1 : quote_positions[3]]
+        conclusion = raw_response[quote_positions[6] + 1 : quote_positions[7]]
+
+        return introduction, conclusion

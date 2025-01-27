@@ -214,6 +214,7 @@ def upgrade():
                 "CONTENT_MANAGER",
                 "RESEARCHER",
                 "WRITER",
+                "EDITOR",
                 "SOCIAL_MEDIA",
                 "TRANSLATOR",
                 name="agent_type",

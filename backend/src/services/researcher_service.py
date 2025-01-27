@@ -188,7 +188,7 @@ class ResearcherService(BaseAIService):
                 "Overview",
                 "Biographical Data" "Detailed Life & Legacy",
                 "Conclusion",
-                "Sources & Further Reading",
+                "Sources and Further Reading",
             ]
         else:
             # Sites & Landmarks
@@ -199,7 +199,7 @@ class ResearcherService(BaseAIService):
                     "Introduction",
                     "Key Details",
                     "Conclusion",
-                    "Sources & Further Reading",
+                    "Sources and Further Reading",
                 ],
             )
 

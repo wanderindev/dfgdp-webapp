@@ -103,7 +103,7 @@ The final biography should have:
 3. **Biographical Data**: Birth, death, major life events, etc.
 2. **Detailed Life & Legacy**: Expand on childhood (if relevant), career or major contributions, significant events or accomplishments, and historical impact.
 3. **Conclusion**: Summarize their enduring significance or legacy.
-4. **Sources & Further Reading**: Provide at least 3 relevant references.
+4. **Sources and Further Reading**: Provide at least 3 relevant references.
 
 WRITING STYLE
 - Use Markdown formatting
@@ -177,7 +177,7 @@ The final article should have:
 3. **Conclusion**
    - Summarize the site's importance today and any ongoing relevance to Panamanian identity.
 
-4. **Sources & Further Reading**
+4. **Sources and Further Reading**:
    - Provide at least 3 references or scholarly resources.
 
 WRITING STYLE
@@ -207,41 +207,41 @@ SITES_SECTIONS_MAP = {
         "Military Architecture & Defense Strategies",
         "Key Historical Events & Preservation",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
     "Historic & Modern Landmarks": [
         "Introduction",
         "Historical Evolution & Cultural Impact",
         "Modern Relevance & Urban Development",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
     "Museums & Cultural Centers": [
         "Introduction",
         "Origins & Curatorial Focus",
         "Notable Exhibitions & Community Engagement",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
     "Religious Landmarks": [
         "Introduction",
         "Founding & Spiritual Significance",
         "Architecture & Community Role",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
     "Archaeological Sites": [
         "Introduction",
         "Archaeological Findings & Historical Context",
         "Conservation Efforts & Research",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
     "Natural Heritage Attractions": [
         "Introduction",
         "Geological/Environmental Significance",
         "Ecotourism & Conservation",
         "Conclusion",
-        "Sources & Further Reading",
+        "Sources and Further Reading",
     ],
 }

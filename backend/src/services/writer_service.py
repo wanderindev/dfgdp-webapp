@@ -7,12 +7,14 @@ from sqlalchemy.exc import IntegrityError
 
 from agents.models import AgentType
 from agents.prompts.writer_prompts import (
-    CONTINUATION_PROMPT,
+    LONG_ARTICLE_CONTINUATION_PROMPT,
     EXCERPT_PROMPT,
-    SUBSECTION_PROMPT,
+    LONG_ARTICLE_SUBSECTION_PROMPT,
     SUMMARY_PROMPT,
-    WRITER_ARTICLE_WRITING_PROMPT,
-    WRITER_SOURCES_CLEANUP_PROMPT,
+    WRITE_LONG_ARTICLE_PROMPT,
+    SOURCES_CLEANUP_PROMPT,
+    SHORT_BIO_PROMPT,
+    SHORT_SITE_PROMPT,
 )
 from content.models import Article, Research, ArticleSuggestion, Category, ContentStatus
 from extensions import db
@@ -49,103 +51,174 @@ class WriterService(BaseAIService):
         if not category:
             raise ValueError(f"No category found for suggestion {suggestion.id}")
 
+        taxonomy = category.taxonomy.name
+
         try:
-            generation_started_at = datetime.now(timezone.utc)
-            message_history: List[Dict[str, str]] = []
-
-            # Prepare variables for the writer prompt
-            template_vars = {
-                "context": {
-                    "taxonomy": category.taxonomy.name,
-                    "taxonomy_description": category.taxonomy.description,
-                    "category": category.name,
-                    "category_description": category.description,
-                },
-                "title": suggestion.title,
-                "research_content": research.content,
-            }
-
-            # Generate the outline first
-            initial_prompt = WRITER_ARTICLE_WRITING_PROMPT.format(**template_vars)
-
-            # Send the prompt with an empty message history, to start a new conversation
-            outline = await self._generate_ai_section(
-                prompt=initial_prompt,
-                message_history=[],
-            )
-            if not outline:
-                raise ValueError("Empty outline response from AI")
-
-            # We'll store the conversation for the next steps
-            message_history.append({"role": "user", "content": initial_prompt})
-            message_history.append({"role": "assistant", "content": outline})
-
-            # Extract sections from outline.  This returns a list of tuples that look
-            # like (section_title, [subsections])
-            sections = WriterService._extract_sections_from_outline(outline)
-
-            # Generate each section in turn
-            sections_content: List[str] = []
-            for section_title, subsections in sections:
-                # Build a prompt that instructs the AI to write the entire section
-                continuation_prompt = CONTINUATION_PROMPT.format(
-                    section_title=section_title
-                )
-
-                if subsections:
-                    continuation_prompt += SUBSECTION_PROMPT.format(
-                        subsections=", ".join(subsections)
-                    )
-
-                section_text = await self._generate_ai_section(
-                    prompt=continuation_prompt,
-                    message_history=message_history,
-                )
-                if not section_text:
-                    raise ValueError(f"Empty response for section: {section_title}")
-
-                sections_content.append(section_text)
-
-                # Also store it in message_history if you prefer to build context
-                message_history.append({"role": "user", "content": continuation_prompt})
-                message_history.append({"role": "assistant", "content": section_text})
-
-            # Process sources from the research
-            cleaned_sources = {"content": ""}
-            sources_section = WriterService._extract_sources_section(research.content)
-            if sources_section:
-                cleaned_sources = await self._clean_sources_section(sources_section)
-
-            # Combine section content
-            complete_content = "\n\n".join(sections_content)
-
-            # If it's too long, we break it up with ArticleEditorService
-            word_count = len(complete_content.split())
-            if word_count > 3600:
-                # Article series path
-                return await self._create_article_series(
-                    research_id=research_id,
-                    category_id=category.id,
-                    suggestion=suggestion,
-                    complete_content=complete_content,
-                    cleaned_sources=cleaned_sources,
-                    generation_started_at=generation_started_at,
+            if taxonomy in ["Notable Figures", "Sites & Landmarks"]:
+                # short-form path
+                return await self._generate_short_form_article(
+                    research=research, suggestion=suggestion, category=category
                 )
             else:
-                # Single article path
-                return await self._create_single_article(
-                    research_id=research_id,
-                    category_id=category.id,
-                    suggestion=suggestion,
-                    complete_content=complete_content,
-                    cleaned_sources=cleaned_sources,
-                    generation_started_at=generation_started_at,
+                # long-form path
+                return await self._generate_long_form_article(
+                    research=research, suggestion=suggestion, category=category
                 )
 
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error generating article: {e}")
             raise
+
+    async def _generate_long_form_article(
+        self, research: Research, suggestion: ArticleSuggestion, category: Category
+    ) -> Union[Article, List[Article]]:
+        """
+        Multistep approach for generating articles.
+        """
+
+        generation_started_at = datetime.now(timezone.utc)
+        message_history: List[Dict[str, str]] = []
+
+        template_vars = {
+            "context": {
+                "taxonomy": category.taxonomy.name,
+                "taxonomy_description": category.taxonomy.description,
+                "category": category.name,
+                "category_description": category.description,
+            },
+            "title": suggestion.title,
+            "research_content": research.content,
+        }
+
+        # -- Step 1: Generate Outline --
+        initial_prompt = WRITE_LONG_ARTICLE_PROMPT.format(**template_vars)
+
+        outline = await self._generate_ai_section(
+            prompt=initial_prompt,
+            message_history=[],
+        )
+        if not outline:
+            raise ValueError("Empty outline response from AI")
+
+        message_history.append({"role": "user", "content": initial_prompt})
+        message_history.append({"role": "assistant", "content": outline})
+
+        # -- Step 2: Extract sections from outline & generate each
+        sections = WriterService._extract_sections_from_outline(outline)
+        sections_content: List[str] = []
+
+        for section_title, subsections in sections:
+            continuation_prompt = LONG_ARTICLE_CONTINUATION_PROMPT.format(
+                section_title=section_title
+            )
+            if subsections:
+                continuation_prompt += LONG_ARTICLE_SUBSECTION_PROMPT.format(
+                    subsections=", ".join(subsections)
+                )
+
+            section_text = await self._generate_ai_section(
+                prompt=continuation_prompt,
+                message_history=message_history,
+            )
+            if not section_text:
+                raise ValueError(f"Empty response for section: {section_title}")
+
+            sections_content.append(section_text)
+
+            # Update the message history with the last iteration
+            message_history.append({"role": "user", "content": continuation_prompt})
+            message_history.append({"role": "assistant", "content": section_text})
+
+        # Step 3: Handle sources from research
+        sources_section = WriterService._extract_sources_section(research.content)
+
+        if sources_section:
+            cleaned_sources = await self._clean_sources_section(sources_section)
+        else:
+            cleaned_sources = {"content": ""}
+
+        # Combine
+        complete_content = "\n\n".join(sections_content)
+        word_count = len(complete_content.split())
+
+        # Step 4: Single or multipart
+        if word_count > 3600:
+            return await self._create_article_series(
+                research_id=research.id,
+                category_id=category.id,
+                suggestion=suggestion,
+                complete_content=complete_content,
+                cleaned_sources=cleaned_sources,
+                generation_started_at=generation_started_at,
+            )
+        else:
+            return await self._create_single_article(
+                research_id=research.id,
+                category_id=category.id,
+                suggestion=suggestion,
+                complete_content=complete_content,
+                cleaned_sources=cleaned_sources,
+                generation_started_at=generation_started_at,
+            )
+
+    async def _generate_short_form_article(
+        self, research: Research, suggestion: ArticleSuggestion, category: Category
+    ) -> Union[Article, List[Article]]:
+        """
+        Generate a short-form article (one shot) for:
+         - Notable Figures
+         - Sites & Landmarks
+        """
+
+        generation_started_at = datetime.now(timezone.utc)
+        message_history: List[Dict[str, str]] = []
+
+        # Choose which short prompt to use
+        if category.taxonomy.name == "Notable Figures":
+            short_prompt_template = SHORT_BIO_PROMPT
+        else:
+            # Sites & Landmarks
+            short_prompt_template = SHORT_SITE_PROMPT
+
+        # Fill in the prompt
+        prompt_vars = {
+            "taxonomy": category.taxonomy.name,
+            "taxonomy_description": category.taxonomy.description,
+            "category": category.name,
+            "category_description": category.description,
+            "title": suggestion.title,
+            "research_content": research.content,
+        }
+        short_prompt = short_prompt_template.format(**prompt_vars)
+
+        # Generate the entire article in one shot
+        short_article_content = await self._generate_ai_section(
+            prompt=short_prompt,
+            message_history=message_history,
+        )
+        if not short_article_content:
+            raise ValueError("Empty response from short-form article generation")
+
+        # Clean or handle sources from the research
+        sources_section = WriterService._extract_sources_section(research.content)
+
+        if sources_section:
+            cleaned_sources = await self._clean_sources_section(sources_section)
+        else:
+            cleaned_sources = {"content": ""}
+
+        # Combine final content
+        complete_content = short_article_content
+
+        return await self._create_single_article(
+            research_id=research.id,
+            category_id=category.id,
+            suggestion=suggestion,
+            complete_content=complete_content,
+            cleaned_sources=cleaned_sources,
+            generation_started_at=generation_started_at,
+        )
 
     async def _generate_ai_section(
         self,
@@ -189,9 +262,28 @@ class WriterService(BaseAIService):
         """
         Extract a "Sources" or "Further Reading" section from the research content if present.
         """
-        pattern = r"(?:## Sources and Further Reading|## Sources|## Further Reading)(.*?)(?=##|$)"
+        pattern = r"## Sources and Further Reading\n([\s\S]*$)"
         match = re.search(pattern, research_content, re.DOTALL)
         return match.group(1).strip() if match else None
+
+    async def _clean_sources_section(self, sources: str) -> Dict[str, str]:
+        """
+        Calls an AI prompt to clean or format the sources section.
+        If it fails, returns original sources.
+        """
+        try:
+            prompt_text = SOURCES_CLEANUP_PROMPT.format(sources=sources)
+            cleaned_text = await self.generate_content(
+                prompt=prompt_text, message_history=[]
+            )
+
+            if not cleaned_text:
+                raise ValueError("Empty response from sources cleanup")
+
+            return {"content": cleaned_text}
+        except Exception as e:
+            current_app.logger.error(f"Error cleaning sources: {e}")
+            return {"content": sources}
 
     # noinspection PyArgumentList
     async def _create_single_article(
@@ -212,7 +304,6 @@ class WriterService(BaseAIService):
         # Generate AI summary
         summary_data = await self._generate_ai_summary(message_history)
 
-        # Append sources
         if cleaned_sources.get("content"):
             complete_content += f"\n\n## Sources\n{cleaned_sources['content']}"
 
@@ -237,77 +328,6 @@ class WriterService(BaseAIService):
             db.session.rollback()
             raise ValueError(f"Failed to save article: {str(e)}")
 
-    async def _generate_excerpt(
-        self, message_history: List[Dict[str, str]], article_content: str
-    ) -> Dict[str, Any]:
-        """
-        Generate an excerpt from the final article content.
-        """
-
-        excerpt_prompt = EXCERPT_PROMPT.format(article_content=article_content)
-
-        excerpt_text = await self.generate_content(
-            prompt=excerpt_prompt, message_history=message_history
-        )
-        if not excerpt_text:
-            raise ValueError("Empty excerpt response")
-
-        excerpt = WriterService._clean_excerpt(excerpt_text)
-
-        message_history.append({"role": "user", "content": excerpt_prompt})
-        message_history.append({"role": "assistant", "content": excerpt})
-
-        return {"excerpt": excerpt}
-
-    async def _generate_ai_summary(
-        self, message_history: List[Dict[str, str]]
-    ) -> Dict[str, Any]:
-        """
-        Generate a short technical summary.
-        """
-        summary_prompt = SUMMARY_PROMPT
-
-        summary_text = await self.generate_content(
-            prompt=summary_prompt, message_history=message_history
-        )
-        if not summary_text:
-            raise ValueError("Empty summary response")
-
-        summary = WriterService._clean_summary(summary_text)
-
-        return {"summary": summary}
-
-    @staticmethod
-    def _clean_summary(summary: str) -> str:
-        """
-        Clean up AI summary by removing any known prefixes (if relevant).
-        """
-        summary = summary.strip()
-        prefixes = [
-            "TECHNICAL SUMMARY [100 words]:",
-            "TECHNICAL SUMMARY:",
-            "AI SUMMARY:",
-            "SUMMARY:",
-        ]
-        for prefix in prefixes:
-            if summary.startswith(prefix):
-                summary = summary[len(prefix) :].strip()
-        return summary
-
-    @staticmethod
-    def _clean_excerpt(excerpt: str) -> str:
-        """
-        Clean up excerpt text by removing wrapping quotes, etc.
-        """
-        excerpt = excerpt.strip()
-        if excerpt.startswith('"') and excerpt.endswith('"'):
-            excerpt = excerpt[1:-1]
-        elif excerpt.startswith('"'):
-            excerpt = excerpt[1:]
-        elif excerpt.endswith('"'):
-            excerpt = excerpt[:-1]
-        return excerpt.strip()
-
     # noinspection PyArgumentList
     async def _create_article_series(
         self,
@@ -322,7 +342,6 @@ class WriterService(BaseAIService):
         For very long content, call ArticleEditorService to break it into a multipart series.
         Then create multiple Article records.
         """
-
         editor = EditorService()
 
         word_count = len(complete_content.split())
@@ -383,6 +402,74 @@ class WriterService(BaseAIService):
             db.session.rollback()
             raise ValueError(f"Failed to save article series: {str(e)}")
 
+    async def _generate_excerpt(
+        self, message_history: List[Dict[str, str]], article_content: str
+    ) -> Dict[str, Any]:
+        """
+        Generate an excerpt from the final article content.
+        """
+        excerpt_prompt = EXCERPT_PROMPT.format(article_content=article_content)
+
+        excerpt_text = await self.generate_content(
+            prompt=excerpt_prompt, message_history=message_history
+        )
+        if not excerpt_text:
+            raise ValueError("Empty excerpt response")
+
+        excerpt = WriterService._clean_excerpt(excerpt_text)
+
+        message_history.append({"role": "user", "content": excerpt_prompt})
+        message_history.append({"role": "assistant", "content": excerpt})
+
+        return {"excerpt": excerpt}
+
+    async def _generate_ai_summary(
+        self, message_history: List[Dict[str, str]]
+    ) -> Dict[str, Any]:
+        """
+        Generate a short technical summary.
+        """
+        summary_prompt = SUMMARY_PROMPT
+        summary_text = await self.generate_content(
+            prompt=summary_prompt, message_history=message_history
+        )
+        if not summary_text:
+            raise ValueError("Empty summary response")
+
+        summary = WriterService._clean_summary(summary_text)
+        return {"summary": summary}
+
+    @staticmethod
+    def _clean_summary(summary: str) -> str:
+        """
+        Clean up AI summary by removing any known prefixes (if relevant).
+        """
+        summary = summary.strip()
+        prefixes = [
+            "TECHNICAL SUMMARY [100 words]:",
+            "TECHNICAL SUMMARY:",
+            "AI SUMMARY:",
+            "SUMMARY:",
+        ]
+        for prefix in prefixes:
+            if summary.startswith(prefix):
+                summary = summary[len(prefix) :].strip()
+        return summary
+
+    @staticmethod
+    def _clean_excerpt(excerpt: str) -> str:
+        """
+        Clean up excerpt text by removing wrapping quotes, etc.
+        """
+        excerpt = excerpt.strip()
+        if excerpt.startswith('"') and excerpt.endswith('"'):
+            excerpt = excerpt[1:-1]
+        elif excerpt.startswith('"'):
+            excerpt = excerpt[1:]
+        elif excerpt.endswith('"'):
+            excerpt = excerpt[:-1]
+        return excerpt.strip()
+
     @staticmethod
     def _generate_about_section(
         articles: List[Article], current_article: Article, suggestion_title: str
@@ -426,21 +513,3 @@ class WriterService(BaseAIService):
             f"[Part {current_index + 2}: {next_article.title}]({next_article.public_url})"
         )
         return continue_reading
-
-    async def _clean_sources_section(self, sources: str) -> Dict[str, str]:
-        """
-        Calls an AI prompt to clean or format the sources section.
-        If it fails, returns original sources.
-        """
-        try:
-            prompt_text = WRITER_SOURCES_CLEANUP_PROMPT.format(sources=sources)
-            cleaned_text = await self.generate_content(
-                prompt=prompt_text, message_history=[]
-            )
-            if not cleaned_text:
-                raise ValueError("Empty response from sources cleanup")
-
-            return {"content": cleaned_text}
-        except Exception as e:
-            current_app.logger.error(f"Error cleaning sources: {e}")
-            return {"content": sources}
