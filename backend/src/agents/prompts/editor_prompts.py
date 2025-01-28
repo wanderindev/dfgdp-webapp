@@ -142,6 +142,16 @@ Original:
 Revised:
 "Our examination of Balboa’s journey challenges simple narratives of European conquest. Instead, it reveals a complex history of cultural cooperation, diplomatic skill, and shared achievement that still resonates today. These themes of multicultural collaboration and strategic partnership proved vital for this discovery and Panama’s growth as a center of global commerce."\n\n
 
+Original:
+"Gaspar de Espinosa played a pivotal role in Panama’s colonial history during the early 16th century. Born around 1484 in Medina de Rioseco, Spain, he studied law at the prestigious University of Salamanca. His legal expertise and noble background prepared him for an influential position in Spain’s expanding colonial empire."\n\n
+Revised:
+"Gaspar de Espinosa was pivotal in Panama’s colonial history during the early 16th century. Born around 1484 in Medina de Rioseco, Spain, he studied law at the prestigious University of Salamanca. His legal expertise and noble background prepared him for an influential position in Spain’s expanding colonial empire."\n\n
+
+Original:
+"As Panama’s first Chief Justice, Espinosa created the region’s first legal framework. He oversaw many significant cases, including Vasco Núñez de Balboa’s controversial trial in 1519. His decisions shaped colonial governance across Central America, establishing systems that influenced the region for centuries."\n\n
+Revised:
+"Espinosa created the region’s first legal framework as Panama's first Chief Justice. He oversaw many significant cases, including Vasco Núñez de Balboa’s controversial trial in 1519. His decisions shaped colonial governance across Central America, establishing systems that influenced the region for centuries."\n\n
+
 Your task is to proofread and correct a full article.  To ensure that you stay focus, we will make the corrections one paragraph at a time.\n\n
 
 Please concentrate on grammar, punctuation, reducing passive voice, and ensuring clarity and readability. Also take into account the samples of corrected text shared above while making your revisions.\n\n

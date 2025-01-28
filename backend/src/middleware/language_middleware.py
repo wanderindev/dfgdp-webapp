@@ -4,6 +4,8 @@ from flask import Flask, g, request, current_app
 
 from translations.models import ApprovedLanguage
 
+from extensions import db
+
 
 # noinspection PyUnresolvedReferences
 class LanguageMiddleware:

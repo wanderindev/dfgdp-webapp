@@ -30,7 +30,7 @@ content_cli = AppGroup("content")
     "-n",
     default=3,
     help="Number of suggestions to generate",
-    type=click.IntRange(1, 10),
+    type=click.IntRange(1, 15),
 )
 def generate_suggestions(category_id: int, count: int) -> None:
     """

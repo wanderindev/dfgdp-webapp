@@ -14,7 +14,7 @@ pytest-cov==6.0.0
 
 # Database
 psycopg2-binary==2.9.9
-redis==5.0.1
+redis==5.2.1
 
 # GraphQL
 strawberry-graphql[debug]==0.217.1
@@ -26,11 +26,14 @@ httpx==0.27.2
 
 # Utils
 python-dotenv==1.0.1
-Pillow==10.2.0  # For image processing
-boto3==1.34.47  # For S3 storage
+Pillow==10.2.0
+boto3==1.34.47
 requests==2.31.0
 python-dotenv==1.0.1
 python-slugify==8.0.4
 tenacity==9.0.0
 aiohttp==3.11.10
 bs4==0.0.2
+
+# Worker
+rq==2.1.0

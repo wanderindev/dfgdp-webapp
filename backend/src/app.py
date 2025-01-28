@@ -57,11 +57,13 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     from agents import agents_bp
     from auth import auth_bp
     from content import content_bp
+    from tasks import tasks_bp
     from translations import translations_bp
 
     app.register_blueprint(agents_bp, url_prefix="/agents")
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(content_bp, url_prefix="/content")
+    app.register_blueprint(tasks_bp, url_prefix="/tasks")
     app.register_blueprint(translations_bp, url_prefix="/translations")
 
     # Configure GraphQL view

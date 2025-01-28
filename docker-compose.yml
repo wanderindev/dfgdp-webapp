@@ -53,5 +53,24 @@ services:
     ports:
       - "6373:6379"
 
+  worker:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+    image: dfgdp-webapp-worker:latest
+    depends_on:
+      - redis
+      - db
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/dfgdp_webapp
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-here
+      - JWT_SECRET_KEY=your-jwt-secret-here
+    command: >
+      python -m tasks.worker
+    volumes:
+      - ./backend:/app
+
 volumes:
   postgres_data:
