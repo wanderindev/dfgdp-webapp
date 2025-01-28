@@ -298,21 +298,25 @@ class WriterService(BaseAIService):
         """
         Create a single Article record from the generated content, excerpt, and AI summary.
         """
+        # Improve readability
+        editor = EditorService()
+        improved_article = await editor.improve_readability(complete_content)
+
         message_history = []
         # Generate excerpt
-        excerpt_data = await self._generate_excerpt(message_history, complete_content)
+        excerpt_data = await self._generate_excerpt(message_history, improved_article)
         # Generate AI summary
         summary_data = await self._generate_ai_summary(message_history)
 
         if cleaned_sources.get("content"):
-            complete_content += f"\n\n## Sources\n{cleaned_sources['content']}"
+            improved_article += f"\n\n## Sources\n{cleaned_sources['content']}"
 
         # Create and save
         article = Article(
             research_id=research_id,
             category_id=category_id,
             title=suggestion.title,
-            content=complete_content,
+            content=improved_article,
             excerpt=excerpt_data["excerpt"],
             ai_summary=summary_data["summary"],
             status=ContentStatus.PENDING,
@@ -359,11 +363,13 @@ class WriterService(BaseAIService):
         first_article: Optional[Article] = None
 
         for i, article_dict in enumerate(articles_data, start=1):
+            improved_article = await editor.improve_readability(article_dict["content"])
+
             article = Article(
                 research_id=research_id,
                 category_id=category_id,
                 title=article_dict["title"],
-                content=article_dict["content"],
+                content=improved_article,
                 excerpt=article_dict["excerpt"],
                 ai_summary=article_dict["ai_summary"],
                 status=ContentStatus.PENDING,

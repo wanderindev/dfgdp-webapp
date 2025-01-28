@@ -183,7 +183,7 @@ TONE AND STYLE
 - Minimal speculation, rely on provided research content
 - No advanced conclusions
 - Keep it succinct
-- Use markdown headers for logical structur
+- Use markdown headers for logical structure
 
 Deliver the complete short site article in one single response. Include only the site article content in markdown format with no additional comments. Do not exceed 1000 words total.
 """.strip()

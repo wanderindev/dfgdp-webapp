@@ -1,11 +1,16 @@
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import current_app
 
 from agents.models import AgentType
-from agents.prompts.editor_prompts import ARTICLE_SECTION_PROMPT, ARTICLE_SPLIT_PROMPT
+from agents.prompts.editor_prompts import (
+    ARTICLE_SECTION_PROMPT,
+    ARTICLE_SPLIT_PROMPT,
+    IMPROVE_READABILITY_INITIAL_PROMPT,
+    IMPROVE_READABILITY_CONTINUATION_PROMPT,
+)
 from services.base_ai_service import BaseAIService
 
 
@@ -202,3 +207,109 @@ class EditorService(BaseAIService):
         conclusion = raw_response[quote_positions[6] + 1 : quote_positions[7]]
 
         return introduction, conclusion
+
+    async def improve_readability(self, article_content: str) -> str:
+        """
+        Proofread the given article content to improve readability. Specifically:
+         - Reduce excessive passive voice
+         - Fix common punctuation errors
+         - Improve sentence structure to increase readability
+        """
+
+        # Break the article into chunks (paragraphs vs. headings/lists/etc.)
+        chunks = EditorService._parse_markdown_chunks(article_content)
+
+        prompt = None
+        message_history = []
+
+        # Iterate over chunks, sending paragraph chunks to the AI for improvement
+        improved_chunks: List[str] = []
+        for chunk_text, chunk_type in chunks:
+            if chunk_type == "paragraph":
+                if prompt is None:
+                    # Create the initial prompt
+                    prompt = IMPROVE_READABILITY_INITIAL_PROMPT.format(
+                        chunk_text=chunk_text
+                    )
+                else:
+                    prompt = IMPROVE_READABILITY_CONTINUATION_PROMPT.format(
+                        chunk_text=chunk_text
+                    )
+
+                # Generate the improved paragraph
+                improved_paragraph = await self.generate_content(
+                    prompt=prompt, message_history=message_history
+                )
+
+                # Update the message history with the last iteration
+                message_history.append({"role": "user", "content": prompt})
+                message_history.append(
+                    {"role": "assistant", "content": improved_paragraph}
+                )
+
+                # Save the improved paragraph
+                improved_chunks.append(improved_paragraph.strip())
+            else:
+                # For headings, bullet points, etc., just keep them as is
+                improved_chunks.append(chunk_text)
+
+        # Reassemble everything into one final string
+        improved_article = "\n\n".join(improved_chunks)
+
+        return improved_article
+
+    @staticmethod
+    def _parse_markdown_chunks(content: str) -> List[Tuple[str, str]]:
+        """
+        Splits the article into a list of (chunk_text, chunk_type).
+        chunk_type can be 'paragraph', 'heading', 'list', or 'other'.
+
+        The goal is to only run AI proofreading on normal paragraphs, and skip
+        headings (##, ###), bullet lists (*, -), numeric lists, code blocks, etc.
+        """
+        lines = content.split("\n")
+        chunks: List[Tuple[str, str]] = []
+
+        current_paragraph = []
+
+        def flush_paragraph():
+            """Helper to flush any accumulated paragraph lines into chunks."""
+            if current_paragraph:
+                paragraph_text = "\n".join(current_paragraph).strip()
+                if paragraph_text:
+                    chunks.append((paragraph_text, "paragraph"))
+                current_paragraph.clear()
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Check for headings
+            if stripped.startswith("#"):
+                # Flush any paragraph we accumulated so far
+                flush_paragraph()
+                # This line is a heading
+                chunks.append((line, "heading"))
+            # Check for bulleted or numbered lists
+            elif re.match(r"^(\*|-|\d+\.)\s", stripped):
+                # Flush any paragraph we accumulated so far
+                flush_paragraph()
+                # This line is a list item
+                chunks.append((line, "list"))
+            # Check for code block fences (``` or ~~~)
+            elif stripped.startswith("```") or stripped.startswith("~~~"):
+                # Flush any paragraph we accumulated so far
+                flush_paragraph()
+                # We'll treat these lines as 'other' so we don't transform them
+                chunks.append((line, "other"))
+            else:
+                # It's presumably a normal text line, accumulate for paragraph
+                # If the line is empty, flush the paragraph
+                if not stripped:
+                    flush_paragraph()
+                else:
+                    current_paragraph.append(line)
+
+        # Flush any leftover paragraph at the end
+        flush_paragraph()
+
+        return chunks
