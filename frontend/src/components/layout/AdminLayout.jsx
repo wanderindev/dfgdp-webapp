@@ -77,12 +77,12 @@ const NavLink = ({ href, children, className }) => {
   );
 };
 
-const AdminLayout = ({ children }) => {
+const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const [expandedItem, setExpandedItem] = React.useState(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   // Update expanded item based on current path
   React.useEffect(() => {
@@ -102,6 +102,7 @@ const AdminLayout = ({ children }) => {
     }
   };
 
+  // noinspection JSXUnresolvedComponent
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}

@@ -29,7 +29,13 @@ export const TaxonomiesPage = () => {
 
   // Fetch taxonomies on mount
   React.useEffect(() => {
-    fetchTaxonomies();
+    (async () => {
+      try {
+        await fetchTaxonomies()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, []);
 
   const fetchTaxonomies = async () => {
@@ -60,7 +66,7 @@ export const TaxonomiesPage = () => {
         description: `Taxonomy ${taxonomyData.id ? 'updated' : 'created'} successfully`,
       });
       setEditingTaxonomy(null);
-      fetchTaxonomies();
+      await fetchTaxonomies();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -77,7 +83,7 @@ export const TaxonomiesPage = () => {
         title: "Success",
         description: "Taxonomy deleted successfully",
       });
-      fetchTaxonomies();
+      await fetchTaxonomies();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -100,7 +106,7 @@ export const TaxonomiesPage = () => {
       });
       setEditingCategory(null);
       setSelectedTaxonomyId(null);
-      fetchTaxonomies();
+      await fetchTaxonomies();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -117,7 +123,7 @@ export const TaxonomiesPage = () => {
         title: "Success",
         description: "Category deleted successfully",
       });
-      fetchTaxonomies();
+      await fetchTaxonomies();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -226,5 +232,3 @@ export const TaxonomiesPage = () => {
     </div>
   );
 };
-
-export default TaxonomiesPage;

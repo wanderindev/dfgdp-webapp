@@ -30,7 +30,13 @@ export const TagsPage = () => {
 
   // Fetch tags on mount and when status filter changes
   React.useEffect(() => {
-    fetchTags();
+    (async () => {
+      try {
+        await fetchTags()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [statusFilter]);
 
   const fetchTags = async () => {
@@ -61,7 +67,7 @@ export const TagsPage = () => {
         description: `Tag ${tagData.id ? 'updated' : 'created'} successfully`,
       });
       setEditingTag(null);
-      fetchTags();
+      await fetchTags();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -78,7 +84,7 @@ export const TagsPage = () => {
         title: "Success",
         description: `Tag ${newStatus.toLowerCase()} successfully`,
       });
-      fetchTags();
+      await fetchTags();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -180,5 +186,3 @@ export const TagsPage = () => {
     </div>
   );
 };
-
-export default TagsPage;

@@ -1,4 +1,7 @@
+// noinspection JSUnusedGlobalSymbols
+
 const API_URL = `${import.meta.env.VITE_API_URL}/content/graphql`;
+// noinspection JSUnusedLocalSymbols
 const UPLOAD_URL = `${import.meta.env.VITE_UPLOAD_URL}`;
 
 // GraphQL query/mutation strings
@@ -529,6 +532,7 @@ export const contentService = {
   // Get article suggestions
   async getSuggestions(status = null) {
     const data = await fetchGraphQL(QUERIES.GET_SUGGESTIONS, { status });
+    // noinspection JSUnresolvedReference
     return data.articleSuggestions;
   },
 
@@ -604,6 +608,7 @@ export const contentService = {
   // Get articles
   async getArticles(status = null) {
     const data = await fetchGraphQL(QUERIES.GET_ARTICLES, { status });
+    // noinspection JSUnresolvedReference
     return data.articles;
   },
 
@@ -649,6 +654,7 @@ export const contentService = {
   // Get all media suggestions
   async getMediaSuggestions() {
     const data = await fetchGraphQL(QUERIES.GET_MEDIA_SUGGESTIONS);
+    // noinspection JSUnresolvedReference
     return data.mediaSuggestions;
   },
 
@@ -658,6 +664,7 @@ export const contentService = {
       suggestionId,
       maxPerQuery,
     });
+    // noinspection JSUnresolvedReference
     return data.fetchMediaCandidates;
   },
 
@@ -672,6 +679,7 @@ export const contentService = {
   // Get media candidates with optional status filter
   async getMediaCandidates(status = null) {
     const data = await fetchGraphQL(QUERIES.GET_MEDIA_CANDIDATES, { status });
+    // noinspection JSUnresolvedReference
     return data.mediaCandidates;
   },
 
@@ -697,6 +705,7 @@ export const contentService = {
   // Get media library items with optional type filter
   async getMediaLibrary(mediaType = null) {
     const data = await fetchGraphQL(QUERIES.GET_MEDIA_LIBRARY, { mediaType });
+    // noinspection JSUnresolvedReference
     return data.mediaLibrary;
   },
 

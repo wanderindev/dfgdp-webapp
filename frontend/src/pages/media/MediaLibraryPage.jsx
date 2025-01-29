@@ -21,7 +21,13 @@ export const MediaLibraryPage = () => {
 
   // Fetch media items on mount and when type filter changes
   React.useEffect(() => {
-    fetchMediaItems();
+    (async () => {
+      try {
+        await fetchMediaItems()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [typeFilter]);
 
   const fetchMediaItems = async () => {
@@ -49,7 +55,7 @@ export const MediaLibraryPage = () => {
         title: "Success",
         description: "Media uploaded successfully",
       });
-      fetchMediaItems();
+      await fetchMediaItems();
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -143,5 +149,3 @@ export const MediaLibraryPage = () => {
     </div>
   );
 };
-
-export default MediaLibraryPage;

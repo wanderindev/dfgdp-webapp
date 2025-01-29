@@ -43,8 +43,14 @@ export const SuggestionsPage = () => {
 
   // Fetch suggestions and taxonomies on mount and when status filter changes
   React.useEffect(() => {
-    fetchSuggestions();
-    fetchTaxonomies();
+    (async () => {
+      try {
+        await fetchSuggestions();
+        await fetchTaxonomies();
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [statusFilter]);
 
   const fetchSuggestions = async () => {
@@ -106,7 +112,7 @@ export const SuggestionsPage = () => {
         description: "Suggestion updated successfully",
       });
       setEditingSuggestion(null);
-      fetchSuggestions();
+      await fetchSuggestions();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -123,7 +129,7 @@ export const SuggestionsPage = () => {
         title: "Success",
         description: `Suggestion ${newStatus.toLowerCase()} successfully`,
       });
-      fetchSuggestions();
+      await fetchSuggestions();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -262,5 +268,3 @@ export const SuggestionsPage = () => {
     </div>
   );
 };
-
-export default SuggestionsPage;

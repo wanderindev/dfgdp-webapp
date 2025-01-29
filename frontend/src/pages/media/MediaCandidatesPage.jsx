@@ -20,7 +20,13 @@ export const MediaCandidatesPage = () => {
 
   // Fetch candidates on mount and when status filter changes
   React.useEffect(() => {
-    fetchCandidates();
+    (async () => {
+      try {
+        await fetchCandidates()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [statusFilter]);
 
   const fetchCandidates = async () => {
@@ -57,7 +63,7 @@ export const MediaCandidatesPage = () => {
         });
       }
       setSelectedCandidate(null);
-      fetchCandidates();
+      await fetchCandidates();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -75,7 +81,7 @@ export const MediaCandidatesPage = () => {
         description: "Candidate rejected successfully",
       });
       setSelectedCandidate(null);
-      fetchCandidates();
+      await fetchCandidates();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -133,5 +139,3 @@ export const MediaCandidatesPage = () => {
     </div>
   );
 };
-
-export default MediaCandidatesPage;

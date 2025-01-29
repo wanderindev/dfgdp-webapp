@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Status badge component
 export const CandidateStatus = ({ status }) => {
@@ -56,6 +55,7 @@ export const CandidatesGrid = ({ candidates, onSelect, selectedId }) => {
     );
   }
 
+  // noinspection JSUnresolvedReference
   return (
     <div className="media-grid">
       {candidates.map((candidate) => (
@@ -89,7 +89,6 @@ export const CandidateDetails = ({
   onClose,
   onApprove,
   onReject,
-  className = "",
 }) => {
   const [notes, setNotes] = React.useState("");
   const [showApprovalDialog, setShowApprovalDialog] = React.useState(false);
@@ -111,6 +110,7 @@ export const CandidateDetails = ({
     setNotes("");
   };
 
+  // noinspection JSUnresolvedReference
   return (
     <>
       <Card className="h-[calc(100vh_+_10px)] border-0">

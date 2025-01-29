@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 
 // Media type badge
@@ -47,6 +46,7 @@ export const MediaGrid = ({ items, onSelect, selectedId }) => {
     );
   }
 
+  // noinspection JSUnresolvedReference
   return (
     <div className="media-grid">
       {items.map((item) => (
@@ -86,7 +86,6 @@ export const MediaDetails = ({
  media,
  onClose,
  onUpdate,
- className = "",
 }) => {
   const [formData, setFormData] = React.useState({
     title: '',
@@ -135,6 +134,7 @@ export const MediaDetails = ({
 
   if (!media) return null;
 
+  // noinspection JSUnresolvedReference
   return (
     <Card className="h-[calc(100vh_+_10px)] border-0">
       <CardHeader className="sticky top-0 z-10 bg-background px-4 py-3 -my-4">

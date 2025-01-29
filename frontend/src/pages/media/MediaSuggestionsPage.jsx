@@ -12,7 +12,13 @@ export const MediaSuggestionsPage = () => {
 
   // Fetch suggestions on mount
   React.useEffect(() => {
-    fetchSuggestions();
+    (async () => {
+      try {
+        await fetchSuggestions()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, []);
 
   const fetchSuggestions = async () => {

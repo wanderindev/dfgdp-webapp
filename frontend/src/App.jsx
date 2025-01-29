@@ -1,23 +1,23 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { LoginPage } from './pages/LoginPage';
-import AdminLayout from './components/layout/AdminLayout';
-import { DashboardPage } from './pages/DashboardPage';
-import { UsersPage } from './pages/UsersPage';
-import { TaxonomiesPage } from './pages/content/TaxonomiesPage';
-import { TagsPage } from './pages/content/TagsPage';
-import { SuggestionsPage } from './pages/content/SuggestionsPage';
-import { ResearchPage } from './pages/ResearchPage';
-import { WriterPage } from './pages/WriterPage';
-import { MediaCandidatesPage } from './pages/media/MediaCandidatesPage';
-import { MediaLibraryPage } from './pages/media/MediaLibraryPage';
-import { MediaSuggestionsPage } from './pages/media/MediaSuggestionsPage.jsx';
-import { SocialAccountsPage } from './pages/social/AccountsPage';
-import { SocialPostsPage } from './pages/social/PostsPage';
-import { HashtagsPage } from './pages/social/HashtagsPage';
-import { TranslationsPage } from './pages/TranslationsPage';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { LoginPage } from '@/pages/LoginPage';
+import AdminLayout from '@/components/layout/AdminLayout';
+import { DashboardPage } from '@/pages/DashboardPage';
+import { UsersPage } from '@/pages/UsersPage';
+import { TaxonomiesPage } from '@/pages/content/TaxonomiesPage';
+import { TagsPage } from '@/pages/content/TagsPage';
+import { SuggestionsPage } from '@/pages/content/SuggestionsPage';
+import { ResearchPage } from '@/pages/ResearchPage';
+import { WriterPage } from '@/pages/WriterPage';
+import { MediaCandidatesPage } from '@/pages/media/MediaCandidatesPage';
+import { MediaLibraryPage } from '@/pages/media/MediaLibraryPage';
+import { MediaSuggestionsPage } from '@/pages/media/MediaSuggestionsPage.jsx';
+import { SocialAccountsPage } from '@/pages/social/AccountsPage';
+import { SocialPostsPage } from '@/pages/social/PostsPage';
+import { HashtagsPage } from '@/pages/social/HashtagsPage';
+import { TranslationsPage } from '@/pages/TranslationsPage';
 import { Toaster } from "@/components/ui/use-toast"
 
 const App = () => {

@@ -39,9 +39,16 @@ export const WriterPage = () => {
 
   // Fetch articles and tags on mount and when status filter changes
   React.useEffect(() => {
-    fetchArticles();
-    fetchTags();
+    (async () => {
+      try {
+        await fetchArticles();
+        await fetchTags();
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [statusFilter]);
+
 
   const fetchArticles = async () => {
     try {
@@ -78,7 +85,7 @@ export const WriterPage = () => {
         description: "Article updated successfully",
       });
       setEditingArticle(null);
-      fetchArticles();
+      await fetchArticles();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -96,7 +103,7 @@ export const WriterPage = () => {
         description: `Article ${status.toLowerCase()} successfully`,
       });
       setEditingArticle(null);
-      fetchArticles();
+      await fetchArticles();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -265,5 +272,3 @@ export const WriterPage = () => {
     </div>
   );
 };
-
-export default WriterPage;

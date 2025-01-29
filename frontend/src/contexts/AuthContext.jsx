@@ -8,7 +8,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    checkAuth();
+    (async () => {
+      try {
+        await checkAuth();
+      } catch (err) {
+        console.error("Auth check failed:", err);
+      }
+    })();
   }, []);
 
   const checkAuth = async () => {

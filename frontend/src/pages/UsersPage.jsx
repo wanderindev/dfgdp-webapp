@@ -39,7 +39,13 @@ export const UsersPage = () => {
 
   // Fetch users on mount and when filters/pagination change
   React.useEffect(() => {
-    fetchUsers();
+    (async () => {
+      try {
+        await fetchUsers()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [pagination.currentPage, filters.email]);
 
   const fetchUsers = async () => {
@@ -52,6 +58,7 @@ export const UsersPage = () => {
       });
 
       setUsers(data.users);
+      // noinspection JSUnresolvedReference
       setPagination({
         currentPage: data.current_page,
         totalPages: data.pages,
@@ -76,7 +83,7 @@ export const UsersPage = () => {
         description: "User updated successfully",
       });
       setEditingUser(null);
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -110,7 +117,7 @@ export const UsersPage = () => {
         title: "Success",
         description: "User activated successfully",
       });
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -127,7 +134,7 @@ export const UsersPage = () => {
         title: "Success",
         description: "User deactivated successfully",
       });
-      fetchUsers();
+      await fetchUsers();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -258,5 +265,3 @@ export const UsersPage = () => {
     </div>
   );
 };
-
-export default UsersPage;

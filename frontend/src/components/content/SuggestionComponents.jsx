@@ -73,6 +73,7 @@ export const GenerateSuggestionsDialog = ({
   });
 
   const selectedTaxonomy = taxonomies.find(t => t.id.toString() === formData.taxonomyId);
+  // noinspection JSUnresolvedReference
   const categories = selectedTaxonomy?.categories || [];
 
   const handleSubmit = (e) => {
@@ -230,21 +231,6 @@ export const SuggestionDialog = ({
                 mainTopic: e.target.value
               }))}
               placeholder="Enter main topic"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="pointOfView">Point of View</Label>
-            <Input
-              id="pointOfView"
-              value={formData.pointOfView}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                pointOfView: e.target.value
-              }))}
-              placeholder="Enter point of view"
-              required
             />
           </div>
 
@@ -259,6 +245,19 @@ export const SuggestionDialog = ({
                 subTopics: e.target.value
               }))}
               placeholder="Enter sub topics (one per line)"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pointOfView">Point of View</Label>
+            <Input
+              id="pointOfView"
+              value={formData.pointOfView}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                pointOfView: e.target.value
+              }))}
+              placeholder="Enter point of view"
               required
             />
           </div>
@@ -277,13 +276,13 @@ export const SuggestionDialog = ({
 
 // Data table for suggestions
 export const SuggestionsTable = ({
-    data,
-    loading,
-    onEdit,
-    onGenerateResearch,
-    onUpdateStatus,
-    onStatusFilterChange,
-    currentStatusFilter,
+   data,
+   loading,
+   onEdit,
+   onGenerateResearch,
+   onUpdateStatus,
+   onStatusFilterChange,
+   currentStatusFilter,
   }) => {
   const columns = [
     {

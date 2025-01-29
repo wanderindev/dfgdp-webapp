@@ -35,7 +35,13 @@ export const ResearchPage = () => {
 
   // Fetch research items on mount and when status filter changes
   React.useEffect(() => {
-    fetchResearch();
+    (async () => {
+      try {
+        await fetchResearch()
+      } catch (error) {
+        console.error("Something went wrong:", error);
+      }
+    })();
   }, [statusFilter]);
 
   const fetchResearch = async () => {
@@ -63,7 +69,7 @@ export const ResearchPage = () => {
         title: "Success",
         description: "Changes saved successfully",
       });
-      fetchResearch();
+      await fetchResearch();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -81,7 +87,7 @@ export const ResearchPage = () => {
         description: `Research ${newStatus.toLowerCase()} successfully`,
       });
       setReviewingResearch(null);
-      fetchResearch();
+      await fetchResearch();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -99,7 +105,7 @@ export const ResearchPage = () => {
         title: "Success",
         description: "Article generation started. It will be available in a few minutes.",
       });
-      fetchResearch(); // Refresh to update the research item's status
+      await fetchResearch();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -143,7 +149,7 @@ export const ResearchPage = () => {
         description: "Research status set to pending",
       });
       setReviewingResearch(null);
-      fetchResearch();
+      await fetchResearch();
     } catch (error) {
       toast({
         variant: "destructive",
@@ -250,5 +256,3 @@ export const ResearchPage = () => {
     </div>
   );
 };
-
-export default ResearchPage;
