@@ -493,9 +493,9 @@ export const ArticlesTable = ({
         </Select>
       </div>
 
-      <div className="rounded-md border">
+      <div>
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 bg-white z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -503,9 +503,9 @@ export const ArticlesTable = ({
                     {header.isPlaceholder
                       ? null
                       : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
                   </TableHead>
                 ))}
               </TableRow>

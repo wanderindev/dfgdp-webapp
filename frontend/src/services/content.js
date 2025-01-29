@@ -65,7 +65,7 @@ const QUERIES = {
           id
           title
         }
-        article {
+        articles {
           id
         }
       }
