@@ -2,6 +2,7 @@ from typing import Tuple
 
 from flask import jsonify, request
 from flask_login import login_user, logout_user, login_required, current_user
+from sqlalchemy import asc, desc
 from werkzeug.wrappers import Response
 
 from auth import auth_bp
@@ -75,9 +76,20 @@ def list_users() -> Response:
     page = request.args.get("page", 1, type=int)
     page_size = request.args.get("page_size", 10, type=int)
     email_filter = request.args.get("email", "")
+    order_by = request.args.get("sort", "email", type=str)
+    direction = request.args.get("dir", "desc", type=str)
+
+    valid_columns = {"email": User.email, "full_name": User.full_name}
+    order_column = valid_columns.get(order_by, User.email)
 
     # Build query
     query = db.session.query(User)
+
+    # Apply sort
+    if direction.lower() == "desc":
+        query = query.order_by(desc(order_column))
+    else:
+        query = query.order_by(asc(order_column))
 
     # Apply filters
     if email_filter:
@@ -93,9 +105,6 @@ def list_users() -> Response:
             "email": user.email,
             "full_name": user.full_name,
             "active": user.active,
-            "last_login_at": user.last_login_at.isoformat()
-            if user.last_login_at
-            else None,
         }
         for user in pagination.items
     ]

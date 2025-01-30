@@ -36,6 +36,16 @@ function maybeAppendActions(inferredCols, actions) {
     id: "actions",
     cell: ({ row }) => {
       const rowData = row.original;
+
+      // Filter actions based on shouldShow condition
+      const visibleActions = actions.filter((action) =>
+        action.shouldShow ? action.shouldShow(rowData) : true
+      );
+
+      if (visibleActions.length === 0) {
+        return null;
+      }
+
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -44,7 +54,7 @@ function maybeAppendActions(inferredCols, actions) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {actions.map((action, index) => (
+            {visibleActions.map((action, index) => (
               <DropdownMenuItem
                 key={index}
                 onClick={() => action.onClick?.(rowData)}
@@ -74,6 +84,10 @@ const DataTable = ({
   actions = [],         // for dropdown actions
   loading = false,
 
+  // Columns props
+  columnsOrder = [],
+  columnsOverride,
+
   // Filtering props
   globalFilter = "",
   setGlobalFilter = () => {},
@@ -81,67 +95,101 @@ const DataTable = ({
   // Pagination props
   pageCount = 1,
   currentPage = 1,
-  onPageChange = () => {},
+  setCurrentPage = () => {},
+
+  // Sorting props
+  sorting = [],
+  setSorting = () => {},
 }) => {
-  // 1) Build final columns (append actions column, or infer columns if none passed)
+  // Build final columns (append actions column, or infer columns if none passed)
   const finalColumns = React.useMemo(() => {
     // If we have custom columns, just append the actions column (if any).
     if (columns.length > 0) {
       return maybeAppendActions(columns, actions);
     }
 
-    // Otherwise, infer columns from the data keys of the first row:
+    // Otherwise, infer columns from the data keys of the first row
     if (data.length === 0) {
       return [];
     }
 
     const sampleRow = data[0];
-    const inferredCols = Object.keys(sampleRow).map((key) => ({
-      accessorKey: key,
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            column.toggleSorting(column.getIsSorted() === "asc")
-          }
-        >
-          {key}
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    }));
+
+    // Create a map of column overrides for quick lookup
+    const overrideMap = Object.fromEntries(
+      columnsOverride.map((col) => [col.accessorKey, col])
+    );
+
+    // Infer columns and apply overrides where necessary
+    let inferredCols = Object.keys(sampleRow).map((key) => {
+      // If the column is in columnsOverride, use it
+      if (overrideMap[key]) {
+        return overrideMap[key];
+      }
+
+      // Otherwise, create a default column definition
+      const formattedKey = key
+        .replace(/_/g, " ")
+        .split(" ")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+
+      return {
+        accessorKey: key,
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() =>
+              setSorting((prev) => {
+                const existingSort = prev.find((s) => s.id === key);
+                if (!existingSort) {
+                  return [{ id: key, desc: false }];
+                }
+                return [{ id: key, desc: !existingSort.desc }];
+              })
+            }
+          >
+            {formattedKey}
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+      };
+    });
+
+    // Apply column order if specified
+    if (columnsOrder.length > 0) {
+      inferredCols = columnsOrder
+        .map((key) => inferredCols.find((col) => col.accessorKey === key))
+        .filter(Boolean);
+    }
 
     return maybeAppendActions(inferredCols, actions);
-  }, [columns, data, actions]);
+  }, [columns, data, actions, columnsOrder, columnsOverride]);
 
-  // 2) Set up the table instance
+  // Set up the table instance
   const table = useReactTable({
     data,
     columns: finalColumns,
 
-    // manual pagination, so we rely on parent to tell us pageCount / currentPage
-    manualPagination: true,
-    pageCount,
+    // Sorting
+    manualSorting: true,
+    onSortingChange: setSorting,
 
     // wire up table state
     state: {
-      globalFilter,
+      sorting,
       pagination: {
-        pageIndex: currentPage - 1, // React Table is 0-based
+        pageIndex: currentPage - 1,
         pageSize: 10,
       },
     },
 
-    // wire up filtering
-    globalFilterFn: (row, columnId, filterValue) => {
-      const rowValue = row.getValue(columnId);
-      // fuzzy matching via rankItem
-      // noinspection JSUnresolvedReference
-      return rankItem(String(rowValue), String(filterValue)).passed;
-    },
+    // Filtering
     onGlobalFilterChange: setGlobalFilter,
 
-    // wire up pagination changes
+    // Pagination
+    manualPagination: true,
+    pageCount,
     onPaginationChange: (updaterOrValue) => {
       let newPageIndex;
       if (typeof updaterOrValue === "function") {
@@ -157,15 +205,14 @@ const DataTable = ({
         newPageIndex = updaterOrValue.pageIndex;
       }
       // pass it back up as 1-based
-      onPageChange(newPageIndex + 1);
+      setCurrentPage(newPageIndex + 1);
     },
 
-    // row models
+    // Row models
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
-  // 3) Render
   return (
     <div className="space-y-4">
       {/* GLOBAL FILTER input */}

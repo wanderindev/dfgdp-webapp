@@ -1,9 +1,9 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 export const api = {
-  fetchUsers: async ({ page = 1, pageSize = 10, email = '' }) => {
+  fetchUsers: async ({ page = 1, pageSize = 10, email = '', sort = 'email', dir = 'asc' }) => {
     const response = await fetch(
-      `${API_BASE_URL}/auth/api/users?page=${page}&page_size=${pageSize}&email=${email}`,
+      `${API_BASE_URL}/auth/api/users?page=${page}&page_size=${pageSize}&email=${email}&sort=${sort}&dir=${dir}`,
       {
         credentials: 'include',
       }

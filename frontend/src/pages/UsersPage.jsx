@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { api } from "@/services/api";
+import {Check, X} from "lucide-react";
 
 export const UsersPage = () => {
   const { toast } = useToast();
@@ -33,6 +34,9 @@ export const UsersPage = () => {
   // For filtering:
   const [globalFilter, setGlobalFilter] = React.useState("");
 
+  //For sorting:
+  const [sorting, setSorting] = React.useState([]);
+
   // For confirmation dialog:
   const [confirmationDialog, setConfirmationDialog] = React.useState({
     open: false,
@@ -50,18 +54,24 @@ export const UsersPage = () => {
         description: "Error fetching users.",
       });
     });
-  }, [currentPage, globalFilter]);
+  }, [currentPage, sorting, globalFilter]);
 
   // -- HANDLERS --
   const fetchUsers = async () => {
     try {
+      const sortParam = sorting[0]?.id || 'email'; // fallback
+      const direction = sorting[0]?.desc ? 'desc' : 'asc';
+
       setLoading(true);
       const data = await api.fetchUsers({
         page: currentPage,
         pageSize,
         email: globalFilter,
+        sort: sortParam,
+        dir: direction,
       });
       setUsers(data.users);
+      setTotalPages(data.pages)
     } catch (error) {
       toast({
         variant: "destructive",
@@ -167,21 +177,45 @@ export const UsersPage = () => {
     {
       label: "Edit details",
       onClick: (user) => setEditingUser(user),
+      shouldShow: () => true,
     },
     {
       label: "Reset password",
       onClick: (user) => setResettingPasswordFor(user),
+      shouldShow: () => true,
     },
     {
       label: "Deactivate",
       onClick: (user) =>
-      showConfirmationDialog("Deactivate user", "Are you sure?", () => handleDeactivate(user))
+        showConfirmationDialog("Deactivate user", "Are you sure?", () => handleDeactivate(user)),
+      shouldShow: (user) => user.active,
     },
     {
       label: "Activate",
       onClick: (user) => handleActivate(user),
+      shouldShow: (user) => !user.active,
     },
   ];
+
+  // Define the columns props
+  const columnsOrder = ["email", "full_name", "active"];
+  const columnsOverride = [{
+    accessorKey: "active",
+    header: "Status",
+    cell: ({ row }) => {
+      return row.getValue("active") ? (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <Check className="w-4 h-4 mr-1" />
+          Active
+        </span>
+      ) : (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <X className="w-4 h-4 mr-1" />
+          Inactive
+        </span>
+      );
+    },
+  }]
 
   return (
     <div className="space-y-4">
@@ -196,9 +230,13 @@ export const UsersPage = () => {
         actions={userActions}
         pageCount={totalPages}
         currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        setCurrentPage={setCurrentPage}
         globalFilter={globalFilter}
         setGlobalFilter={setGlobalFilter}
+        columnsOrder={columnsOrder}
+        columnsOverride={columnsOverride}
+        sorting={sorting}
+        setSorting={setSorting}
       />
 
       {/* Edit dialog */}
