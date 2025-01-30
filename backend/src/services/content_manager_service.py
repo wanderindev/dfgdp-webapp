@@ -23,7 +23,7 @@ class ContentManagerService(BaseAIService):
 
     # noinspection PyArgumentList
     async def generate_suggestions(
-        self, category_id: int, num_suggestions: int = 3
+        self, category_id: int, num_suggestions: int
     ) -> List[ArticleSuggestion]:
         if num_suggestions < 1:
             raise ValueError("Number of suggestions must be at least 1")

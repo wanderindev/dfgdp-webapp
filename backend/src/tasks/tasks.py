@@ -6,20 +6,25 @@ from typing import Optional
 from rq import get_current_job
 from sqlalchemy.orm import Session
 
-from content.models import ArticleSuggestion, ContentStatus
+from content.models import (
+    ArticleSuggestion,
+    Research,
+    Category,
+    ContentStatus,
+)
 from extensions import db
+from services.content_manager_service import ContentManagerService
 from services.researcher_service import ResearcherService
 from services.writer_service import WriterService
 
 logger = logging.getLogger(__name__)
 
-# Number of retries for failed operations
 MAX_RETRIES = 3
 RETRY_DELAY = 5
 
 
 def create_app_context():
-    """Create a new application context for the task."""
+    """Create a new application context for RQ tasks."""
     from app import create_app
 
     app = create_app()
@@ -44,15 +49,15 @@ def async_task(f):
 
 
 def with_retry(max_retries: int = MAX_RETRIES, delay: int = RETRY_DELAY):
-    """Decorator to add retry logic to operations."""
+    """Decorator to add retry logic to async operations."""
 
     def decorator(func):
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*a, **kw):
             last_exception = None
             for attempt in range(max_retries):
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*a, **kw)
                 except Exception as e:
                     last_exception = e
                     logger.warning(
@@ -85,7 +90,112 @@ class TaskProgressTracker:
             self.job.save_meta()
 
 
-# noinspection PyTypeChecker
+@async_task
+@with_retry()
+async def generate_suggestions_task(category_id: int, count: int) -> str:
+    """
+    RQ task to generate new article suggestions for a given category.
+    Uses ContentManagerService in the background.
+    """
+    logger.info(
+        f"generate_suggestions_task started (category_id={category_id}, count={count})"
+    )
+
+    try:
+        # Track progress: just 1 item in this example
+        progress = TaskProgressTracker(total_items=1)
+        progress.update_progress("Starting suggestion generation")
+
+        category = db.session.query(Category).get(category_id)
+        if not category:
+            raise ValueError(f"Category {category_id} not found")
+
+        service = ContentManagerService()
+        # Because it's async, call it with await
+        suggestions = await service.generate_suggestions(
+            category_id=category_id,
+            num_suggestions=count,
+        )
+        db.session.commit()
+
+        logger.info(
+            f"Generated {len(suggestions)} suggestions for category {category_id}"
+        )
+
+        progress.update_progress("Completed suggestion generation")
+        return "Suggestion generation completed"
+
+    except Exception as e:
+        logger.error(f"generate_suggestions_task failed: {str(e)}")
+        raise
+
+
+@async_task
+@with_retry()
+async def generate_research_task(suggestion_id: int) -> str:
+    """
+    RQ task to generate research content for an approved article suggestion.
+    Uses ResearcherService in the background.
+    """
+    logger.info(f"generate_research_task started (suggestion_id={suggestion_id})")
+
+    try:
+        progress = TaskProgressTracker(total_items=1)
+        progress.update_progress("Starting research generation")
+
+        suggestion = db.session.query(ArticleSuggestion).get(suggestion_id)
+        if not suggestion:
+            raise ValueError(f"ArticleSuggestion {suggestion_id} not found")
+
+        if suggestion.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate research for approved suggestions")
+
+        researcher = ResearcherService()
+        await researcher.generate_research(suggestion_id=suggestion_id)
+
+        progress.update_progress("Completed research generation")
+        logger.info(f"Research generated for suggestion {suggestion.id}")
+        return "Research generation completed"
+
+    except Exception as e:
+        logger.error(f"generate_research_task failed: {str(e)}")
+        raise
+
+
+@async_task
+@with_retry()
+async def generate_article_task(research_id: int) -> str:
+    """
+    RQ task to generate an article (or series) from approved research.
+    Uses WriterService in the background.
+    """
+    logger.info(f"generate_article_task started (research_id={research_id})")
+
+    try:
+        progress = TaskProgressTracker(total_items=1)
+        progress.update_progress("Starting article generation")
+
+        research = db.session.query(Research).get(research_id)
+        if not research:
+            raise ValueError(f"Research {research_id} not found")
+
+        if research.status != ContentStatus.APPROVED:
+            raise ValueError("Can only generate articles from approved research")
+
+        writer = WriterService()
+        await writer.generate_article(research_id=research_id)
+        db.session.commit()
+
+        progress.update_progress("Completed article generation")
+        logger.info(f"Article generated for research {research.id}")
+        return "Article generation completed"
+
+    except Exception as e:
+        logger.error(f"generate_article_task failed: {str(e)}")
+        raise
+
+
+# Example: Bulk generation task (already in your code)
 @async_task
 async def bulk_generation_task():
     """Main task for bulk content generation."""

@@ -115,12 +115,22 @@ export const WriterPage = () => {
 
   const handleGenerateStory = async (articleId) => {
     try {
-      await contentService.generateStoryPromotion(articleId);
+      const { success, message } = await contentService.generateStoryPromotion(articleId);
+
       setGenerationInProgress(true);
-      toast({
-        title: "Success",
-        description: "Story promotion generation started. It will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -132,12 +142,22 @@ export const WriterPage = () => {
 
   const handleGenerateDidYouKnow = async (articleId, count) => {
     try {
-      await contentService.generateDidYouKnowPosts(articleId, count);
+      const { success, message } = await contentService.generateDidYouKnowPosts(articleId, count);
+
       setGenerationInProgress(true);
-      toast({
-        title: "Success",
-        description: "Did You Know posts generation started. They will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
     } catch (error) {
       toast({
         variant: "destructive",

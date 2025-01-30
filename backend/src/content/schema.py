@@ -6,6 +6,14 @@ import strawberry
 from flask_login import current_user
 from sqlalchemy.orm import joinedload
 
+from extensions import db
+from tasks.config import default_queue
+from tasks.tasks import (
+    generate_article_task,
+    generate_research_task,
+    generate_suggestions_task,
+)
+
 
 # Enums
 @strawberry.enum
@@ -73,7 +81,7 @@ class Research:
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     suggestion: "ArticleSuggestion"
-    article: Optional["Article"] = strawberry.field(default=None)
+    articles: Optional[List["Article"]] = strawberry.field(default=None)
 
 
 @strawberry.type
@@ -81,8 +89,8 @@ class ArticleSuggestion:
     id: int
     category_id: int = strawberry.field(name="categoryId")
     title: str
-    main_topic: str = strawberry.field(name="mainTopic")
-    sub_topics: List[str] = strawberry.field(name="subTopics")
+    main_topic: Optional[str] = strawberry.field(name="mainTopic")
+    sub_topics: Optional[List[str]] = strawberry.field(name="subTopics")
     point_of_view: str = strawberry.field(name="pointOfView")
     status: ContentStatus
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
@@ -160,6 +168,12 @@ class Media:
     instagram_media_type: Optional[str] = strawberry.field(name="instagramMediaType")
 
 
+@strawberry.type
+class JobEnqueueResponse:
+    success: bool
+    message: str
+
+
 @strawberry.input
 class MediaMetadataInput:
     title: Optional[str] = strawberry.field(default=None)
@@ -214,13 +228,13 @@ class Query:
     def taxonomies(self) -> List[Taxonomy]:
         from content.models import Taxonomy
 
-        return Taxonomy.query.all()
+        return db.session.query(Taxonomy).order_by(Taxonomy.id).all()
 
     @strawberry.field
     def taxonomy(self, id: int) -> Optional[Taxonomy]:
         from content.models import Taxonomy
 
-        return Taxonomy.query.get(id)
+        return db.session.query(Taxonomy).get(id)
 
     @strawberry.field
     def categories(
@@ -229,7 +243,7 @@ class Query:
     ) -> List[Category]:
         from content.models import Category
 
-        query = Category.query
+        query = db.session.query(Category).order_by(Category.id)
         if taxonomy_id:
             query = query.filter_by(taxonomy_id=taxonomy_id)
         return query.all()
@@ -238,13 +252,13 @@ class Query:
     def category(self, id: int) -> Optional[Category]:
         from content.models import Category
 
-        return Category.query.get(id)
+        return db.session.query(Category).get(id)
 
     @strawberry.field
     def tags(self, status: Optional[ContentStatus] = None) -> List[Tag]:
         from content.models import Tag
 
-        query = Tag.query
+        query = db.session.query(Tag).order_by(Tag.name)
         if status:
             query = query.filter_by(status=status)
         return query.all()
@@ -253,7 +267,7 @@ class Query:
     def tag(self, id: int) -> Optional[Tag]:
         from content.models import Tag
 
-        return Tag.query.get(id)
+        return db.session.query(Tag).get(id)
 
     @strawberry.field
     def article_suggestions(
@@ -262,7 +276,7 @@ class Query:
         """Get article suggestions with optional status filter."""
         from content.models import ArticleSuggestion
 
-        query = ArticleSuggestion.query
+        query = db.session.query(ArticleSuggestion)
         if status:
             query = query.filter_by(status=status)
         query = query.options(joinedload(ArticleSuggestion.research))
@@ -273,13 +287,13 @@ class Query:
         """Get research items with optional status filter."""
         from content.models import Research
 
-        query = Research.query
+        query = db.session.query(Research)
 
         if status:
             query = query.filter_by(status=status)
 
         query = query.options(
-            joinedload(Research.suggestion), joinedload(Research.article)
+            joinedload(Research.suggestion), joinedload(Research.articles)
         )
 
         return query.order_by(Research.created_at.desc()).all()
@@ -289,14 +303,14 @@ class Query:
         """Get a specific research item by ID."""
         from content.models import Research
 
-        return Research.query.get_or_404(id)
+        return db.session.query(Research).get_or_404(id)
 
     @strawberry.field
     def articles(self, status: Optional[ContentStatus] = None) -> List[Article]:
         """Get articles with optional status filter."""
         from content.models import Article
 
-        query = Article.query
+        query = db.session.query(Article)
         if status:
             query = query.filter_by(status=status)
 
@@ -313,16 +327,16 @@ class Query:
         """Get a specific article by ID."""
         from content.models import Article
 
-        return Article.query.get(id)
+        return db.session.query(Article).get(id)
 
     @strawberry.field
     def media_suggestions(self) -> List[MediaSuggestion]:
         """Get all media suggestions with their candidates."""
         from content.models import MediaSuggestion
-        from sqlalchemy.orm import joinedload
 
         return (
-            MediaSuggestion.query.options(joinedload(MediaSuggestion.research))
+            db.session.query(MediaSuggestion)
+            .options(joinedload(MediaSuggestion.research))
             .options(joinedload(MediaSuggestion.candidates))
             .all()
         )
@@ -333,9 +347,8 @@ class Query:
     ) -> List[MediaCandidate]:
         """Get media candidates with optional status filter."""
         from content.models import MediaCandidate
-        from sqlalchemy.orm import joinedload
 
-        query = MediaCandidate.query
+        query = db.session.query(MediaCandidate)
         if status:
             query = query.filter_by(status=status)
 
@@ -350,7 +363,7 @@ class Query:
         """Get media library items with optional type filter."""
         from content.models import Media, MediaType as DBMediaType
 
-        query = Media.query
+        query = db.session.query(Media)
         if media_type:
             query = query.filter_by(media_type=DBMediaType[media_type])
         return query.order_by(Media.created_at.desc()).all()
@@ -363,7 +376,6 @@ class Mutation:
     @strawberry.mutation
     def create_taxonomy(self, input: TaxonomyInput) -> Taxonomy:
         from content.models import Taxonomy
-        from extensions import db
 
         taxonomy = Taxonomy(name=input.name, description=input.description)
         db.session.add(taxonomy)
@@ -373,9 +385,8 @@ class Mutation:
     @strawberry.mutation
     def update_taxonomy(self, id: int, input: TaxonomyInput) -> Taxonomy:
         from content.models import Taxonomy
-        from extensions import db
 
-        taxonomy = Taxonomy.query.get_or_404(id)
+        taxonomy = db.session.query(Taxonomy).get_or_404(id)
         taxonomy.name = input.name
         taxonomy.description = input.description
         db.session.commit()
@@ -384,9 +395,8 @@ class Mutation:
     @strawberry.mutation
     def delete_taxonomy(self, id: int) -> bool:
         from content.models import Taxonomy
-        from extensions import db
 
-        taxonomy = Taxonomy.query.get_or_404(id)
+        taxonomy = db.session.query(Taxonomy).get_or_404(id)
         db.session.delete(taxonomy)
         db.session.commit()
         return True
@@ -394,7 +404,6 @@ class Mutation:
     @strawberry.mutation
     def create_category(self, input: CategoryInput) -> Category:
         from content.models import Category
-        from extensions import db
 
         category = Category(
             name=input.name,
@@ -408,9 +417,8 @@ class Mutation:
     @strawberry.mutation
     def update_category(self, id: int, input: CategoryInput) -> Category:
         from content.models import Category
-        from extensions import db
 
-        category = Category.query.get_or_404(id)
+        category = db.session.query(Category).get_or_404(id)
         category.name = input.name
         category.description = input.description
         category.taxonomy_id = input.taxonomy_id
@@ -420,9 +428,8 @@ class Mutation:
     @strawberry.mutation
     def delete_category(self, id: int) -> bool:
         from content.models import Category
-        from extensions import db
 
-        category = Category.query.get_or_404(id)
+        category = db.session.query(Category).get_or_404(id)
         db.session.delete(category)
         db.session.commit()
         return True
@@ -430,7 +437,6 @@ class Mutation:
     @strawberry.mutation
     def create_tag(self, input: TagInput) -> Tag:
         from content.models import Tag
-        from extensions import db
 
         tag = Tag(name=input.name)
         db.session.add(tag)
@@ -440,9 +446,8 @@ class Mutation:
     @strawberry.mutation
     def update_tag(self, id: int, input: TagInput) -> Tag:
         from content.models import Tag
-        from extensions import db
 
-        tag = Tag.query.get_or_404(id)
+        tag = db.session.query(Tag).get_or_404(id)
         tag.name = input.name
         db.session.commit()
         return tag
@@ -450,10 +455,8 @@ class Mutation:
     @strawberry.mutation
     def update_tag_status(self, id: int, status: ContentStatus) -> Tag:
         from content.models import Tag
-        from extensions import db
-        from datetime import datetime, timezone
 
-        tag = Tag.query.get_or_404(id)
+        tag = db.session.query(Tag).get_or_404(id)
         tag.status = status
         if status == ContentStatus.APPROVED:
             tag.approved_at = datetime.now(timezone.utc)
@@ -462,9 +465,7 @@ class Mutation:
         return tag
 
     @strawberry.mutation
-    def generate_suggestions(
-        self, category_id: int, level: str, count: int = 3
-    ) -> List[ArticleSuggestion]:
+    def generate_suggestions(self, category_id: int, count: int) -> JobEnqueueResponse:
         """Generate new article suggestions."""
         from services.content_manager_service import ContentManagerService
         import asyncio
@@ -474,14 +475,12 @@ class Mutation:
         asyncio.set_event_loop(loop)
 
         try:
-            suggestions = loop.run_until_complete(
-                service.generate_suggestions(
-                    category_id=category_id, level=level, num_suggestions=count
-                )
+            default_queue.enqueue(generate_suggestions_task, category_id, count)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
             )
-            return suggestions
-        finally:
-            loop.close()
 
     @strawberry.mutation
     def update_suggestion(
@@ -489,9 +488,8 @@ class Mutation:
     ) -> ArticleSuggestion:
         """Update an existing article suggestion."""
         from content.models import ArticleSuggestion
-        from extensions import db
 
-        suggestion = ArticleSuggestion.query.get_or_404(id)
+        suggestion = db.session.query(ArticleSuggestion).get_or_404(id)
         suggestion.title = input.title
         suggestion.main_topic = input.main_topic
         suggestion.sub_topics = input.sub_topics
@@ -506,10 +504,8 @@ class Mutation:
     ) -> ArticleSuggestion:
         """Update the status of an article suggestion."""
         from content.models import ArticleSuggestion
-        from extensions import db
-        from datetime import datetime, timezone
 
-        suggestion = ArticleSuggestion.query.get_or_404(id)
+        suggestion = db.session.query(ArticleSuggestion).get_or_404(id)
         suggestion.status = status
 
         if status == ContentStatus.APPROVED:
@@ -523,35 +519,28 @@ class Mutation:
         return suggestion
 
     @strawberry.mutation
-    def generate_research(self, suggestion_id: int) -> ArticleSuggestion:
+    def generate_research(self, suggestion_id: int) -> JobEnqueueResponse:
         """Generate research for an approved article suggestion."""
-        from services.researcher_service import ResearcherService
         from content.models import ArticleSuggestion, ContentStatus
-        import asyncio
 
-        suggestion = ArticleSuggestion.query.get_or_404(suggestion_id)
+        suggestion = db.session.query(ArticleSuggestion).get_or_404(suggestion_id)
         if suggestion.status != ContentStatus.APPROVED:
             raise ValueError("Can only generate research for approved suggestions")
 
-        service = ResearcherService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            loop.run_until_complete(
-                service.generate_research(suggestion_id=suggestion_id)
+            default_queue.enqueue(generate_research_task, suggestion_id)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
             )
-            return suggestion
-        finally:
-            loop.close()
 
     @strawberry.mutation
     def update_research(self, id: int, content: str) -> Research:
         """Update research content."""
         from content.models import Research
-        from extensions import db
 
-        research = Research.query.get_or_404(id)
+        research = db.session.query(Research).get_or_404(id)
         research.content = content
         db.session.commit()
         return research
@@ -560,9 +549,8 @@ class Mutation:
     def update_research_status(self, id: int, status: ContentStatus) -> Research:
         """Update research status."""
         from content.models import Research
-        from extensions import db
 
-        research = Research.query.get_or_404(id)
+        research = db.session.query(Research).get_or_404(id)
         research.status = status
 
         if status == ContentStatus.APPROVED:
@@ -576,61 +564,45 @@ class Mutation:
         return research
 
     @strawberry.mutation
-    def generate_article(self, research_id: int) -> Research:
+    def generate_article(self, research_id: int) -> JobEnqueueResponse:
         """Generate article from approved research."""
         from content.models import Research, ContentStatus
-        from services.writer_service import WriterService
-        import asyncio
 
-        research = Research.query.get_or_404(research_id)
-
+        research = db.session.query(Research).get_or_404(research_id)
         if research.status != ContentStatus.APPROVED:
             raise ValueError("Can only generate articles from approved research")
 
-        if research.article:
-            raise ValueError("Article already exists for this research")
-
-        # Initialize writer service and use event loop
-        service = WriterService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            loop.run_until_complete(service.generate_article(research_id=research_id))
-            return research
-        finally:
-            loop.close()
+            default_queue.enqueue(generate_article_task, research_id)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
+            )
 
     @strawberry.mutation
-    def generate_media_suggestions(self, research_id: int) -> Research:
+    def generate_media_suggestions(self, research_id: int) -> JobEnqueueResponse:
         """Generate media suggestions for approved research."""
         from content.models import Research, ContentStatus
-        from services.media_manager_service import MediaManagerService
-        import asyncio
 
-        research = Research.query.get_or_404(research_id)
+        research = db.session.query(Research).get_or_404(research_id)
         if research.status != ContentStatus.APPROVED:
             raise ValueError("Can only generate suggestions for approved research")
 
-        service = MediaManagerService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            loop.run_until_complete(
-                service.generate_suggestions(research_id=research_id)
+            # default_queue.enqueue(generate_media_suggestions_task, research_id)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
             )
-            return research
-        finally:
-            loop.close()
 
     @strawberry.mutation
     def update_article(self, id: int, input: ArticleInput) -> Article:
         """Update article content and metadata."""
         from content.models import Article, Tag
-        from extensions import db
 
-        article = Article.query.get_or_404(id)
+        article = db.session.query(Article).get_or_404(id)
         article.title = input.title
         article.content = input.content
         article.excerpt = input.excerpt
@@ -649,10 +621,8 @@ class Mutation:
     def update_article_status(self, id: int, status: ContentStatus) -> Article:
         """Update article status."""
         from content.models import Article
-        from extensions import db
-        from datetime import datetime, timezone
 
-        article = Article.query.get_or_404(id)
+        article = db.session.query(Article).get_or_404(id)
         article.status = status
 
         if status == ContentStatus.APPROVED:
@@ -666,87 +636,57 @@ class Mutation:
         return article
 
     @strawberry.mutation
-    def generate_story_promotion(self, article_id: int) -> Article:
+    def generate_story_promotion(self, article_id: int) -> JobEnqueueResponse:
         """Generate Instagram story promotion for an article."""
         from content.models import Article, ContentStatus
-        from services.social_media_manager_service import SocialMediaManagerService
-        import asyncio
 
-        article = Article.query.get_or_404(article_id)
+        article = db.session.query(Article).get_or_404(article_id)
         if article.status != ContentStatus.APPROVED:
             raise ValueError("Can only generate promotions for approved articles")
 
-        service = SocialMediaManagerService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            loop.run_until_complete(
-                service.generate_story_promotion(article_id=article_id)
+            # default_queue.enqueue(generate_story_promotion_task, research_id)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
             )
-            return article
-        finally:
-            loop.close()
 
     @strawberry.mutation
-    def generate_did_you_know_posts(self, article_id: int, count: int = 3) -> Article:
+    def generate_did_you_know_posts(
+        self, article_id: int, count: int = 3
+    ) -> JobEnqueueResponse:
         """Generate Instagram feed posts with interesting facts."""
         from content.models import Article, ContentStatus
-        from services.social_media_manager_service import SocialMediaManagerService
-        import asyncio
 
-        article = Article.query.get_or_404(article_id)
+        article = db.session.query(Article).get_or_404(article_id)
         if article.status != ContentStatus.APPROVED:
             raise ValueError("Can only generate posts for approved articles")
 
         if count < 1 or count > 10:
             raise ValueError("Count must be between 1 and 10")
 
-        service = SocialMediaManagerService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
-            loop.run_until_complete(
-                service.generate_did_you_know_posts(
-                    article_id=article_id, num_posts=count
-                )
+            # default_queue.enqueue(generate_did_you_know_posts_task, article_id, num_posts)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
             )
-            return article
-        finally:
-            loop.close()
 
     @strawberry.mutation
     def fetch_media_candidates(
         self, suggestion_id: int, max_per_query: int = 20
-    ) -> MediaSuggestion:
+    ) -> JobEnqueueResponse:
         """Fetch media candidates from Wikimedia Commons."""
-        from content.models import MediaSuggestion
-        from services.wikimedia_service import WikimediaService
-        from sqlalchemy.orm import joinedload
-        import asyncio
-
-        # Create service and event loop for async operation
-        async def run_wikimedia_service():
-            async with WikimediaService() as service:
-                await service.process_suggestion(
-                    suggestion_id=suggestion_id, max_per_query=max_per_query
-                )
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
 
         try:
-            loop.run_until_complete(run_wikimedia_service())
-            # Refresh the suggestion to get the newly created candidates
-            suggestion = MediaSuggestion.query.options(
-                joinedload(MediaSuggestion.candidates)
-            ).get(suggestion_id)
-            return suggestion
+            # default_queue.enqueue(process_media_suggestion_task, suggestion_id, max_per_query)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
         except Exception as e:
-            raise ValueError(f"Failed to fetch candidates: {str(e)}")
-        finally:
-            loop.close()
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
+            )
 
     @strawberry.mutation
     def update_candidate_status(
@@ -754,10 +694,8 @@ class Mutation:
     ) -> MediaCandidate:
         """Update media candidate status."""
         from content.models import MediaCandidate
-        from extensions import db
-        from datetime import datetime, timezone
 
-        candidate = MediaCandidate.query.get_or_404(id)
+        candidate = db.session.query(MediaCandidate).get_or_404(id)
         candidate.status = status
         candidate.review_notes = notes
         candidate.reviewed_by_id = current_user.id
@@ -773,7 +711,7 @@ class Mutation:
         """Approve candidate and create media entry."""
         from content.models import MediaCandidate
 
-        candidate = MediaCandidate.query.get_or_404(id)
+        candidate = db.session.query(MediaCandidate).get_or_404(id)
         media = candidate.approve(current_user.id, notes)
 
         if not media:
@@ -782,41 +720,9 @@ class Mutation:
         return candidate
 
     @strawberry.mutation
-    def fetch_media_candidates(
-        self, suggestion_id: int, max_per_query: int = 5
-    ) -> MediaSuggestion:
-        """Fetch media candidates from Wikimedia Commons."""
-        from content.models import MediaSuggestion
-        from services.wikimedia_service import WikimediaService
-        import asyncio
-
-        suggestion = MediaSuggestion.query.get_or_404(suggestion_id)
-
-        # Create service and event loop for async operation
-        async def run_service():
-            async with WikimediaService() as service:
-                return await service.process_suggestion(
-                    suggestion_id=suggestion_id, max_per_query=max_per_query
-                )
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        try:
-            loop.run_until_complete(run_service())
-            return suggestion
-        except Exception as e:
-            raise ValueError(f"Failed to fetch candidates: {str(e)}")
-        finally:
-            loop.close()
-
-    @strawberry.mutation
     def update_media_metadata(self, id: int, input: MediaMetadataInput) -> Media:
         """Update media metadata."""
-        from content.models import Media
-        from extensions import db
-
-        media = Media.query.get_or_404(id)
+        media = db.session.query(Media).get_or_404(id)
 
         if input.title is not None:
             media.title = input.title

@@ -245,9 +245,8 @@ class Research(db.Model, TimestampMixin, AIGenerationMixin):
         db.DateTime(timezone=True), nullable=True
     )
 
-    articles: Mapped[Optional["Article"]] = relationship(
-        "Article",
-        back_populates="research",
+    articles: Mapped[List["Article"]] = relationship(
+        "Article", back_populates="research", lazy="select"
     )
 
     __table_args__ = (

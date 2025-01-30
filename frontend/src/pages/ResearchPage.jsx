@@ -99,12 +99,23 @@ export const ResearchPage = () => {
 
   const handleGenerateArticle = async (research) => {
     try {
-      await contentService.generateArticle(research.id);
+      const { success, message } = await contentService.generateArticle(research.id);
+
       setGenerationInProgress(true);
-      toast({
-        title: "Success",
-        description: "Article generation started. It will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
+
       await fetchResearch();
     } catch (error) {
       toast({
@@ -117,12 +128,22 @@ export const ResearchPage = () => {
 
   const handleGenerateMedia = async (research) => {
     try {
-      await contentService.generateMediaSuggestions(research.id);
+      const { success, message } = await contentService.generateMediaSuggestions(research.id);
+
       setGenerationInProgress(true);
-      toast({
-        title: "Success",
-        description: "Media suggestions generation started. They will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
     } catch (error) {
       toast({
         variant: "destructive",

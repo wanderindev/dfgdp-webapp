@@ -259,12 +259,8 @@ const MUTATIONS = {
   GENERATE_SUGGESTIONS: `
     mutation GenerateSuggestions($categoryId: Int!, $count: Int!) {
       generateSuggestions(categoryId: $categoryId, count: $count) {
-        id
-        title
-        mainTopic
-        subTopics
-        pointOfView
-        status
+        success
+        message
       }
     }
   `,
@@ -294,8 +290,8 @@ const MUTATIONS = {
   GENERATE_RESEARCH: `
     mutation GenerateResearch($suggestionId: Int!) {
       generateResearch(suggestionId: $suggestionId) {
-        id
-        status
+        success
+        message
       }
     }
   `,
@@ -322,8 +318,8 @@ const MUTATIONS = {
   GENERATE_ARTICLE: `
     mutation GenerateArticle($researchId: Int!) {
       generateArticle(researchId: $researchId) {
-        id
-        status
+        success
+        message
       }
     }
   `,
@@ -331,7 +327,8 @@ const MUTATIONS = {
   GENERATE_MEDIA_SUGGESTIONS: `
     mutation GenerateMediaSuggestions($researchId: Int!) {
       generateMediaSuggestions(researchId: $researchId) {
-        id
+        success
+        message
       }
     }
   `,
@@ -365,7 +362,8 @@ const MUTATIONS = {
   GENERATE_STORY_PROMOTION: `
     mutation GenerateStoryPromotion($articleId: Int!) {
       generateStoryPromotion(articleId: $articleId) {
-        id
+        success
+        message
       }
     }
   `,
@@ -373,7 +371,8 @@ const MUTATIONS = {
   GENERATE_DID_YOU_KNOW_POSTS: `
     mutation GenerateDidYouKnowPosts($articleId: Int!, $count: Int!) {
       generateDidYouKnowPosts(articleId: $articleId, count: $count) {
-        id
+        success
+        message
       }
     }
   `,
@@ -381,11 +380,8 @@ const MUTATIONS = {
   FETCH_MEDIA_CANDIDATES: `
     mutation FetchMediaCandidates($suggestionId: Int!, $maxPerQuery: Int!) {
       fetchMediaCandidates(suggestionId: $suggestionId, maxPerQuery: $maxPerQuery) {
-        id
-        candidates {
-          id
-          status
-        }
+        success
+        message
       }
     }
   `,

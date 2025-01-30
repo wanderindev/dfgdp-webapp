@@ -68,6 +68,11 @@ services:
       - SECRET_KEY=your-secret-key-here
       - JWT_SECRET_KEY=your-jwt-secret-here
     command: >
+      watchmedo auto-restart 
+      --directory=./src 
+      --pattern="*.py" 
+      --recursive 
+      -- 
       python -m tasks.worker
     volumes:
       - ./backend:/app

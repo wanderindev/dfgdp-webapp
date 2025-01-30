@@ -88,13 +88,23 @@ export const SuggestionsPage = () => {
         count: parseInt(data.count, 10)
       };
 
-      await contentService.generateSuggestions(mutationData);
+      const { success, message } = await contentService.generateSuggestions(mutationData);
+
       setGeneratingSuggestions(false);
       setGenerationInProgress(true);
-      toast({
-        title: "Success",
-        description: "Suggestions generation started. They will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -141,11 +151,20 @@ export const SuggestionsPage = () => {
 
   const handleGenerateResearch = async (suggestion) => {
     try {
-      await contentService.generateResearch(suggestion.id);
-      toast({
-        title: "Success",
-        description: "Research generation started. It will be available in a few minutes.",
-      });
+      const { success, message } = await contentService.generateResearch(suggestion.id);
+
+        if (success) {
+          toast({
+            title: "Success",
+            description: message,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: message,
+          });
+        }
     } catch (error) {
       toast({
         variant: "destructive",

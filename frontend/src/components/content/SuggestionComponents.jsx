@@ -140,7 +140,7 @@ export const GenerateSuggestionsDialog = ({
               id="count"
               type="number"
               min="1"
-              max="10"
+              max="15"
               value={formData.count}
               onChange={(e) => setFormData(prev => ({
                 ...prev,

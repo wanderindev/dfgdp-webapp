@@ -39,12 +39,22 @@ export const MediaSuggestionsPage = () => {
 
   const handleFetchCandidates = async (suggestionId) => {
     try {
-      await contentService.fetchCandidates(suggestionId);
+      const { success, message } = await contentService.fetchCandidates(suggestionId);
+
       setFetchInProgress(true);
-      toast({
-        title: "Success",
-        description: "Candidate fetching started. They will be available in a few minutes.",
-      });
+
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
       // Refresh data to show updated counts
       fetchSuggestions();
     } catch (error) {
