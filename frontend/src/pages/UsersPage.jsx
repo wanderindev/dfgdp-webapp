@@ -1,8 +1,8 @@
-import React from 'react';
+import React from "react";
 import { useToast } from "@/components/ui/use-toast";
-import DataTable, { columns } from '@/components/users/DataTable';
-import UserEditDialog from '@/components/users/UserEditDialog';
-import PasswordResetDialog from '@/components/users/PasswordResetDialog';
+import DataTable from "@/components/shared/DataTable";
+import UserEditDialog from "@/components/users/UserEditDialog";
+import PasswordResetDialog from "@/components/users/PasswordResetDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,57 +13,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { api } from '@/services/api';
 
+import { api } from "@/services/api";
 
 export const UsersPage = () => {
   const { toast } = useToast();
+
+  // -- STATE --
   const [users, setUsers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [editingUser, setEditingUser] = React.useState(null);
   const [resettingPasswordFor, setResettingPasswordFor] = React.useState(null);
-  const [pagination, setPagination] = React.useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-  });
-  const [filters, setFilters] = React.useState({
-    email: '',
-  });
+
+  // For pagination:
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const pageSize = 10;
+
+  // For filtering:
+  const [globalFilter, setGlobalFilter] = React.useState("");
+
+  // For confirmation dialog:
   const [confirmationDialog, setConfirmationDialog] = React.useState({
     open: false,
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     action: null,
   });
 
-  // Fetch users on mount and when filters/pagination change
+  // Re-fetch on mount, or when page/filter changes
   React.useEffect(() => {
-    (async () => {
-      try {
-        await fetchUsers()
-      } catch (error) {
-        console.error("Something went wrong:", error);
-      }
-    })();
-  }, [pagination.currentPage, filters.email]);
+    fetchUsers().catch((error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Error fetching users.",
+      });
+    });
+  }, [currentPage, globalFilter]);
 
+  // -- HANDLERS --
   const fetchUsers = async () => {
     try {
       setLoading(true);
       const data = await api.fetchUsers({
-        page: pagination.currentPage,
-        pageSize: 10,
-        email: filters.email,
+        page: currentPage,
+        pageSize,
+        email: globalFilter,
       });
-
       setUsers(data.users);
-      // noinspection JSUnresolvedReference
-      setPagination({
-        currentPage: data.current_page,
-        totalPages: data.pages,
-        totalItems: data.total,
-      });
     } catch (error) {
       toast({
         variant: "destructive",
@@ -144,25 +142,7 @@ export const UsersPage = () => {
     }
   };
 
-  const handlePageChange = (newPage) => {
-    setPagination(prev => ({
-      ...prev,
-      currentPage: newPage,
-    }));
-  };
-
-  const handleFilterChange = (field, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: value,
-    }));
-    setPagination(prev => ({
-      ...prev,
-      currentPage: 1, // Reset to first page when filter changes
-    }));
-  };
-
-  const showConfirmation = (title, description, action) => {
+  const showConfirmationDialog = (title, description, action) => {
     setConfirmationDialog({
       open: true,
       title,
@@ -173,21 +153,35 @@ export const UsersPage = () => {
 
   const handleConfirm = () => {
     confirmationDialog.action?.();
-    setConfirmationDialog({
+    setConfirmationDialog((prev) => ({
+      ...prev,
       open: false,
-      title: '',
-      description: '',
+      title: "",
+      description: "",
       action: null,
-    });
+    }));
   };
 
-  if (loading && !users.length) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Defines the context menu for each user row
+  const userActions = [
+    {
+      label: "Edit details",
+      onClick: (user) => setEditingUser(user),
+    },
+    {
+      label: "Reset password",
+      onClick: (user) => setResettingPasswordFor(user),
+    },
+    {
+      label: "Deactivate",
+      onClick: (user) =>
+      showConfirmationDialog("Deactivate user", "Are you sure?", () => handleDeactivate(user))
+    },
+    {
+      label: "Activate",
+      onClick: (user) => handleActivate(user),
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -195,33 +189,19 @@ export const UsersPage = () => {
         <h1 className="text-2xl font-bold">Users Management</h1>
       </div>
 
+      {/* Table */}
       <DataTable
         data={users}
-        columns={columns}
-        pageCount={pagination.totalPages}
-        currentPage={pagination.currentPage}
-        onPageChange={handlePageChange}
-        filters={filters}
-        onFilterChange={handleFilterChange}
         loading={loading}
-        onEdit={setEditingUser}
-        onResetPassword={setResettingPasswordFor}
-        onActivate={(user) =>
-          showConfirmation(
-            "Activate User",
-            "Are you sure you want to activate this user?",
-            () => handleActivate(user)
-          )
-        }
-        onDeactivate={(user) =>
-          showConfirmation(
-            "Deactivate User",
-            "Are you sure you want to deactivate this user?",
-            () => handleDeactivate(user)
-          )
-        }
+        actions={userActions}
+        pageCount={totalPages}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        globalFilter={globalFilter}
+        setGlobalFilter={setGlobalFilter}
       />
 
+      {/* Edit dialog */}
       <UserEditDialog
         user={editingUser}
         isOpen={!!editingUser}
@@ -229,6 +209,7 @@ export const UsersPage = () => {
         onSave={handleEditUser}
       />
 
+      {/* Password reset dialog */}
       <PasswordResetDialog
         user={resettingPasswordFor}
         isOpen={!!resettingPasswordFor}
@@ -236,14 +217,15 @@ export const UsersPage = () => {
         onReset={handleResetPassword}
       />
 
+      {/* Confirmation Dialog */}
       <AlertDialog
         open={confirmationDialog.open}
         onOpenChange={(open) => {
           if (!open) {
             setConfirmationDialog({
               open: false,
-              title: '',
-              description: '',
+              title: "",
+              description: "",
               action: null,
             });
           }
@@ -258,7 +240,9 @@ export const UsersPage = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirm}>Continue</AlertDialogAction>
+            <AlertDialogAction onClick={handleConfirm}>
+              Continue
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

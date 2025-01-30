@@ -73,18 +73,18 @@ def list_users() -> Response:
     """Get paginated list of users with optional filtering."""
     # Get query parameters
     page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 10, type=int)
+    page_size = request.args.get("page_size", 10, type=int)
     email_filter = request.args.get("email", "")
 
     # Build query
-    query = User.query
+    query = db.session.query(User)
 
     # Apply filters
     if email_filter:
         query = query.filter(User.email.ilike(f"%{email_filter}%"))
 
     # Execute query with pagination
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
 
     # Format response
     users = [
