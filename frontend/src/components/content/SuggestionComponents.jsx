@@ -174,8 +174,9 @@ export const SuggestionDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="mainTopic">Main Topic</Label>
-            <Input
+            <textarea
               id="mainTopic"
+              className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.mainTopic}
               onChange={(e) => setFormData(prev => ({
                 ...prev,
@@ -201,8 +202,9 @@ export const SuggestionDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="pointOfView">Point of View</Label>
-            <Input
+            <textarea
               id="pointOfView"
+              className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.pointOfView}
               onChange={(e) => setFormData(prev => ({
                 ...prev,
