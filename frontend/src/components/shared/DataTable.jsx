@@ -50,7 +50,7 @@ function maybeAppendActions(inferredCols, actions) {
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
+            <Button variant="mutedNoBg" className="h-8 w-8 p-0">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -295,7 +295,7 @@ const DataTable = ({
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} disableHover>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id} className={columnWidths?.[header.id] || "min-w-[150px] px-4"}>
                     {header.isPlaceholder

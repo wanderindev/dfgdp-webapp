@@ -1,17 +1,8 @@
 import React from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { TaxonomyTree, TaxonomyDialog, CategoryDialog } from '@/components/content/TaxonomyComponents';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { contentService } from "@/services/content";
+import ConfirmationDialog from "@/components/shared/ConfirmationDialog.jsx";
 
 export const TaxonomiesPage = () => {
   const { toast } = useToast();
@@ -42,8 +33,14 @@ export const TaxonomiesPage = () => {
     try {
       setLoading(true);
       const data = await contentService.getTaxonomies();
-      setTaxonomies(data);
+      const sortedTaxonomies = data.map(taxonomy => {
+        // noinspection JSUnresolvedReference
+        taxonomy.categories.sort((a, b) => a.id - b.id);
+        return taxonomy;
+      });
+      setTaxonomies(sortedTaxonomies);
     } catch (error) {
+      console.log("Failed to load taxonomies:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -68,6 +65,7 @@ export const TaxonomiesPage = () => {
       setEditingTaxonomy(null);
       await fetchTaxonomies();
     } catch (error) {
+      console.log("Failed to save taxonomy:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -85,6 +83,7 @@ export const TaxonomiesPage = () => {
       });
       await fetchTaxonomies();
     } catch (error) {
+      console.log("Failed to delete taxonomy:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -108,6 +107,7 @@ export const TaxonomiesPage = () => {
       setSelectedTaxonomyId(null);
       await fetchTaxonomies();
     } catch (error) {
+      console.log("Failed to save category:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -125,6 +125,7 @@ export const TaxonomiesPage = () => {
       });
       await fetchTaxonomies();
     } catch (error) {
+      console.log("Failed to delete category:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -175,6 +176,7 @@ export const TaxonomiesPage = () => {
         )}
       />
 
+      {/* Taxonomy Dialog */}
       <TaxonomyDialog
         taxonomy={editingTaxonomy}
         isOpen={!!editingTaxonomy}
@@ -182,6 +184,7 @@ export const TaxonomiesPage = () => {
         onSave={handleSaveTaxonomy}
       />
 
+      {/* Category Dialog */}
       <CategoryDialog
         category={editingCategory}
         taxonomyId={selectedTaxonomyId}
@@ -193,42 +196,16 @@ export const TaxonomiesPage = () => {
         onSave={handleSaveCategory}
       />
 
-      <AlertDialog
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
         open={confirmDialog.open}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirmDialog({
-              open: false,
-              title: '',
-              description: '',
-              action: null,
-            });
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              confirmDialog.action();
-              setConfirmDialog({
-                open: false,
-                title: '',
-                description: '',
-                action: null,
-              });
-            }}>
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.action}
+        onClose={() =>
+          setConfirmDialog({ open: false, title: "", description: "", action: null })
+        }
+      />
     </div>
   );
 };

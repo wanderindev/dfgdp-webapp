@@ -15,7 +15,7 @@ Table.displayName = "Table"
 const TableHeader = React.forwardRef(({ className, ...props }, ref) => (
   <thead
     ref={ref}
-    className={cn("bg-muted/85 [&_tr]:border-b", className)}
+    className={cn("bg-primary/10 [&_tr]:border-b", className)}
     {...props}
   />
 ))
@@ -39,23 +39,24 @@ const TableFooter = React.forwardRef(({ className, ...props }, ref) => (
 ))
 TableFooter.displayName = "TableFooter"
 
-const TableRow = React.forwardRef(({ className, ...props }, ref) => (
-  <tr
-    ref={ref}
-    className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
-TableRow.displayName = "TableRow"
+const TableRow = React.forwardRef(({ disableHover, className, ...props }, ref) => {
+  const baseClasses = "border-b transition-colors data-[state=selected]:bg-primary/10";
+  const hoverClass = disableHover ? "" : "hover:bg-primary/5";
+  return (
+    <tr
+      ref={ref}
+      className={cn(baseClasses, hoverClass, className)}
+      {...props}
+    />
+  );
+});
+TableRow.displayName = "TableRow";
 
 const TableHead = React.forwardRef(({className, ...props}, ref) => (
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      "h-12 px-4 text-left align-middle font-medium text-foreground/85 [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}

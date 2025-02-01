@@ -68,7 +68,7 @@ const NavLink = ({ href, children, className }) => {
   return (
     <Link to={href}>
       <Button
-        variant={isActive ? "secondary" : "ghost"}
+        variant={isActive ? "muted" : "mutedGhost"}
         className={cn("w-full justify-start", className)}
       >
         {children}
@@ -136,7 +136,7 @@ const AdminLayout = () => {
               {item.subItems ? (
                 <>
                   <Button
-                    variant="ghost"
+                    variant="mutedGhost"
                     className="w-full justify-start"
                     onClick={() => setExpandedItem(expandedItem === index ? null : index)}
                   >

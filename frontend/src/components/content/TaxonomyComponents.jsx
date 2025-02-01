@@ -49,7 +49,7 @@ const TaxonomyTree = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <Button
-                    variant="ghost"
+                    variant="mutedNoBg"
                     size="sm"
                     className="w-6 h-6 p-0 mr-2"
                     onClick={() => toggleExpand(taxonomy.id)}
@@ -63,32 +63,36 @@ const TaxonomyTree = ({
                   <CardTitle className="text-base">{taxonomy.name}</CardTitle>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onAddCategory(taxonomy.id)}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Category
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onEditTaxonomy(taxonomy)}>
-                        Edit Taxonomy
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => onDeleteTaxonomy(taxonomy.id)}
-                      >
-                        Delete Taxonomy
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  {expanded[taxonomy.id] && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onAddCategory(taxonomy.id)}
+                    >
+                      <Plus className="h-4 w-4 mr-2"/>
+                      Add Category
+                    </Button>
+                  )}
+                  {!expanded[taxonomy.id] && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="mutedNoBg" size="sm">
+                          <MoreHorizontal className="h-4 w-4"/>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEditTaxonomy(taxonomy)}>
+                          Edit Taxonomy
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => onDeleteTaxonomy(taxonomy.id)}
+                        >
+                          Delete Taxonomy
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
             </CardHeader>
@@ -97,14 +101,14 @@ const TaxonomyTree = ({
                 <div className="pl-6 space-y-2">
                   {taxonomy.categories?.map(category => (
                     <div
-                      key={category.id}
-                      className="flex items-center justify-between p-2 rounded-md hover:bg-accent"
+                    key={category.id}
+                     className="flex items-center justify-between p-2 rounded-md hover:bg-primary/10"
                     >
                       <span>{category.name}</span>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button variant="mutedNoBg" size="sm">
+                            <MoreHorizontal className="h-4 w-4"/>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
