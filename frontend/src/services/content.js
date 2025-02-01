@@ -1,5 +1,6 @@
 // noinspection JSUnusedGlobalSymbols
 
+
 const API_URL = `${import.meta.env.VITE_API_URL}/content/graphql`;
 // noinspection JSUnusedLocalSymbols
 const UPLOAD_URL = `${import.meta.env.VITE_UPLOAD_URL}`;
@@ -35,22 +36,27 @@ const QUERIES = {
   `,
 
   GET_SUGGESTIONS: `
-    query GetSuggestions($status: ContentStatus) {
-      articleSuggestions(status: $status) {
-        id
-        title
-        mainTopic
-        subTopics
-        pointOfView
-        status
-        research {
+    query GetArticleSuggestions($page: Int, $pageSize: Int, $status: ContentStatus, $search: String, $sort: String, $dir: String) {
+      articleSuggestions(page: $page, pageSize: $pageSize, status: $status, search: $search, sort: $sort, dir: $dir) {
+        suggestions {
           id
+          title
+          mainTopic
+          subTopics
+          pointOfView
           status
+          research {
+            id
+            status
+          }
+          category {
+            id
+            name
+          }
         }
-        category {
-          id
-          name
-        }
+        total
+        pages
+        currentPage
       }
     }
   `,
@@ -526,8 +532,10 @@ export const contentService = {
   },
 
   // Get article suggestions
-  async getSuggestions(status = null) {
-    const data = await fetchGraphQL(QUERIES.GET_SUGGESTIONS, { status });
+  async getSuggestions(page, pageSize, status, search, sort, dir) {
+    const variables = { page, pageSize, status, search, sort, dir };
+
+    const data = await fetchGraphQL(QUERIES.GET_SUGGESTIONS, variables);
     // noinspection JSUnresolvedReference
     return data.articleSuggestions;
   },

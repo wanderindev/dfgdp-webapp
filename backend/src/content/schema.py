@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import strawberry
 from flask_login import current_user
+from sqlalchemy import asc, desc
 from sqlalchemy.orm import joinedload
 
 from extensions import db
@@ -97,6 +98,14 @@ class ArticleSuggestion:
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     category: Category
     research: Optional[Research] = None
+
+
+@strawberry.type
+class PaginatedArticleSuggestions:
+    suggestions: List[ArticleSuggestion]
+    total: int
+    pages: int
+    current_page: int
 
 
 @strawberry.type
@@ -271,16 +280,52 @@ class Query:
 
     @strawberry.field
     def article_suggestions(
-        self, status: Optional[ContentStatus] = None
-    ) -> List[ArticleSuggestion]:
-        """Get article suggestions with optional status filter."""
+        self,
+        status: Optional[ContentStatus] = None,
+        page: int = 1,
+        page_size: int = 10,
+        search: Optional[str] = None,
+        sort: str = "created_at",
+        dir: str = "desc",
+    ) -> PaginatedArticleSuggestions:
+        """Get paginated article suggestions with optional filtering and sorting."""
         from content.models import ArticleSuggestion
 
+        # Define valid columns for sorting
+        valid_columns = {
+            "title": ArticleSuggestion.title,
+        }
+        order_column = valid_columns.get(sort, ArticleSuggestion.title)
+
+        # Build query
         query = db.session.query(ArticleSuggestion)
+
+        # Apply filters
         if status:
             query = query.filter_by(status=status)
-        query = query.options(joinedload(ArticleSuggestion.research))
-        return query.order_by(ArticleSuggestion.created_at.desc()).all()
+        if search:
+            query = query.filter((ArticleSuggestion.title.ilike(f"%{search}%")))
+
+        # Apply sorting
+        query = query.order_by(
+            desc(order_column) if dir.lower() == "desc" else asc(order_column)
+        )
+
+        # Eager load relationships
+        query = query.options(
+            joinedload(ArticleSuggestion.research),
+            joinedload(ArticleSuggestion.category),
+        )
+
+        # Apply pagination
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+        return PaginatedArticleSuggestions(
+            suggestions=pagination.items,
+            total=pagination.total,
+            pages=pagination.pages,
+            current_page=page,
+        )
 
     @strawberry.field
     def research(self, status: Optional[ContentStatus] = None) -> List[Research]:
@@ -467,13 +512,6 @@ class Mutation:
     @strawberry.mutation
     def generate_suggestions(self, category_id: int, count: int) -> JobEnqueueResponse:
         """Generate new article suggestions."""
-        from services.content_manager_service import ContentManagerService
-        import asyncio
-
-        service = ContentManagerService()
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
         try:
             default_queue.enqueue(generate_suggestions_task, category_id, count)
             return JobEnqueueResponse(success=True, message="Job created successfully")

@@ -1,7 +1,15 @@
-import React from 'react';
-import {Plus} from 'lucide-react';
-import {useToast} from "@/components/ui/use-toast";
-import {Button} from '@/components/ui/button';
+/**
+ * @typedef {Object} SuggestionsResponse
+ * @property {Array} suggestions - The list of suggestion objects.
+ * @property {number} total - The total number of suggestions.
+ * @property {number} pages - The total number of pages.
+ * @property {number} currentPage - The current page number.
+ */
+
+import React from "react";
+import { Plus } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,74 +29,105 @@ import {
 import {
   GenerateSuggestionsDialog,
   SuggestionDialog,
-  SuggestionsTable
-} from '@/components/content/SuggestionComponents';
-import {contentService} from '@/services/content';
+} from "@/components/content/SuggestionComponents";
+import DataTable from "@/components/shared/DataTable";
+import { contentService } from "@/services/content";
+import { RecordStatus } from "@/components/shared/RecordStatus";
 
 export const SuggestionsPage = () => {
-  const {toast} = useToast();
-  const [loading, setLoading] = React.useState(true);
+  const { toast } = useToast();
+
+  // DATA
   const [suggestions, setSuggestions] = React.useState([]);
   const [taxonomies, setTaxonomies] = React.useState([]);
+
+  // UI STATES
+  const [loading, setLoading] = React.useState(true);
   const [editingSuggestion, setEditingSuggestion] = React.useState(null);
   const [generatingSuggestions, setGeneratingSuggestions] = React.useState(false);
   const [generationInProgress, setGenerationInProgress] = React.useState(false);
-  const [statusFilter, setStatusFilter] = React.useState('ALL');
+
+  // Filter / Sorting / Pagination
+  const [globalFilter, setGlobalFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("ALL");
+  const [sorting, setSorting] = React.useState([]); // e.g. [ {id: 'title', desc: false} ]
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const pageSize = 12;
+  const showStatusFilter = true;
+
+  // Confirmation dialog
   const [confirmDialog, setConfirmDialog] = React.useState({
     open: false,
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     action: null,
   });
 
-  // Fetch suggestions and taxonomies on mount and when status filter changes
   React.useEffect(() => {
     (async () => {
       try {
         await fetchSuggestions();
+      } catch (err) {
+        console.error("Error fetching suggestions:", err);
+      }
+
+      try {
         await fetchTaxonomies();
-      } catch (error) {
-        console.error("Something went wrong:", error);
+      } catch (err) {
+        console.error("Error fetching taxonomies:", err);
       }
     })();
-  }, [statusFilter]);
+  }, [globalFilter, statusFilter, sorting, currentPage]);
 
-  const fetchSuggestions = async () => {
+
+  async function fetchSuggestions() {
     try {
       setLoading(true);
+      const sortParam = sorting[0]?.id || "title";
+      const direction = sorting[0]?.desc ? "desc" : "asc";
+
       const data = await contentService.getSuggestions(
-        statusFilter === 'ALL' ? null : statusFilter
+        currentPage,
+        pageSize,
+        statusFilter === "ALL" ? null : statusFilter,
+        globalFilter,
+        sortParam,
+        direction
       );
-      setSuggestions(data || []);
+
+      setSuggestions(data.suggestions || []);
+      setTotalPages(data.pages)
     } catch (error) {
+      console.error("Error fetching suggestions:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to load suggestions. Please try again.",
+        description: "Failed to load suggestions.",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const fetchTaxonomies = async () => {
     try {
       const data = await contentService.getTaxonomies();
       setTaxonomies(data || []);
     } catch (error) {
-      console.error('Error fetching taxonomies:', error);
+      console.error("Error fetching taxonomies:", error);
     }
   };
 
   const handleGenerateSuggestions = async (data) => {
     try {
-      // Convert string values to integers
       const mutationData = {
         categoryId: parseInt(data.categoryId, 10),
-        count: parseInt(data.count, 10)
+        count: parseInt(data.count, 10),
       };
-
-      const { success, message } = await contentService.generateSuggestions(mutationData);
+      const { success, message } = await contentService.generateSuggestions(
+        mutationData
+      );
 
       setGeneratingSuggestions(false);
       setGenerationInProgress(true);
@@ -106,6 +145,7 @@ export const SuggestionsPage = () => {
         });
       }
     } catch (error) {
+      console.error("Error generating suggestions:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -124,6 +164,7 @@ export const SuggestionsPage = () => {
       setEditingSuggestion(null);
       await fetchSuggestions();
     } catch (error) {
+      console.error("Error fetching suggestions:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -141,6 +182,7 @@ export const SuggestionsPage = () => {
       });
       await fetchSuggestions();
     } catch (error) {
+      console.error("Error updating the suggestion status:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -151,21 +193,23 @@ export const SuggestionsPage = () => {
 
   const handleGenerateResearch = async (suggestion) => {
     try {
-      const { success, message } = await contentService.generateResearch(suggestion.id);
-
-        if (success) {
-          toast({
-            title: "Success",
-            description: message,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: message,
-          });
-        }
+      const { success, message } = await contentService.generateResearch(
+        suggestion.id
+      );
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
     } catch (error) {
+      console.error("Error generating research:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -183,42 +227,109 @@ export const SuggestionsPage = () => {
     });
   };
 
-  if (loading && !suggestions.length) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Context menu actions for each suggestion
+  const suggestionActions = [
+    {
+      label: "Edit Suggestion",
+      onClick: (sug) => setEditingSuggestion(sug),
+      shouldShow: () => true,
+    },
+    {
+      label: "Generate Research",
+      onClick: (sug) =>
+        showConfirmDialog(
+          "Generate Research",
+          `Generate research for "${sug.title}"?`,
+          () => handleGenerateResearch(sug)
+        ),
+      shouldShow: (sug) => sug.status === "APPROVED" && !sug.research,
+    },
+    {
+      label: "Approve",
+      onClick: (sug) =>
+        showConfirmDialog(
+          "Approve Suggestion",
+          `Mark "${sug.title}" as approved?`,
+          () => handleUpdateStatus(sug, "APPROVED")
+        ),
+      shouldShow: (sug) => sug.status !== "APPROVED",
+    },
+    {
+      label: "Reject",
+      onClick: (sug) =>
+        showConfirmDialog(
+          "Reject Suggestion",
+          `Mark "${sug.title}" as rejected?`,
+          () => handleUpdateStatus(sug, "REJECTED")
+        ),
+      shouldShow: (sug) => sug.status !== "REJECTED",
+    },
+    {
+      label: "Mark as Pending",
+      onClick: (sug) =>
+        showConfirmDialog(
+          "Mark as Pending",
+          `Mark "${sug.title}" as pending?`,
+          () => handleUpdateStatus(sug, "PENDING")
+        ),
+      shouldShow: (sug) => sug.status === "APPROVED" || sug.status === "REJECTED",
+    },
+  ];
+
+  // Custom cell renderer for the status column
+  const columnsOrder= ["title", "status"]
+  const columnsOverride = [
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => <RecordStatus value={row.getValue("status")} />,
+    },
+  ];
+  const columnWidths = {
+    status: "w-[500px]",
+    actions: "w-[100px]",
+  };
+
+  // Control buttons
+  const controlButtons = [
+    <Button key="generate" onClick={() => setGeneratingSuggestions(true)}>
+      <Plus className="h-4 w-4 mr-2" />
+      Generate Suggestions
+    </Button>,
+  ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Article Suggestions</h1>
-        <Button onClick={() => setGeneratingSuggestions(true)}>
-          <Plus className="h-4 w-4 mr-2"/>
-          Generate Suggestions
-        </Button>
       </div>
 
-      <SuggestionsTable
+      {/* DataTable usage */}
+      <DataTable
         data={suggestions}
         loading={loading}
-        onEdit={setEditingSuggestion}
-        onGenerateResearch={(suggestion) => showConfirmDialog(
-          "Generate Research",
-          `Are you sure you want to generate research for "${suggestion.title}"?`,
-          () => handleGenerateResearch(suggestion)
-        )}
-        onUpdateStatus={(suggestion, status) => showConfirmDialog(
-          `${status.charAt(0) + status.slice(1).toLowerCase()} Suggestion`,
-          `Are you sure you want to mark this suggestion as ${status.toLowerCase()}?`,
-          () => handleUpdateStatus(suggestion, status)
-        )}
-        onStatusFilterChange={setStatusFilter}
-        currentStatusFilter={statusFilter}
+        actions={suggestionActions}
+        // server-side pagination & sorting
+        pageCount={totalPages}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        sorting={sorting}
+        setSorting={setSorting}
+        // filters
+        globalFilter={globalFilter}
+        setGlobalFilter={setGlobalFilter}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        // optional overrides
+        columnsOrder={columnsOrder}
+        columnsOverride={columnsOverride}
+        columnWidths={columnWidths}
+        pageSize={pageSize}
+        showStatusFilter={showStatusFilter}
+        controlButtons={controlButtons}
       />
 
+      {/* Generate Suggestions Dialog */}
       <GenerateSuggestionsDialog
         isOpen={generatingSuggestions}
         onClose={() => setGeneratingSuggestions(false)}
@@ -226,6 +337,7 @@ export const SuggestionsPage = () => {
         taxonomies={taxonomies}
       />
 
+      {/* Edit dialog */}
       <SuggestionDialog
         suggestion={editingSuggestion}
         isOpen={!!editingSuggestion}
@@ -233,14 +345,15 @@ export const SuggestionsPage = () => {
         onSave={handleUpdateSuggestion}
       />
 
+      {/* Confirmation Dialog */}
       <AlertDialog
         open={confirmDialog.open}
         onOpenChange={(open) => {
           if (!open) {
             setConfirmDialog({
               open: false,
-              title: '',
-              description: '',
+              title: "",
+              description: "",
               action: null,
             });
           }
@@ -255,21 +368,24 @@ export const SuggestionsPage = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              confirmDialog.action();
-              setConfirmDialog({
-                open: false,
-                title: '',
-                description: '',
-                action: null,
-              });
-            }}>
+            <AlertDialogAction
+              onClick={() => {
+                confirmDialog.action?.();
+                setConfirmDialog({
+                  open: false,
+                  title: "",
+                  description: "",
+                  action: null,
+                });
+              }}
+            >
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Generation In Progress Dialog */}
       <Dialog
         open={generationInProgress}
         onOpenChange={() => setGenerationInProgress(false)}
@@ -279,8 +395,8 @@ export const SuggestionsPage = () => {
             <DialogTitle>Generating Suggestions</DialogTitle>
           </DialogHeader>
           <p>
-            Your suggestions are being generated and will be available in a few minutes.
-            You can close this dialog and continue working.
+            Your suggestions are being generated and will be available in a few
+            minutes. You can close this dialog and continue working.
           </p>
         </DialogContent>
       </Dialog>

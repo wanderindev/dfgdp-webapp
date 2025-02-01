@@ -6,7 +6,6 @@ import {
   flexRender,
 } from "@tanstack/react-table";
 
-import { rankItem } from "@tanstack/match-sorter-utils";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +24,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import StatusFilterSelect from "@/components/shared/StatusFilterSelect.jsx";
+
 
 // Helper to append an "actions" column if actions are provided
 function maybeAppendActions(inferredCols, actions) {
@@ -71,35 +72,38 @@ function maybeAppendActions(inferredCols, actions) {
   return [...inferredCols, actionsColumn];
 }
 
-/**
- * Generic DataTable component with optional:
- *  - Sorting
- *  - Manual pagination
- *  - Global filter input
- *  - Actions dropdown column
- */
 const DataTable = ({
   data = [],
   columns = [],
-  actions = [],         // for dropdown actions
+  actions = [],
   loading = false,
 
   // Columns props
   columnsOrder = [],
   columnsOverride,
+  columnWidths = {},
 
   // Filtering props
   globalFilter = "",
-  setGlobalFilter = () => {},
+  setGlobalFilter = (value) => {return value},
 
   // Pagination props
   pageCount = 1,
   currentPage = 1,
-  setCurrentPage = () => {},
+  setCurrentPage = (value) => {return value},
+  pageSize = 12,
+
+   // Status filter
+  statusFilter = "ALL",
+  setStatusFilter = (value) => {return value},
+  showStatusFilter = false,
+
+  // Control buttons
+  controlButtons = [],
 
   // Sorting props
   sorting = [],
-  setSorting = () => {},
+  setSorting =(value) => {return value},
 }) => {
   // Build final columns (append actions column, or infer columns if none passed)
   const finalColumns = React.useMemo(() => {
@@ -136,9 +140,10 @@ const DataTable = ({
 
       return {
         accessorKey: key,
-        header: ({ column }) => (
+        header: () => (
           <Button
             variant="ghost"
+            className="hover:bg-transparent focus:bg-transparent"
             onClick={() =>
               setSorting((prev) => {
                 const existingSort = prev.find((s) => s.id === key);
@@ -150,7 +155,7 @@ const DataTable = ({
             }
           >
             {formattedKey}
-            <ArrowUpDown className="ml-2 h-4 w-4" />
+            <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
           </Button>
         ),
       };
@@ -180,7 +185,7 @@ const DataTable = ({
       sorting,
       pagination: {
         pageIndex: currentPage - 1,
-        pageSize: 10,
+        pageSize: pageSize,
       },
     },
 
@@ -196,7 +201,7 @@ const DataTable = ({
         // functional update
         const prevState = {
           pageIndex: currentPage - 1,
-          pageSize: 10,
+          pageSize: pageSize,
         };
         const nextState = updaterOrValue(prevState);
         newPageIndex = nextState.pageIndex;
@@ -215,13 +220,37 @@ const DataTable = ({
 
   return (
     <div className="space-y-4">
-      {/* GLOBAL FILTER input */}
-      <Input
-        placeholder="Search..."
-        value={globalFilter || ""}
-        onChange={(e) => table.setGlobalFilter(e.target.value)}
-        className="max-w-sm"
-      />
+
+      {/* FILTERS ROW */}
+      <div className="flex items-center justify-between space-y-2">
+        {/* Left Section: Filters */}
+        <div className="flex items-center space-x-2">
+          {/* GLOBAL FILTER */}
+          <Input
+            placeholder="Search..."
+            value={globalFilter || ""}
+            onChange={(e) => table.setGlobalFilter(e.target.value)}
+            className="max-w-sm"
+          />
+
+          {/* STATUS FILTER - Only Show If `statusFilter` Exists */}
+          {showStatusFilter && (
+            <StatusFilterSelect
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+            />
+          )}
+        </div>
+
+        {/* Right Section: Control Buttons (If Any) */}
+        {controlButtons.length > 0 && (
+          <div className="flex items-center space-x-2">
+            {controlButtons.map((button, index) => (
+              <div key={index}>{button}</div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div>
         <Table>
@@ -229,13 +258,13 @@ const DataTable = ({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className={columnWidths?.[header.id] || "min-w-[150px] px-4"}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
                   </TableHead>
                 ))}
               </TableRow>

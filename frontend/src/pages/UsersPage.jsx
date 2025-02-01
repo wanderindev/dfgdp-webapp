@@ -29,7 +29,7 @@ export const UsersPage = () => {
   // For pagination:
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
-  const pageSize = 10;
+  const pageSize = 12;
 
   // For filtering:
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -47,7 +47,7 @@ export const UsersPage = () => {
 
   // Re-fetch on mount, or when page/filter changes
   React.useEffect(() => {
-    fetchUsers().catch((error) => {
+    fetchUsers().catch(() => {
       toast({
         variant: "destructive",
         title: "Error",
@@ -70,6 +70,7 @@ export const UsersPage = () => {
         sort: sortParam,
         dir: direction,
       });
+
       setUsers(data.users);
       setTotalPages(data.pages)
     } catch (error) {
@@ -216,6 +217,12 @@ export const UsersPage = () => {
       );
     },
   }]
+  const columnWidths = {
+    email: "w-[500px]",
+    full_name: "w-[500px]",
+    active: "w-[500px]",
+    actions: "w-[100px]",
+  };
 
   return (
     <div className="space-y-4">
@@ -231,10 +238,12 @@ export const UsersPage = () => {
         pageCount={totalPages}
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
+        pageSize={pageSize}
         globalFilter={globalFilter}
         setGlobalFilter={setGlobalFilter}
         columnsOrder={columnsOrder}
         columnsOverride={columnsOverride}
+        columnWidths={columnWidths}
         sorting={sorting}
         setSorting={setSorting}
       />
