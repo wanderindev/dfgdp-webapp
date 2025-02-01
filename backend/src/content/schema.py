@@ -86,11 +86,19 @@ class Research:
     id: int
     suggestion_id: int = strawberry.field(name="suggestionId")
     content: str
-    status: ContentStatus
+    status: "ContentStatus"  # Replace with your actual ContentStatus enum/type
     approved_by_id: Optional[int] = strawberry.field(name="approvedById")
     approved_at: Optional[datetime] = strawberry.field(name="approvedAt")
     suggestion: "ArticleSuggestion"
     articles: Optional[List["Article"]] = strawberry.field(default=None)
+
+
+@strawberry.type
+class PaginatedResearch:
+    research: List[Research]
+    total: int
+    pages: int
+    current_page: int
 
 
 @strawberry.type
@@ -367,20 +375,57 @@ class Query:
         )
 
     @strawberry.field
-    def research(self, status: Optional[ContentStatus] = None) -> List[Research]:
-        """Get research items with optional status filter."""
-        from content.models import Research
+    def research(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        status: Optional[
+            "ContentStatus"
+        ] = None,  # Replace with your actual ContentStatus type
+        search: Optional[str] = None,
+        sort: str = "suggestion.title",
+        dir: str = "asc",
+    ) -> PaginatedResearch:
+        from content.models import Research, ArticleSuggestion
 
-        query = db.session.query(Research)
+        # Start with a query that joins the suggestion for sorting/filtering by its title.
+        query = db.session.query(Research).join(Research.suggestion)
 
+        # Define valid sort keys and map them to actual columns.
+        valid_columns = {
+            "suggestion.title": ArticleSuggestion.title,
+        }
+        # Fallback to suggestion.title if provided sort key is not valid.
+        order_column = valid_columns.get(sort, ArticleSuggestion.title)
+
+        # Apply filters
         if status:
-            query = query.filter_by(status=status)
+            query = query.filter(Research.status == status)
+        if search:
+            query = query.filter(
+                (Research.content.ilike(f"%{search}%"))
+                | (ArticleSuggestion.title.ilike(f"%{search}%"))
+            )
 
+        # Eager load relationships
         query = query.options(
             joinedload(Research.suggestion), joinedload(Research.articles)
         )
 
-        return query.order_by(Research.created_at.desc()).all()
+        # Apply sorting based on the provided direction
+        query = query.order_by(
+            desc(order_column) if dir.lower() == "desc" else asc(order_column)
+        )
+
+        # Apply pagination
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+        return PaginatedResearch(
+            research=pagination.items,
+            total=pagination.total,
+            pages=pagination.pages,
+            current_page=page,
+        )
 
     @strawberry.field
     def research_item(self, id: int) -> Optional[Research]:

@@ -1,16 +1,7 @@
 import React from 'react';
-import { Check, MoreHorizontal, X, FileEdit, BookOpen, History, Image } from 'lucide-react';
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+import { Check, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import RichTextEditor from '@/components/ui/RichTextEditor';
 
 // Status badge component
@@ -124,6 +115,15 @@ export const ResearchReviewDialog = ({
                   Approve
                 </Button>
               )}
+              {(research?.status === 'APPROVED' || research?.status === 'REJECTED') && (
+                <Button
+                  variant="secondary"
+                  onClick={() => onMakePending?.(research.id)}
+                  disabled={hasUnsavedChanges}
+                >
+                  Make Pending
+                </Button>
+              )}
               {research?.status !== 'REJECTED' && (
                 <Button
                   variant="destructive"
@@ -133,172 +133,10 @@ export const ResearchReviewDialog = ({
                   Reject
                 </Button>
               )}
-              {(research?.status === 'APPROVED' || research?.status === 'REJECTED') && (
-                <Button
-                  variant="secondary"
-                  onClick={() => onMakePending?.(research.id)}
-                  disabled={hasUnsavedChanges}
-                >
-                  <History className="w-4 h-4 mr-2" />
-                  Make Pending
-                </Button>
-              )}
             </div>
           </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-};
-
-// Research table
-export const ResearchTable = ({
-  data,
-  loading,
-  onReview,
-  onGenerateArticle,
-  onGenerateMedia,
-  onStatusFilterChange,
-  currentStatusFilter,
-  onMakePending,
-}) => {
-  const columns = [
-    {
-      accessorKey: "suggestion.title",
-      header: "Article Title",
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <ResearchStatus status={row.getValue("status")} />,
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const research = row.original;
-        const hasArticle = research.article !== null;
-        const status = research.status;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onReview?.(research)}>
-                <FileEdit className="h-4 w-4 mr-2" />
-                Review Research
-              </DropdownMenuItem>
-              {(status === 'APPROVED' && !hasArticle || status === 'REJECTED') && (
-                <DropdownMenuItem onClick={() => onMakePending?.(research.id)}>
-                  <History className="h-4 w-4 mr-2" />
-                  Make Pending
-                </DropdownMenuItem>
-              )}
-              {status === 'APPROVED' && !research.article && (
-                <>
-                  <hr></hr>
-                  <DropdownMenuItem onClick={() => onGenerateArticle?.(research)}>
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Generate Article
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onGenerateMedia?.(research)}>
-                    <Image className="h-4 w-4 mr-2" />
-                    Generate Media
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    }
-  ];
-
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-2">
-        <Select value={currentStatusFilter || ''} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All statuses</SelectItem>
-            <SelectItem value="PENDING">Pending</SelectItem>
-            <SelectItem value="APPROVED">Approved</SelectItem>
-            <SelectItem value="REJECTED">Rejected</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Table>
-          <TableHeader className="sticky top-0 bg-white z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No research items found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
   );
 };

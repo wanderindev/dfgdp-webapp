@@ -95,18 +95,37 @@ const QUERIES = {
   `,
 
   GET_RESEARCH: `
-    query GetResearch($status: ContentStatus) {
-      research(status: $status) {
-        id
-        content
-        status
-        suggestion {
+    query GetResearch(
+      $page: Int,
+      $pageSize: Int,
+      $status: ContentStatus,
+      $search: String,
+      $sort: String,
+      $dir: String
+    ) {
+      research(
+        page: $page,
+        pageSize: $pageSize,
+        status: $status,
+        search: $search,
+        sort: $sort,
+        dir: $dir
+      ) {
+        research {
           id
-          title
+          content
+          status
+          suggestion {
+            id
+            title
+          }
+          articles {
+            id
+          }
         }
-        articles {
-          id
-        }
+        total
+        pages
+        currentPage
       }
     }
   `,
@@ -607,8 +626,9 @@ export const contentService = {
   },
 
    // Research operations
-  async getResearch(status = null) {
-    const data = await fetchGraphQL(QUERIES.GET_RESEARCH, { status });
+  async getResearch(page, pageSize, status, search, sort, dir) {
+    const variables = { page, pageSize, status, search, sort, dir };
+    const data = await fetchGraphQL(QUERIES.GET_RESEARCH, variables);
     return data.research;
   },
 
