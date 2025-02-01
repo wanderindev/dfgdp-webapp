@@ -2,9 +2,10 @@ import React from 'react';
 
 import { useToast } from '@/components/ui/use-toast';
 import DataTable from '@/components/shared/DataTable';
+import ContentStatus from '@/components/shared/ContentStatus';
 import ConfirmationDialog from '@/components/shared/ConfirmationDialog';
 import GenerationDialog from '@/components/shared/GenerationDialog';
-import { ResearchReviewDialog, ResearchStatus }from '@/components/ResearchComponents';
+import { ResearchReviewDialog }from '@/components/ResearchComponents';
 import { contentService } from '@/services/content';
 
 export const ResearchPage = () => {
@@ -58,6 +59,7 @@ export const ResearchPage = () => {
       setResearch(transformedResearch);
       setTotalPages(data.pages || 1);
     } catch (error) {
+      console.log('Failed to load research items', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -85,6 +87,7 @@ export const ResearchPage = () => {
       });
       await fetchResearch();
     } catch (error) {
+      console.log('Failed to update research content', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -104,6 +107,7 @@ export const ResearchPage = () => {
       setReviewingResearch(null);
       await fetchResearch();
     } catch (error) {
+      console.log()
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -130,6 +134,7 @@ export const ResearchPage = () => {
       }
       await fetchResearch();
     } catch (error) {
+      console.log('Failed to start article generation', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -155,6 +160,7 @@ export const ResearchPage = () => {
         });
       }
     } catch (error) {
+      console.log('Failed to start media suggestions generation', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -173,6 +179,7 @@ export const ResearchPage = () => {
       setReviewingResearch(null);
       await fetchResearch();
     } catch (error) {
+      console.log('Failed to make research pending', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -241,7 +248,7 @@ export const ResearchPage = () => {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ row }) => <ResearchStatus status={row.getValue('status')} />,
+      cell: ({ row }) => <ContentStatus status={row.getValue('status')} />,
     },
   ];
   const columnWidths = {

@@ -54,6 +54,16 @@ const QUERIES = {
     }
   `,
 
+  GET_ALL_TAGS: `
+    query GetAllTags($status: ContentStatus) {
+      allTags(status: $status) {
+        id
+        name
+        status
+      }
+    }
+  `,
+
   GET_SUGGESTIONS: `
     query GetArticleSuggestions(
       $page: Int, 
@@ -131,25 +141,51 @@ const QUERIES = {
   `,
 
   GET_ARTICLES: `
-    query GetArticles($status: ContentStatus) {
-      articles(status: $status) {
-        id
-        title
-        content
-        excerpt
-        aiSummary
-        status
-        research {
+    query GetArticles(
+      $page: Int,
+      $pageSize: Int,
+      $status: ContentStatus,
+      $search: String,
+      $sort: String,
+      $dir: String
+    ) {
+      articles(
+        page: $page,
+        pageSize: $pageSize,
+        status: $status,
+        search: $search,
+        sort: $sort,
+        dir: $dir
+      ) {
+        articles {
           id
-          suggestion {
+          title
+          content
+          excerpt
+          aiSummary
+          status
+          research {
             id
-            title
+            suggestion {
+              id
+              title
+            }
           }
+          tags {
+            id
+            name
+          }
+          category {
+            id
+            name
+          }
+          approvedById
+          approvedAt
+          publishedAt
         }
-        tags {
-          id
-          name
-        }
+        total
+        pages
+        currentPage
       }
     }
   `,
@@ -568,6 +604,12 @@ export const contentService = {
     return data.tags;
   },
 
+  async getAllTags(status = null) {
+    const variables = { status };
+    const data = await fetchGraphQL(QUERIES.GET_ALL_TAGS, variables);
+    return data.allTags;
+  },
+
   async createTag(input) {
     const data = await fetchGraphQL(MUTATIONS.CREATE_TAG, { input });
     return data.createTag;
@@ -663,8 +705,9 @@ export const contentService = {
   },
 
   // Get articles
-  async getArticles(status = null) {
-    const data = await fetchGraphQL(QUERIES.GET_ARTICLES, { status });
+  async getArticles(page, pageSize, status, search, sort, dir) {
+    const variables = { page, pageSize, status, search, sort, dir };
+    const data = await fetchGraphQL(QUERIES.GET_ARTICLES, variables);
     // noinspection JSUnresolvedReference
     return data.articles;
   },

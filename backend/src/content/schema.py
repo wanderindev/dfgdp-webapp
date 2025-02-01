@@ -141,6 +141,14 @@ class Article:
 
 
 @strawberry.type
+class PaginatedArticles:
+    articles: List[Article]
+    total: int
+    pages: int
+    current_page: int
+
+
+@strawberry.type
 class MediaCandidate:
     id: int
     commons_id: str
@@ -320,6 +328,16 @@ class Query:
         )
 
     @strawberry.field
+    def all_tags(self, status: Optional["ContentStatus"] = None) -> List[Tag]:
+        from content.models import Tag
+
+        # Build the query and order by name
+        query = db.session.query(Tag).order_by(Tag.name)
+        if status:
+            query = query.filter_by(status=status)
+        return query.all()
+
+    @strawberry.field
     def tag(self, id: int) -> Optional[Tag]:
         from content.models import Tag
 
@@ -435,21 +453,58 @@ class Query:
         return db.session.query(Research).get_or_404(id)
 
     @strawberry.field
-    def articles(self, status: Optional[ContentStatus] = None) -> List[Article]:
-        """Get articles with optional status filter."""
+    def articles(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        status: Optional["ContentStatus"] = None,
+        search: Optional[str] = None,
+        sort: str = "title",
+        dir: str = "asc",
+    ) -> PaginatedArticles:
         from content.models import Article
 
-        query = db.session.query(Article)
-        if status:
-            query = query.filter_by(status=status)
+        # Define valid columns for sorting.
+        valid_columns = {
+            "title": Article.title,
+        }
+        order_column = valid_columns.get(sort, Article.title)
 
+        # Build the query
+        query = db.session.query(Article)
+
+        # Apply status filter
+        if status:
+            query = query.filter(Article.status == status)
+
+        # Apply search filter (searching in title and content)
+        if search:
+            query = query.filter(
+                Article.title.ilike(f"%{search}%")
+                | Article.content.ilike(f"%{search}%")
+            )
+
+        # Eager load relationships
         query = query.options(
             joinedload(Article.research),
             joinedload(Article.category),
             joinedload(Article.tags),
         )
 
-        return query.order_by(Article.created_at.desc()).all()
+        # Apply sorting based on provided direction
+        query = query.order_by(
+            desc(order_column) if dir.lower() == "desc" else asc(order_column)
+        )
+
+        # Apply pagination
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+        return PaginatedArticles(
+            articles=pagination.items,
+            total=pagination.total,
+            pages=pagination.pages,
+            current_page=page,
+        )
 
     @strawberry.field
     def article(self, id: int) -> Optional[Article]:
