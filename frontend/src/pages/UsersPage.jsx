@@ -1,18 +1,9 @@
 import React from "react";
 import { useToast } from "@/components/ui/use-toast";
 import DataTable from "@/components/shared/DataTable";
+import ConfirmationDialog from "@/components/shared/ConfirmationDialog";
 import UserEditDialog from "@/components/users/UserEditDialog";
 import PasswordResetDialog from "@/components/users/PasswordResetDialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 import { api } from "@/services/api";
 import {Check, X} from "lucide-react";
@@ -38,7 +29,7 @@ export const UsersPage = () => {
   const [sorting, setSorting] = React.useState([]);
 
   // For confirmation dialog:
-  const [confirmationDialog, setConfirmationDialog] = React.useState({
+  const [confirmDialog, setConfirmDialog] = React.useState({
     open: false,
     title: "",
     description: "",
@@ -153,24 +144,13 @@ export const UsersPage = () => {
     }
   };
 
-  const showConfirmationDialog = (title, description, action) => {
-    setConfirmationDialog({
+  const showConfirmDialog = (title, description, action) => {
+    setConfirmDialog({
       open: true,
       title,
       description,
       action,
     });
-  };
-
-  const handleConfirm = () => {
-    confirmationDialog.action?.();
-    setConfirmationDialog((prev) => ({
-      ...prev,
-      open: false,
-      title: "",
-      description: "",
-      action: null,
-    }));
   };
 
   // Defines the context menu for each user row
@@ -188,7 +168,7 @@ export const UsersPage = () => {
     {
       label: "Deactivate",
       onClick: (user) =>
-        showConfirmationDialog("Deactivate user", "Are you sure?", () => handleDeactivate(user)),
+        showConfirmDialog("Deactivate user", "Are you sure?", () => handleDeactivate(user)),
       shouldShow: (user) => user.active,
     },
     {
@@ -265,34 +245,15 @@ export const UsersPage = () => {
       />
 
       {/* Confirmation Dialog */}
-      <AlertDialog
-        open={confirmationDialog.open}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirmationDialog({
-              open: false,
-              title: "",
-              description: "",
-              action: null,
-            });
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmationDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmationDialog.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirm}>
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={confirmDialog.open}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.action}
+        onClose={() =>
+          setConfirmDialog({ open: false, title: "", description: "", action: null })
+        }
+      />
     </div>
   );
 };

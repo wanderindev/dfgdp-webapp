@@ -11,26 +11,12 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   GenerateSuggestionsDialog,
   SuggestionDialog,
 } from "@/components/content/SuggestionComponents";
 import DataTable from "@/components/shared/DataTable";
+import ConfirmationDialog from "@/components/shared/ConfirmationDialog";
+import GenerationDialog from "@/components/shared/GenerationDialog";
 import { contentService } from "@/services/content";
 import { RecordStatus } from "@/components/shared/RecordStatus";
 
@@ -346,60 +332,25 @@ export const SuggestionsPage = () => {
       />
 
       {/* Confirmation Dialog */}
-      <AlertDialog
+      <ConfirmationDialog
         open={confirmDialog.open}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirmDialog({
-              open: false,
-              title: "",
-              description: "",
-              action: null,
-            });
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                confirmDialog.action?.();
-                setConfirmDialog({
-                  open: false,
-                  title: "",
-                  description: "",
-                  action: null,
-                });
-              }}
-            >
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.action}
+        onClose={() =>
+          setConfirmDialog({ open: false, title: "", description: "", action: null })
+        }
+      />
 
       {/* Generation In Progress Dialog */}
-      <Dialog
+      <GenerationDialog
         open={generationInProgress}
-        onOpenChange={() => setGenerationInProgress(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generating Suggestions</DialogTitle>
-          </DialogHeader>
-          <p>
-            Your suggestions are being generated and will be available in a few
-            minutes. You can close this dialog and continue working.
-          </p>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={(open) => {
+          // When the dialog is closed, update the state
+          if (!open) setGenerationInProgress(false);
+        }}
+        resource="Suggestions"
+      />
     </div>
   );
 };

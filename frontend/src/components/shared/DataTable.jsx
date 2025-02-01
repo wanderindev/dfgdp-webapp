@@ -72,6 +72,45 @@ function maybeAppendActions(inferredCols, actions) {
   return [...inferredCols, actionsColumn];
 }
 
+/**
+ * DataTable is a reusable table component that supports server-side pagination,
+ * sorting, and filtering.
+ *
+ * @param {object} props - The component props.
+ * @param {Array} [props.data=[]] - The array of data to be displayed in the table.
+ * @param {Array} [props.columns=[]] - Column definitions for the table.
+ * @param {Array} [props.actions=[]] - Additional actions to be rendered in the table.
+ * @param {boolean} [props.loading=false] - If true, displays a loading indicator.
+ *
+ * // Columns Props:
+ * @param {Array} [props.columnsOrder=[]] - Order in which columns should be displayed.
+ * @param {Array} [props.columnsOverride] - Array of column override definitions.
+ * @param {object} [props.columnWidths={}] - An object mapping column IDs to their widths.
+ *
+ * // Filtering Props:
+ * @param {string} [props.globalFilter=""] - Global filter value.
+ * @param {Function} [props.setGlobalFilter] - Callback to update the global filter.
+ *
+ * // Pagination Props:
+ * @param {number} [props.pageCount=1] - Total number of pages available.
+ * @param {number} [props.currentPage=1] - The current active page (1-indexed).
+ * @param {Function} [props.setCurrentPage] - Callback to update the current page.
+ * @param {number} [props.pageSize=12] - Number of rows per page.
+ *
+ * // Status Filter Props:
+ * @param {string} [props.statusFilter="ALL"] - The status filter value.
+ * @param {Function} [props.setStatusFilter] - Callback to update the status filter.
+ * @param {boolean} [props.showStatusFilter=false] - Whether to display the status filter UI.
+ *
+ * // Control Buttons:
+ * @param {Array} [props.controlButtons=[]] - Array of custom control buttons to render.
+ *
+ * // Sorting Props:
+ * @param {Array} [props.sorting=[]] - Current sorting configuration.
+ * @param {Function} [props.setSorting] - Callback to update the sorting configuration.
+ *
+ * @returns {JSX.Element} The rendered DataTable component.
+ */
 const DataTable = ({
   data = [],
   columns = [],

@@ -1,7 +1,19 @@
 import {Check, X} from "lucide-react";
 import React from "react";
 
-
+/**
+ * RecordStatus displays a status label with an appropriate icon and color.
+ *
+ * @param {object} props - The component props.
+ * @param {string} props.value - The status value, which can be one of:
+ *   - "APPROVED"
+ *   - "REJECTED"
+ *   - "ACTIVE"
+ *   - "INACTIVE"
+ *   - or any other value (defaults to "Pending")
+ *
+ * @returns {JSX.Element} A styled span element representing the status.
+ */
 export const RecordStatus = ({ value }) => {
   switch (value) {
     case 'APPROVED':
