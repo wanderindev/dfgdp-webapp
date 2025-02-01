@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 10000
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -35,6 +35,7 @@ const addToRemoveQueue = (toastId) => {
 
   const timeout = setTimeout(() => {
     toastTimeouts.delete(toastId)
+
     dispatch({
       type: actionTypes.REMOVE_TOAST,
       toastId: toastId,
@@ -63,8 +64,6 @@ export const reducer = (state, action) => {
     case actionTypes.DISMISS_TOAST: {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {

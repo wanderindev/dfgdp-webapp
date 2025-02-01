@@ -1,26 +1,21 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { TagDialog, TagsTable } from '@/components/content/TagComponents';
+import DataTable from '@/components/shared/DataTable';
+import ConfirmationDialog from '@/components/shared/ConfirmationDialog';
+import { TagDialog, TagStatus } from '@/components/content/TagComponents';
 import { contentService } from '@/services/content';
 
 export const TagsPage = () => {
   const { toast } = useToast();
-  const [loading, setLoading] = React.useState(true);
+
+  // Data state
   const [tags, setTags] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // UI states
   const [editingTag, setEditingTag] = React.useState(null);
-  const [statusFilter, setStatusFilter] = React.useState('ALL');
   const [confirmDialog, setConfirmDialog] = React.useState({
     open: false,
     title: '',
@@ -28,23 +23,33 @@ export const TagsPage = () => {
     action: null,
   });
 
-  // Fetch tags on mount and when status filter changes
-  React.useEffect(() => {
-    (async () => {
-      try {
-        await fetchTags()
-      } catch (error) {
-        console.error("Something went wrong:", error);
-      }
-    })();
-  }, [statusFilter]);
+  // Filtering, Sorting & Pagination state
+  const [statusFilter, setStatusFilter] = React.useState('ALL');
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [sorting, setSorting] = React.useState([]); // e.g. [{ id: 'name', desc: false }]
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [totalPages, setTotalPages] = React.useState(1);
+  const pageSize = 12;
 
+  // Fetch tags from the backend (including pagination, sorting & filtering params)
   const fetchTags = async () => {
     try {
       setLoading(true);
-      const data = await contentService.getTags(statusFilter === 'ALL' ? null : statusFilter);
-      setTags(data || []);
+      const sortParam = sorting[0]?.id || "name";
+      const direction = sorting[0]?.desc ? "desc" : "asc";
+      const data = await contentService.getTags(
+        currentPage,
+        pageSize,
+        statusFilter === 'ALL' ? null : statusFilter,
+        globalFilter,
+        sortParam,
+        direction
+      );
+
+      setTags(data.tags || []);
+      setTotalPages(data.pages || 1);
     } catch (error) {
+      console.log("Failed to load tags:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -54,6 +59,12 @@ export const TagsPage = () => {
       setLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    (async () => {
+      await fetchTags();
+    })();
+  }, [globalFilter, statusFilter, sorting, currentPage]);
 
   const handleSaveTag = async (tagData) => {
     try {
@@ -69,6 +80,7 @@ export const TagsPage = () => {
       setEditingTag(null);
       await fetchTags();
     } catch (error) {
+      console.log("Failed to save tag:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -86,6 +98,7 @@ export const TagsPage = () => {
       });
       await fetchTags();
     } catch (error) {
+      console.log("Failed to update tag status:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -103,41 +116,89 @@ export const TagsPage = () => {
     });
   };
 
-  if (loading && !tags.length) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const tagActions = [
+    {
+      label: "Edit Tag",
+      onClick: (tag) => setEditingTag(tag),
+      shouldShow: () => true,
+    },
+    {
+      label: "Approve",
+      onClick: (tag) =>
+        showConfirmDialog(
+          "Approve Tag",
+          "Are you sure you want to approve this tag?",
+          () => handleUpdateStatus(tag, 'APPROVED')
+        ),
+      shouldShow: (tag) => tag.status !== 'APPROVED',
+    },
+    {
+      label: "Reject",
+      onClick: (tag) =>
+        showConfirmDialog(
+          "Reject Tag",
+          "Are you sure you want to reject this tag?",
+          () => handleUpdateStatus(tag, 'REJECTED')
+        ),
+      shouldShow: (tag) => tag.status !== 'REJECTED',
+    },
+    {
+      label: "Mark as Pending",
+      onClick: (tag) => handleUpdateStatus(tag, 'PENDING'),
+      shouldShow: (tag) =>
+        tag.status === 'APPROVED' || tag.status === 'REJECTED',
+    },
+  ];
+
+  const columnsOrder = ["name", "status"];
+  const columnsOverride = [
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => <TagStatus status={row.getValue("status")} />,
+    },
+  ];
+
+  const columnWidths = {
+    status: "w-[500px]",
+    actions: "w-[100px]",
+  };
+
+  const controlButtons = [
+    <Button key="add" onClick={() => setEditingTag({})}>
+      <Plus className="h-4 w-4 mr-2" />
+      Add Tag
+    </Button>,
+  ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tag Management</h1>
-        <Button onClick={() => setEditingTag({})}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Tag
-        </Button>
       </div>
 
-      <TagsTable
+      <DataTable
         data={tags}
         loading={loading}
-        onEdit={setEditingTag}
-        onApprove={(tag) => showConfirmDialog(
-          "Approve Tag",
-          "Are you sure you want to approve this tag?",
-          () => handleUpdateStatus(tag, 'APPROVED')
-        )}
-        onReject={(tag) => showConfirmDialog(
-          "Reject Tag",
-          "Are you sure you want to reject this tag?",
-          () => handleUpdateStatus(tag, 'REJECTED')
-        )}
-        onStatusFilterChange={setStatusFilter}
-        currentStatusFilter={statusFilter}
-        handleUpdateStatus={handleUpdateStatus}
+        actions={tagActions}
+        // Server-side pagination & sorting
+        pageCount={totalPages}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        sorting={sorting}
+        setSorting={setSorting}
+        globalFilter={globalFilter}
+        setGlobalFilter={setGlobalFilter}
+        // Filters
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        showStatusFilter={true}
+        // Column configuration
+        columnsOrder={columnsOrder}
+        columnsOverride={columnsOverride}
+        columnWidths={columnWidths}
+        pageSize={pageSize}
+        controlButtons={controlButtons}
       />
 
       <TagDialog
@@ -147,42 +208,28 @@ export const TagsPage = () => {
         onSave={handleSaveTag}
       />
 
-      <AlertDialog
+      <ConfirmationDialog
         open={confirmDialog.open}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConfirmDialog({
-              open: false,
-              title: '',
-              description: '',
-              action: null,
-            });
-          }
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={() => {
+          confirmDialog.action?.();
+          setConfirmDialog({
+            open: false,
+            title: '',
+            description: '',
+            action: null,
+          });
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog.description}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              confirmDialog.action();
-              setConfirmDialog({
-                open: false,
-                title: '',
-                description: '',
-                action: null,
-              });
-            }}>
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onClose={() =>
+          setConfirmDialog({
+            open: false,
+            title: '',
+            description: '',
+            action: null,
+          })
+        }
+      />
     </div>
   );
 };

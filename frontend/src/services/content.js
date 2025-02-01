@@ -26,18 +26,51 @@ const QUERIES = {
   `,
 
   GET_TAGS: `
-    query GetTags($status: ContentStatus) {
-      tags(status: $status) {
-        id
-        name
-        status
+    query GetTags(
+      $page: Int, 
+      $pageSize: Int, 
+      $status: ContentStatus, 
+      $search: String, 
+      $sort: String, 
+      $dir: String
+    ) {
+      tags(
+        page: $page, 
+        pageSize: $pageSize, 
+        status: $status, 
+        search: $search, 
+        sort: $sort, 
+        dir: $dir
+      ) {
+        tags {
+          id
+          name
+          status
+        }
+        total
+        pages
+        currentPage
       }
     }
   `,
 
   GET_SUGGESTIONS: `
-    query GetArticleSuggestions($page: Int, $pageSize: Int, $status: ContentStatus, $search: String, $sort: String, $dir: String) {
-      articleSuggestions(page: $page, pageSize: $pageSize, status: $status, search: $search, sort: $sort, dir: $dir) {
+    query GetArticleSuggestions(
+      $page: Int, 
+      $pageSize: Int, 
+      $status: ContentStatus, 
+      $search: String, 
+      $sort: String, 
+      $dir: String
+    ) {
+      articleSuggestions(
+        page: $page, 
+        pageSize: $pageSize, 
+        status: $status, 
+        search: $search, 
+        sort: $sort, 
+        dir: $dir
+      ) {
         suggestions {
           id
           title
@@ -510,9 +543,9 @@ export const contentService = {
     return data.deleteCategory;
   },
 
-  // Tag operations
-  async getTags(status = null) {
-    const data = await fetchGraphQL(QUERIES.GET_TAGS, { status });
+  async getTags(page, pageSize, status, search, sort, dir) {
+    const variables = { page, pageSize, status, search, sort, dir };
+    const data = await fetchGraphQL(QUERIES.GET_TAGS, variables);
     return data.tags;
   },
 

@@ -74,6 +74,14 @@ class Tag:
 
 
 @strawberry.type
+class PaginatedTags:
+    tags: List[Tag]
+    total: int
+    pages: int
+    current_page: int
+
+
+@strawberry.type
 class Research:
     id: int
     suggestion_id: int = strawberry.field(name="suggestionId")
@@ -264,13 +272,44 @@ class Query:
         return db.session.query(Category).get(id)
 
     @strawberry.field
-    def tags(self, status: Optional[ContentStatus] = None) -> List[Tag]:
+    def tags(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        status: Optional["ContentStatus"] = None,
+        search: Optional[str] = None,
+        sort: str = "name",
+        dir: str = "asc",
+    ) -> PaginatedTags:
         from content.models import Tag
 
-        query = db.session.query(Tag).order_by(Tag.name)
+        # Define valid columns for sorting
+        valid_columns = {"name": Tag.name}
+        order_column = valid_columns.get(sort, Tag.name)
+
+        # Build the base query
+        query = db.session.query(Tag)
+
+        # Apply filters
         if status:
             query = query.filter_by(status=status)
-        return query.all()
+        if search:
+            query = query.filter(Tag.name.ilike(f"%{search}%"))
+
+        # Apply sorting
+        query = query.order_by(
+            desc(order_column) if dir.lower() == "desc" else asc(order_column)
+        )
+
+        # Apply pagination
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+        return PaginatedTags(
+            tags=pagination.items,
+            total=pagination.total,
+            pages=pagination.pages,
+            current_page=page,
+        )
 
     @strawberry.field
     def tag(self, id: int) -> Optional[Tag]:
