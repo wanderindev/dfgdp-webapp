@@ -413,6 +413,7 @@ const MUTATIONS = {
     mutation UpdateResearchStatus($id: Int!, $status: ContentStatus!) {
       updateResearchStatus(id: $id, status: $status) {
         id
+        content
         status
       }
     }

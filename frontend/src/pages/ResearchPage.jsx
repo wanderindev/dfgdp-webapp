@@ -21,6 +21,7 @@ export const ResearchPage = () => {
   // UI states
   const [reviewingResearch, setReviewingResearch] = React.useState(null);
   const [generationInProgress, setGenerationInProgress] = React.useState(false);
+  const [hasArticle, setHasArticle] = React.useState(false);
   const [confirmDialog, setConfirmDialog] = React.useState({
     open: false,
     title: '',
@@ -100,14 +101,14 @@ export const ResearchPage = () => {
   };
 
   // Update research status (approve, reject, etc.)
-  const handleUpdateStatus = async (researchId, newStatus) => {
+  const handleUpdateStatus = async (researchId, newStatus, fromActions) => {
     try {
-      await contentService.updateResearchStatus(researchId, newStatus);
+      const updatedResearch = await contentService.updateResearchStatus(researchId, newStatus);
       toast({
         title: 'Success',
         description: `Research ${newStatus.toLowerCase()} successfully`,
       });
-      setReviewingResearch(null);
+      if (!fromActions) setReviewingResearch(updatedResearch);
       await fetchResearch();
     } catch (error) {
       console.log()
@@ -172,14 +173,14 @@ export const ResearchPage = () => {
     }
   };
 
-  const handleMakePending = async (researchId) => {
+  const handleMakePending = async (researchId, fromActions) => {
     try {
-      await contentService.updateResearchStatus(researchId, 'PENDING');
+      const updatedResearch =await contentService.updateResearchStatus(researchId, 'PENDING');
       toast({
         title: 'Success',
         description: 'Research status set to pending',
       });
-      setReviewingResearch(null);
+      if (!fromActions) setReviewingResearch(updatedResearch);
       await fetchResearch();
     } catch (error) {
       console.log('Failed to make research pending', error);
@@ -206,8 +207,32 @@ export const ResearchPage = () => {
   const researchActions = [
     {
       label: 'Review Research',
-      onClick: (item) => setReviewingResearch(item),
+      onClick: (item) => {
+        setReviewingResearch(item);
+        setHasArticle(item.articles && item.articles.length > 0);
+      },
       shouldShow: () => true,
+    },
+    {
+      label: "Approve",
+      onClick: (item) =>
+        showConfirmDialog(
+          "Approve Research",
+          "Are you sure you want to approve this research?",
+          () => handleUpdateStatus(article.id, 'APPROVED', true)
+        ),
+      shouldShow: (item) => (item.status !== 'APPROVED' && (!item.articles || item.articles.length === 0)),
+    },
+    {
+      label: "Reject",
+      onClick: (item) =>
+        showConfirmDialog(
+          "Reject Article",
+          "Are you sure you want to reject this article?",
+          () => handleUpdateStatus(item.id, 'REJECTED', true)
+        ),
+      // Show Reject if the article is not rejected and not published.
+      shouldShow: (item) => (item.status !== 'REJECTED' && (!item.articles || item.articles.length === 0)),
     },
     {
       label: 'Make Pending',
@@ -215,7 +240,7 @@ export const ResearchPage = () => {
         showConfirmDialog(
           'Make Pending',
           'Are you sure you want to set this research back to pending status?',
-          () => handleMakePending(item.id)
+          () => handleMakePending(item.id, true)
         ),
       shouldShow: (item) =>
         (item.status === 'APPROVED' && (!item.articles || item.articles.length === 0)) ||
@@ -276,7 +301,7 @@ export const ResearchPage = () => {
             })
           }
         >
-          Article Completed
+          Article Generated
           <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
         </Button>
       ),
@@ -306,12 +331,11 @@ export const ResearchPage = () => {
             })
           }
         >
-          Media Completed
+          Media Fetched
           <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
         </Button>
       ),
       cell: ({ row }) => {
-        // For media, assume the research object has a property "media" (an array) indicating media suggestions.
         // Adjust the property name if needed.
         const researchItem = row.original;
         const done = researchItem.media && researchItem.media.length > 0;
@@ -356,6 +380,7 @@ export const ResearchPage = () => {
       {reviewingResearch && (
         <ResearchReviewDialog
           research={reviewingResearch}
+          hasArticle={hasArticle}
           isOpen={!!reviewingResearch}
           onClose={() => setReviewingResearch(null)}
           onSave={handleSaveResearch}

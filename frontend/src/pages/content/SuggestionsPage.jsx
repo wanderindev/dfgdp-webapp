@@ -320,7 +320,6 @@ export const SuggestionsPage = () => {
         </Button>
       ),
       cell: ({ row }) => {
-        // We assume that the raw suggestion has a property "research"
         // If research exists, then the step is considered completed.
         const suggestion = row.original;
         const done = Boolean(suggestion.research);

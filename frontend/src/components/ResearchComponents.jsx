@@ -6,6 +6,7 @@ import RichTextEditor from '@/components/ui/RichTextEditor';
 // Research review dialog
 export const ResearchReviewDialog = ({
   research,
+  hasArticle,
   isOpen,
   onClose,
   onSave,
@@ -77,7 +78,7 @@ export const ResearchReviewDialog = ({
               >
                 Close
               </Button>
-              {research?.status !== 'APPROVED' && (
+              {research?.status !== 'APPROVED' && !hasArticle && (
                 <Button
                   variant="default"
                   className="bg-green-600 hover:bg-green-700"
@@ -87,7 +88,7 @@ export const ResearchReviewDialog = ({
                   Approve
                 </Button>
               )}
-              {(research?.status === 'APPROVED' || research?.status === 'REJECTED') && (
+              {(research?.status === 'APPROVED' || research?.status === 'REJECTED') && !hasArticle && (
                 <Button
                   variant="secondary"
                   onClick={() => onMakePending?.(research.id)}
@@ -96,7 +97,7 @@ export const ResearchReviewDialog = ({
                   Make Pending
                 </Button>
               )}
-              {research?.status !== 'REJECTED' && (
+              {research?.status !== 'REJECTED' &&  !hasArticle && (
                 <Button
                   variant="destructive"
                   onClick={() => onReject?.(research.id)}
