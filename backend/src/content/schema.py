@@ -847,32 +847,26 @@ class Mutation:
         return article
 
     @strawberry.mutation
-    def update_article_publish_state(self, id: int, state: str) -> StateChangeResponse:
-        """Update the publishing state of an article."""
+    def update_article_publish_state(self, id: int, state: str) -> Article:
+        """Update the publishing state of an article and return the updated article."""
         from content.models import Article as ArticleModel
 
-        success = False
-
+        # Query the article by id.
         article = db.session.query(ArticleModel).get(id)
         if not article:
-            return StateChangeResponse(
-                success=success, message=f"Article with id {id} not found"
-            )
+            raise Exception(f"Article with id {id} not found")
 
+        # Update the published_at field based on the provided state.
         if state == "publish":
             article.published_at = datetime.now(timezone.utc)
-            success = True
-            message = f"Article published successfully"
         elif state == "unpublish":
             article.published_at = None
-            success = True
-            message = f"Article unpublished successfully"
         else:
-            message = f"Unknown state {state}"
+            raise Exception(f"Unknown state {state}")
 
         db.session.commit()
 
-        return StateChangeResponse(success=success, message=message)
+        return article
 
     @strawberry.mutation
     def generate_story_promotion(self, article_id: int) -> JobEnqueueResponse:

@@ -145,6 +145,7 @@ export const ArticleEditor = ({
   onApprove,
   onReject,
   onMakePending,
+  onChangePublishState,
   tags = [],
 }) => {
   const [formData, setFormData] = React.useState({
@@ -162,6 +163,7 @@ export const ArticleEditor = ({
       const data = {
         title: article.title || '',
         content: article.content || '',
+        publishedAt: article.publishedAt || null,
         excerpt: article.excerpt || '',
         aiSummary: article.aiSummary || '',
         tagIds: article.tags?.map(tag => tag.id) || [],
@@ -274,7 +276,7 @@ export const ArticleEditor = ({
               </div>
               <div className="space-x-2 flex items-center"> {/* Added flex and items-center */}
                 <Button variant="outline" onClick={onClose}>Close</Button>
-                {article?.status !== 'APPROVED' && (
+                {article?.status !== 'APPROVED' && !article?.publishedAt && (
                   <Button
                     variant="default"
                     className="bg-green-600 hover:bg-green-700"
@@ -284,7 +286,7 @@ export const ArticleEditor = ({
                     Approve
                   </Button>
                 )}
-                {article?.status !== 'REJECTED' && (
+                {article?.status !== 'REJECTED' && !article?.publishedAt && (
                   <Button
                     variant="destructive"
                     onClick={() => onReject?.(article.id)}
@@ -293,7 +295,7 @@ export const ArticleEditor = ({
                     Reject
                   </Button>
                 )}
-                {(article?.status === 'APPROVED' || article?.status === 'REJECTED') && (
+                {(article?.status === 'APPROVED' || article?.status === 'REJECTED') && !article?.publishedAt && (
                   <Button
                     variant="secondary"
                     onClick={() => onMakePending?.(article.id)}
@@ -302,6 +304,16 @@ export const ArticleEditor = ({
                   >
                     <History className="w-4 h-4 mr-2"/>
                     Make Pending
+                  </Button>
+                )}
+                {article?.publishedAt && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => onChangePublishState?.(article.id, 'unpublish')}
+                    disabled={hasUnsavedChanges}
+                    className="inline-flex items-center"
+                  >
+                    Unpublish
                   </Button>
                 )}
               </div>

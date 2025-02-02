@@ -94,14 +94,15 @@ export const WriterPage = () => {
   }, []);
 
   // Handler for updating (saving) an article from the editor
-  const handleUpdateArticle = async (articleData) => {
+  const handleUpdateArticle = async (articleData, fromActions) => {
     try {
-      await contentService.updateArticle(editingArticle.id, articleData);
+      const updatedArticle = await contentService.updateArticle(editingArticle.id, articleData);
       toast({
         title: "Success",
         description: "Article updated successfully",
       });
-      setEditingArticle(null);
+      // Update the modal data with the updated article instead of closing it.
+      if (!fromActions) setEditingArticle(updatedArticle);
       await fetchArticles();
     } catch (error) {
       console.log("Error updating article:", error);
@@ -114,14 +115,15 @@ export const WriterPage = () => {
   };
 
   // Handler for updating article status
-  const handleUpdateStatus = async (articleId, status) => {
+  const handleUpdateStatus = async (articleId, status, fromActions) => {
     try {
-      await contentService.updateArticleStatus(articleId, status);
+      const updatedArticle = await contentService.updateArticleStatus(articleId, status);
       toast({
         title: "Success",
         description: `Article ${status.toLowerCase()} successfully`,
       });
-      setEditingArticle(null);
+      // Update editingArticle so the modal remains open with new data.
+      if (!fromActions) setEditingArticle(updatedArticle);
       await fetchArticles();
     } catch (error) {
       console.log("Error updating article status:", error);
@@ -133,23 +135,15 @@ export const WriterPage = () => {
     }
   };
 
-  const handlePublishState = async (id, state) => {
+  const handlePublishState = async (articleId, state, fromActions) => {
     try {
-      const { success, message } = await contentService.updateArticlePublishState(id, state);
-      if (success) {
-        toast({
-          title: "Success",
-          description: `Article ${state === "publish" ? "published" : "unpublished"} successfully.`,
-        });
-      } else {
-        console.log("Error updating publish state:", message);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: message,
-        });
-      }
-      // Refresh the articles list.
+      const updatedArticle = await contentService.updateArticlePublishState(articleId, state);
+      toast({
+        title: "Success",
+        description: `Article ${state === "publish" ? "published" : "unpublished"} successfully.`,
+      });
+      // Update editingArticle to reflect the new published_at value.
+      if (!fromActions) setEditingArticle(updatedArticle);
       await fetchArticles();
     } catch (error) {
       console.error("Error updating publish state:", error);
@@ -239,7 +233,7 @@ export const WriterPage = () => {
         showConfirmDialog(
           "Approve Article",
           "Are you sure you want to approve this article?",
-          () => handleUpdateStatus(article.id, 'APPROVED')
+          () => handleUpdateStatus(article.id, 'APPROVED', true)
         ),
       shouldShow: (article) => article.status !== 'APPROVED',
     },
@@ -249,7 +243,7 @@ export const WriterPage = () => {
         showConfirmDialog(
           "Reject Article",
           "Are you sure you want to reject this article?",
-          () => handleUpdateStatus(article.id, 'REJECTED')
+          () => handleUpdateStatus(article.id, 'REJECTED', true)
         ),
       // Show Reject if the article is not rejected and not published.
       shouldShow: (article) => article.status !== 'REJECTED' && !article.publishedAt,
@@ -260,11 +254,9 @@ export const WriterPage = () => {
         showConfirmDialog(
           "Make Pending",
           "Are you sure you want to set this article back to pending status?",
-          () => handleUpdateStatus(article.id, 'PENDING')
+          () => handleUpdateStatus(article.id, 'PENDING', true)
         ),
-      // Show Make Pending if the article is neither approved nor rejected, and is not published.
-      shouldShow: (article) =>
-        article.status !== 'PENDING' && !article.publishedAt,
+      shouldShow: (article) => article.status !== 'PENDING' && !article.publishedAt,
     },
     {
       label: "Publish",
@@ -272,7 +264,7 @@ export const WriterPage = () => {
         showConfirmDialog(
           "Publish Article",
           "Are you sure you want to publish this article?",
-          () => handlePublishState(article.id, 'publish')
+          () => handlePublishState(article.id, "publish", true)
         ),
       // Show Publish if the article is approved and not yet published.
       shouldShow: (article) => article.status === 'APPROVED' && !article.publishedAt,
@@ -283,7 +275,7 @@ export const WriterPage = () => {
         showConfirmDialog(
           "Unpublish Article",
           "Are you sure you want to unpublish this article?",
-          () => handlePublishState(article.id, 'unpublish')
+          () => handlePublishState(article.id, "unpublish", true)
         ),
       // Show Unpublish if the article is published.
       shouldShow: (article) => Boolean(article.publishedAt),
@@ -428,6 +420,7 @@ export const WriterPage = () => {
           }
           onGenerateStory={handleGenerateStory}
           onGenerateDidYouKnow={handleGenerateDidYouKnow}
+          onChangePublishState={handlePublishState}
           tags={tags}
         />
       )}

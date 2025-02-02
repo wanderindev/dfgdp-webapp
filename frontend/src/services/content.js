@@ -457,7 +457,15 @@ const MUTATIONS = {
     mutation UpdateArticleStatus($id: Int!, $status: ContentStatus!) {
       updateArticleStatus(id: $id, status: $status) {
         id
+        title
+        content
+        excerpt
+        aiSummary
         status
+        tags {
+          id
+          name
+        }
       }
     }
   `,
@@ -465,8 +473,16 @@ const MUTATIONS = {
   UPDATE_ARTICLE_PUBLISH_STATE: `
     mutation UpdateArticlePublishState($id: Int!, $state: String!) {
       updateArticlePublishState(id: $id, state: $state) {
-        success
-        message
+        id
+        title
+        content
+        excerpt
+        aiSummary
+        status
+        tags {
+          id
+          name
+        }
       }
     }
   `,
