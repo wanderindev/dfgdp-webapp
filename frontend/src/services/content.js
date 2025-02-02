@@ -105,8 +105,8 @@ const QUERIES = {
   `,
 
   BULK_GENERATE_ARTICLES: `
-    mutation BulkGenerateArticles($suggestionId: Int!) {
-      bulkGenerateArticles(suggestionId: $suggestionId) {
+    mutation BulkGenerateArticles() {
+      bulkGenerateArticles() {
         success
         message
       }
@@ -616,6 +616,7 @@ export const contentService = {
   async getAllTags(status = null) {
     const variables = { status };
     const data = await fetchGraphQL(QUERIES.GET_ALL_TAGS, variables);
+    // noinspection JSUnresolvedReference
     return data.allTags;
   },
 
@@ -670,9 +671,8 @@ export const contentService = {
     return data.updateSuggestionStatus;
   },
 
-  async bulkGenerateArticles(suggestionId) {
-    const variables = { suggestionId };
-    const data = await fetchGraphQL(MUTATIONS.BULK_GENERATE_ARTICLES, variables);
+  async bulkGenerateArticles() {
+    const data = await fetchGraphQL(MUTATIONS.BULK_GENERATE_ARTICLES);
     return data.bulkGenerateArticles;
   },
 

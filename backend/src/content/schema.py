@@ -4,8 +4,8 @@ from typing import List, Optional
 
 import strawberry
 from flask_login import current_user
-from sqlalchemy import asc, desc
-from sqlalchemy.orm import joinedload
+from sqlalchemy import asc, desc, case, func
+from sqlalchemy.orm import contains_eager, joinedload, selectinload
 
 from extensions import db
 from tasks.config import default_queue
@@ -356,7 +356,6 @@ class Query:
     ) -> PaginatedArticleSuggestions:
         """Get paginated article suggestions with optional filtering and sorting."""
         from content.models import ArticleSuggestion
-        from sqlalchemy import case, asc, desc
 
         # Define valid columns for sorting.
         valid_columns = {
@@ -400,26 +399,30 @@ class Query:
         self,
         page: int = 1,
         page_size: int = 10,
-        status: Optional[
-            "ContentStatus"
-        ] = None,  # Replace with your actual ContentStatus type
+        status: Optional["ContentStatus"] = None,
         search: Optional[str] = None,
         sort: str = "suggestion.title",
         dir: str = "asc",
     ) -> PaginatedResearch:
-        from content.models import Research, ArticleSuggestion
+        from content.models import Research, ArticleSuggestion, Article, MediaSuggestion
 
-        # Start with a query that joins the suggestion for sorting/filtering by its title.
+        # Start with a query that joins the suggestion.
         query = db.session.query(Research).join(Research.suggestion)
+        query = query.outerjoin(Research.articles).outerjoin(Research.media_suggestions)
 
-        # Define valid sort keys and map them to actual columns.
+        # Group by Research.id and ArticleSuggestion.id so that we can use aggregate functions.
+        query = query.group_by(Research.id, ArticleSuggestion.id)
+
+        # Define valid sort keys and map them to columns or computed expressions.
         valid_columns = {
             "suggestion.title": ArticleSuggestion.title,
+            "articleCompleted": case((func.count(Article.id) > 0, 1), else_=0),
+            "mediaCompleted": case((func.count(MediaSuggestion.id) > 0, 1), else_=0),
         }
         # Fallback to suggestion.title if provided sort key is not valid.
         order_column = valid_columns.get(sort, ArticleSuggestion.title)
 
-        # Apply filters
+        # Apply filters.
         if status:
             query = query.filter(Research.status == status)
         if search:
@@ -428,17 +431,20 @@ class Query:
                 | (ArticleSuggestion.title.ilike(f"%{search}%"))
             )
 
-        # Eager load relationships
+        # Eager load relationships.
+        # Use contains_eager for suggestion (used in sorting/filtering) and selectinload for collections.
         query = query.options(
-            joinedload(Research.suggestion), joinedload(Research.articles)
+            contains_eager(Research.suggestion),
+            selectinload(Research.articles),
+            selectinload(Research.media_suggestions),
         )
 
-        # Apply sorting based on the provided direction
+        # Apply sorting based on the provided direction.
         query = query.order_by(
             desc(order_column) if dir.lower() == "desc" else asc(order_column)
         )
 
-        # Apply pagination
+        # Apply pagination.
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)
 
         return PaginatedResearch(
@@ -699,7 +705,7 @@ class Mutation:
         return suggestion
 
     @strawberry.mutation
-    def bulk_generate_articles(self, suggestion_id: int) -> JobEnqueueResponse:
+    def bulk_generate_articles(self) -> JobEnqueueResponse:
         """Bulk generate articles for an approved article suggestion."""
         try:
             default_queue.enqueue(bulk_generation_task)

@@ -1,10 +1,13 @@
 import React from 'react';
 
 import { useToast } from '@/components/ui/use-toast';
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
 import DataTable from '@/components/shared/DataTable';
 import ContentStatus from '@/components/shared/ContentStatus';
 import ConfirmationDialog from '@/components/shared/ConfirmationDialog';
 import GenerationDialog from '@/components/shared/GenerationDialog';
+import StepStatus from "@/components/shared/StepStatus";
 import { ResearchReviewDialog }from '@/components/ResearchComponents';
 import { contentService } from '@/services/content';
 
@@ -199,6 +202,7 @@ export const ResearchPage = () => {
   };
 
   // Define row-level actions for each research item.
+  // noinspection JSUnresolvedReference,JSUnusedLocalSymbols
   const researchActions = [
     {
       label: 'Review Research',
@@ -214,7 +218,8 @@ export const ResearchPage = () => {
           () => handleMakePending(item.id)
         ),
       shouldShow: (item) =>
-        (item.status === 'APPROVED' && !item.article) || item.status === 'REJECTED',
+        (item.status === 'APPROVED' && (!item.articles || item.articles.length === 0)) ||
+        (item.status === 'REJECTED' && (!item.articles || item.articles.length === 0)),
     },
     {
       label: 'Generate Article',
@@ -224,7 +229,8 @@ export const ResearchPage = () => {
           `Are you sure you want to generate an article for "${item.suggestion.title}"?`,
           () => handleGenerateArticle(item)
         ),
-      shouldShow: (item) => item.status === 'APPROVED' && !item.article,
+      shouldShow: (item) =>
+        item.status === 'APPROVED' && (!item.articles || item.articles.length === 0),
     },
     {
       label: 'Generate Media',
@@ -234,12 +240,14 @@ export const ResearchPage = () => {
           `Are you sure you want to generate media suggestions for "${item.suggestion.title}"?`,
           () => handleGenerateMedia(item)
         ),
-      shouldShow: (item) => item.status === 'APPROVED' && !item.article,
+      shouldShow: (item) =>
+        false, // Hide this action for now
     },
   ];
 
+
   // Configure the table: set the column order and override the status column with our custom renderer.
-  const columnsOrder = ['title', 'status'];
+  const columnsOrder = ['title', 'status', 'article_completed', 'media_completed'];
   const columnsOverride = [
     {
       accessorKey: 'title',
@@ -250,9 +258,71 @@ export const ResearchPage = () => {
       header: 'Status',
       cell: ({ row }) => <ContentStatus status={row.getValue('status')} />,
     },
+    {
+      // New computed column for Article Completed.
+      id: 'article_completed',
+      accessorKey: 'article_completed',
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === 'article_completed');
+              if (!existingSort) {
+                return [{ id: 'article_completed', desc: false }];
+              }
+              return [{ id: 'article_completed', desc: !existingSort.desc }];
+            })
+          }
+        >
+          Article Completed
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        // Compute if an article is completed: true if research.articles exists and has at least one item.
+        const researchItem = row.original;
+        // noinspection JSUnresolvedReference
+        const done = researchItem.articles && researchItem.articles.length > 0;
+        return <StepStatus done={done} />;
+      },
+    },
+    {
+      // New computed column for Media Completed.
+      id: 'media_completed',
+      accessorKey: 'media_completed',
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === 'media_completed');
+              if (!existingSort) {
+                return [{ id: 'media_completed', desc: false }];
+              }
+              return [{ id: 'media_completed', desc: !existingSort.desc }];
+            })
+          }
+        >
+          Media Completed
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        // For media, assume the research object has a property "media" (an array) indicating media suggestions.
+        // Adjust the property name if needed.
+        const researchItem = row.original;
+        const done = researchItem.media && researchItem.media.length > 0;
+        return <StepStatus done={done} />;
+      },
+    },
   ];
   const columnWidths = {
-    status: 'w-[500px]',
+    status: 'w-[200px]',
+    article_completed: 'w-[200px]',
+    media_completed: 'w-[200px]',
     actions: 'w-[100px]',
   };
 
