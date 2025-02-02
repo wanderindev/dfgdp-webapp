@@ -175,7 +175,7 @@ The final article should have:
          - Explore how visitors engage with the site and any conservation strategies.
 
 3. **Conclusion**
-   - Summarize the site's importance/relevance today.
+   - Summarize the site's importance today and any ongoing relevance to Panamanian identity.
 
 4. **Sources and Further Reading**:
    - Provide at least 3 references or scholarly resources.
@@ -187,7 +187,7 @@ WRITING STYLE
 - Avoid bullet points in the main text
 - Each section should be substantial and well-developed
 
-Generate **only** the Introduction section now (step 1). Limit it to ~300-500 words. Return only the introduction content without any additional comments.
+Generate **only** the Introduction section now (step 1). Limit it to ~300-500 words.
 """.strip()
 
 
