@@ -160,12 +160,7 @@ export const WriterPage = () => {
     try {
       const { success, message } = await contentService.generateStoryPromotion(articleId);
       setGenerationInProgress(true);
-      if (success) {
-        toast({
-          title: "Success",
-          description: message,
-        });
-      } else {
+      if (!success) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -187,12 +182,7 @@ export const WriterPage = () => {
     try {
       const { success, message } = await contentService.generateDidYouKnowPosts(articleId, count);
       setGenerationInProgress(true);
-      if (success) {
-        toast({
-          title: "Success",
-          description: message,
-        });
-      } else {
+      if (!success) {
         toast({
           variant: "destructive",
           title: "Error",

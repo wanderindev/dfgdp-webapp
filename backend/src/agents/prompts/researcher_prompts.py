@@ -84,7 +84,7 @@ you generated.
 """.strip()
 
 RESEARCH_BIO_PROMPT = """
-You are an academic researcher. Your task is to produce a biographic research document
+You are an academic researcher. Your task is to produce a biographic research document (1000-2000 words)
 of the following figure for an education platform focusing on the history and culture of Panama.
 
 CONTEXT
@@ -99,10 +99,10 @@ Highlights: {suggestion[point_of_view]}
 
 ARTICLE STRUCTURE
 The final biography should have:
-1. **Overview**: Introduce the figure, their historical/cultural context, and their main achievements.
-3. **Biographical Data**: Birth, death, major life events, etc.
-2. **Detailed Life & Legacy**: Expand on childhood (if relevant), career or major contributions, significant events or accomplishments, and historical impact.
-3. **Conclusion**: Summarize their enduring significance or legacy.
+1. **Biographical Data**: Birth, death, major life events, etc.
+2. **Overview**: Introduce the figure, their historical/cultural context, and their main achievements.
+3. **Detailed Life & Legacy**: Expand on childhood (if relevant), career or major contributions, significant events or accomplishments, and historical impact.
+3. **Conclusion**: Summarize their significance or legacy.
 4. **Sources and Further Reading**: Provide at least 3 relevant references.
 
 WRITING STYLE
@@ -113,11 +113,11 @@ WRITING STYLE
 - Cite important facts using references where possible
 - Use a factual, narrative tone
 
-Generate **only** the Overview section now (step 1). Limit the Overview to ~300-500 words. 
+Generate **only** the Biographical Data section now (step 1).  Return only the biographical data content without any additional comments.
 """.strip()
 
 RESEARCH_SITE_PROMPT = """
-You are an academic researcher. Your task is to produce a research document
+You are an academic researcher. Your task is to produce a research document (1000-2000 words)
 about the following site or landmark for an education platform focusing on the history and culture of Panama.
 
 CONTEXT
@@ -175,7 +175,7 @@ The final article should have:
          - Explore how visitors engage with the site and any conservation strategies.
 
 3. **Conclusion**
-   - Summarize the site's importance today and any ongoing relevance to Panamanian identity.
+   - Summarize the site's importance/relevance today.
 
 4. **Sources and Further Reading**:
    - Provide at least 3 references or scholarly resources.
@@ -187,7 +187,7 @@ WRITING STYLE
 - Avoid bullet points in the main text
 - Each section should be substantial and well-developed
 
-Generate **only** the Introduction section now (step 1). Limit it to ~300-500 words.
+Generate **only** the Introduction section now (step 1). Limit it to ~300-500 words. Return only the introduction content without any additional comments.
 """.strip()
 
 

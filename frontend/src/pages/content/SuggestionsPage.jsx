@@ -182,12 +182,7 @@ export const SuggestionsPage = () => {
       const { success, message } = await contentService.generateResearch(
         suggestion.id
       );
-      if (success) {
-        toast({
-          title: "Success",
-          description: message,
-        });
-      } else {
+      if (!success) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -207,12 +202,7 @@ export const SuggestionsPage = () => {
   const handleBulkGenerateArticles = async () => {
     try {
       const { success, message } = await contentService.bulkGenerateArticles();
-      if (success) {
-        toast({
-          title: "Success",
-          description: message,
-        });
-      } else {
+      if (!success) {
         console.log("Error bulk generating articles:", message);
         toast({
           variant: "destructive",

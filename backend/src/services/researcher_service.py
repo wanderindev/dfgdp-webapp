@@ -185,8 +185,9 @@ class ResearcherService(BaseAIService):
         if taxonomy == "Notable Figures":
             initial_prompt_template = RESEARCH_BIO_PROMPT
             sections = [
+                "Biographical Data",
                 "Overview",
-                "Biographical Data" "Detailed Life & Legacy",
+                "Detailed Life & Legacy",
                 "Conclusion",
                 "Sources and Further Reading",
             ]

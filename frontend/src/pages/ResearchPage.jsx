@@ -124,12 +124,7 @@ export const ResearchPage = () => {
     try {
       const { success, message } = await contentService.generateArticle(researchItem.id);
       setGenerationInProgress(true);
-      if (success) {
-        toast({
-          title: 'Success',
-          description: message,
-        });
-      } else {
+      if (!success) {
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -151,12 +146,7 @@ export const ResearchPage = () => {
     try {
       const { success, message } = await contentService.generateMediaSuggestions(researchItem.id);
       setGenerationInProgress(true);
-      if (success) {
-        toast({
-          title: 'Success',
-          description: message,
-        });
-      } else {
+      if (!success) {
         toast({
           variant: 'destructive',
           title: 'Error',

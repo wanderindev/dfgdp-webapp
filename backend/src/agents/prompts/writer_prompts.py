@@ -126,26 +126,24 @@ Category Description: {category_description}
 
 BIOGRAPHICAL RESEARCH CONTENT
 Title: {title}
-Research Excerpt:
+Research Document:
 {research_content}
 
 GOAL
 Write a short-form biography (500-800 words) focusing on:
 - Basic background of the figure (birth, death, key life events)
 - Major achievements or contributions
-- Connection to Panamanian history or culture
-- Why this figure is notable in context
+- How this figure is connected to Panamanian history or culture
+- Use the attached research content as a reference for facts about the figure
 
 TONE AND STYLE
-- Direct, engaging, and friendly
-- Culturally sensitive
-- Active voice, ~16-20 words per sentence
-- No advanced conclusions or deep historical analysis
-- Keep it succinct
-- Minimal speculation, rely on provided research content
-- Use markdown headers for logical structure
+- Knowledgeable but casual (not academic)
+- Direct and personal engagement with the reader
+- Friendly and accessible
+- Use active voice and vivid language
+- To improve readability, aim for 16-20 word sentences
 
-Deliver the complete short biography in one single response.  Include only the biography content in markdown format with no additional comments. Do not exceed 1000 words total.
+Deliver the complete short article in one single response. Include only the article content, without additional comments. Do not exceed 1000 words total.
 """.strip()
 
 
@@ -166,7 +164,7 @@ Category Description: {category_description}
 
 SITE RESEARCH CONTENT
 Title: {title}
-Research Excerpt:
+Research Document:
 {research_content}
 
 GOAL
@@ -175,15 +173,14 @@ Write a short-form article (500-800 words) focusing on:
 - Key historical or cultural importance
 - Connection to Panama’s heritage
 - Unique or interesting features
+- Use the attached research content as a reference for facts about the site
 
 TONE AND STYLE
-- Direct, engaging, and friendly
-- Culturally sensitive
-- Active voice, ~16-20 words per sentence
-- Minimal speculation, rely on provided research content
-- No advanced conclusions
-- Keep it succinct
-- Use markdown headers for logical structure
+- Knowledgeable but casual (not academic)
+- Direct and personal engagement with the reader
+- Friendly and accessible
+- Use active voice and vivid language
+- To improve readability, aim for 16-20 word sentences
 
-Deliver the complete short site article in one single response. Include only the site article content in markdown format with no additional comments. Do not exceed 1000 words total.
+Deliver the complete short article in one single response. Include only the article content, without additional comments. Do not exceed 1000 words total.
 """.strip()
