@@ -5,7 +5,7 @@ import ContentStatus from '@/components/shared/ContentStatus';
 import ConfirmationDialog from '@/components/shared/ConfirmationDialog';
 import GenerationDialog from '@/components/shared/GenerationDialog';
 import { contentService } from '@/services/content';
-import { ArticleEditor, GenerateDYKDialog } from '@/components/ArticleComponents';
+import { ArticleEditor, GenerateDYKDialog } from '@/components/WriterComponents.jsx';
 
 export const WriterPage = () => {
   const { toast } = useToast();

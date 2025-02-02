@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import { Plus } from "lucide-react";
+import { Plus, BookOpen } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,7 +66,6 @@ export const SuggestionsPage = () => {
     })();
   }, [globalFilter, statusFilter, sorting, currentPage]);
 
-
   async function fetchSuggestions() {
     try {
       setLoading(true);
@@ -83,7 +82,7 @@ export const SuggestionsPage = () => {
       );
 
       setSuggestions(data.suggestions || []);
-      setTotalPages(data.pages)
+      setTotalPages(data.pages);
     } catch (error) {
       console.error("Error fetching suggestions:", error);
       toast({
@@ -150,7 +149,7 @@ export const SuggestionsPage = () => {
       setEditingSuggestion(null);
       await fetchSuggestions();
     } catch (error) {
-      console.error("Error fetching suggestions:", error);
+      console.error("Error updating suggestion:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -204,6 +203,33 @@ export const SuggestionsPage = () => {
     }
   };
 
+  const handleBulkGenerateArticles = async () => {
+    try {
+      const { success, message } = await contentService.bulkGenerateArticles();
+      if (success) {
+        toast({
+          title: "Success",
+          description: message,
+        });
+      } else {
+        console.log("Error bulk generating articles:", message);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
+      await fetchSuggestions();
+    } catch (error) {
+      console.error("Error bulk generating articles:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to bulk generate articles. Please try again.",
+      });
+    }
+  };
+
   const showConfirmDialog = (title, description, action) => {
     setConfirmDialog({
       open: true,
@@ -248,7 +274,7 @@ export const SuggestionsPage = () => {
           `Mark "${sug.title}" as rejected?`,
           () => handleUpdateStatus(sug, "REJECTED")
         ),
-      shouldShow: (sug) => sug.status !== "REJECTED",
+      shouldShow: (sug) => sug.status !== "REJECTED" && !sug.research,
     },
     {
       label: "Mark as Pending",
@@ -258,12 +284,13 @@ export const SuggestionsPage = () => {
           `Mark "${sug.title}" as pending?`,
           () => handleUpdateStatus(sug, "PENDING")
         ),
-      shouldShow: (sug) => sug.status === "APPROVED" || sug.status === "REJECTED",
+      shouldShow: (sug) =>
+        (sug.status === "APPROVED" || sug.status === "REJECTED") && !sug.research,
     },
   ];
 
   // Custom cell renderer for the status column
-  const columnsOrder= ["title", "status"]
+  const columnsOrder = ["title", "status"];
   const columnsOverride = [
     {
       accessorKey: "status",
@@ -276,11 +303,30 @@ export const SuggestionsPage = () => {
     actions: "w-[100px]",
   };
 
-  // Control buttons
+  // Compute the number of approved suggestions without research
+  const approvedWithoutResearchCount = React.useMemo(() => {
+    return suggestions.filter(sug => sug.status === "APPROVED" && !sug.research).length;
+  }, [suggestions]);
+
+  // Control buttons (now with two buttons)
   const controlButtons = [
     <Button key="generate" onClick={() => setGeneratingSuggestions(true)}>
       <Plus className="h-4 w-4 mr-2" />
       Generate Suggestions
+    </Button>,
+    <Button
+      key="bulk-generate"
+      onClick={() =>
+        showConfirmDialog(
+          "Bulk Generate Articles",
+          `This will schedule a job to generate articles for ${approvedWithoutResearchCount} approved suggestions.`,
+          handleBulkGenerateArticles
+        )
+      }
+      disabled={approvedWithoutResearchCount === 0}
+    >
+      <BookOpen className="h-4 w-4 mr-2" />
+      Bulk Generate Articles
     </Button>,
   ];
 

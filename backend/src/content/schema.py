@@ -10,6 +10,7 @@ from sqlalchemy.orm import joinedload
 from extensions import db
 from tasks.config import default_queue
 from tasks.tasks import (
+    bulk_generation_task,
     generate_article_task,
     generate_research_task,
     generate_suggestions_task,
@@ -694,6 +695,17 @@ class Mutation:
 
         db.session.commit()
         return suggestion
+
+    @strawberry.mutation
+    def bulk_generate_articles(self, suggestion_id: int) -> JobEnqueueResponse:
+        """Bulk generate articles for an approved article suggestion."""
+        try:
+            default_queue.enqueue(bulk_generation_task)
+            return JobEnqueueResponse(success=True, message="Job created successfully")
+        except Exception as e:
+            return JobEnqueueResponse(
+                success=False, message=f"Failed to create job: {str(e)}"
+            )
 
     @strawberry.mutation
     def generate_research(self, suggestion_id: int) -> JobEnqueueResponse:
