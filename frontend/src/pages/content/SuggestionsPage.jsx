@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import { Plus, BookOpen } from "lucide-react";
+import { Plus, BookOpen, ArrowUpDown } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/content/SuggestionComponents";
 import DataTable from "@/components/shared/DataTable";
 import ConfirmationDialog from "@/components/shared/ConfirmationDialog";
+import StepStatus from "@/components/shared/StepStatus";
 import GenerationDialog from "@/components/shared/GenerationDialog";
 import { contentService } from "@/services/content";
 import { RecordStatus } from "@/components/shared/RecordStatus";
@@ -290,16 +291,46 @@ export const SuggestionsPage = () => {
   ];
 
   // Custom cell renderer for the status column
-  const columnsOrder = ["title", "status"];
+  const columnsOrder = ["title", "status", "researchCompleted"];
   const columnsOverride = [
     {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => <RecordStatus value={row.getValue("status")} />,
     },
+    {
+      id: "researchCompleted",
+      accessorKey: "researchCompleted",
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === "researchCompleted");
+              if (!existingSort) {
+                return [{ id: "researchCompleted", desc: false }];
+              }
+              return [{ id: "researchCompleted", desc: !existingSort.desc }];
+            })
+          }
+        >
+          Research Completed
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        // We assume that the raw suggestion has a property "research"
+        // If research exists, then the step is considered completed.
+        const suggestion = row.original;
+        const done = Boolean(suggestion.research);
+        return <StepStatus done={done} />;
+      },
+    },
   ];
   const columnWidths = {
-    status: "w-[500px]",
+    status: "w-[250px]",
+    researchCompleted: "w-[250px]",
     actions: "w-[100px]",
   };
 

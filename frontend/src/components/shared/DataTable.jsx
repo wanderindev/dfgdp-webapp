@@ -146,12 +146,12 @@ const DataTable = ({
 }) => {
   // Build final columns (append actions column, or infer columns if none passed)
   const finalColumns = React.useMemo(() => {
-    // If we have custom columns, just append the actions column (if any).
+    // If we have custom columns provided explicitly, just append the actions column (if any).
     if (columns.length > 0) {
       return maybeAppendActions(columns, actions);
     }
 
-    // Otherwise, infer columns from the data keys of the first row
+    // If there's no data, return an empty column list.
     if (data.length === 0) {
       return [];
     }
@@ -160,17 +160,22 @@ const DataTable = ({
 
     // Create a map of column overrides for quick lookup
     const overrideMap = Object.fromEntries(
-      columnsOverride.map((col) => [col.accessorKey, col])
+      (columnsOverride || []).map((col) => [col.accessorKey, col])
     );
 
-    // Infer columns and apply overrides where necessary
-    let inferredCols = Object.keys(sampleRow).map((key) => {
-      // If the column is in columnsOverride, use it
+    // Create a union of keys from the sample row and from the overrides.
+    const sampleKeys = Object.keys(sampleRow);
+    const overrideKeys = Object.keys(overrideMap);
+    const unionKeys = Array.from(new Set([...sampleKeys, ...overrideKeys]));
+
+    // Infer columns from the union of keys.
+    let inferredCols = unionKeys.map((key) => {
+      // If an override exists, use that.
       if (overrideMap[key]) {
         return overrideMap[key];
       }
 
-      // Otherwise, create a default column definition
+      // Otherwise, create a default column definition.
       const formattedKey = key
         .replace(/_/g, " ")
         .split(" ")
@@ -200,7 +205,7 @@ const DataTable = ({
       };
     });
 
-    // Apply column order if specified
+    // If a columns order is specified, re-order accordingly.
     if (columnsOrder.length > 0) {
       inferredCols = columnsOrder
         .map((key) => inferredCols.find((col) => col.accessorKey === key))

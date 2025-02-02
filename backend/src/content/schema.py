@@ -356,10 +356,12 @@ class Query:
     ) -> PaginatedArticleSuggestions:
         """Get paginated article suggestions with optional filtering and sorting."""
         from content.models import ArticleSuggestion
+        from sqlalchemy import case, asc, desc
 
-        # Define valid columns for sorting
+        # Define valid columns for sorting.
         valid_columns = {
             "title": ArticleSuggestion.title,
+            "researchCompleted": case((ArticleSuggestion.research != None, 1), else_=0),
         }
         order_column = valid_columns.get(sort, ArticleSuggestion.title)
 
@@ -370,7 +372,7 @@ class Query:
         if status:
             query = query.filter_by(status=status)
         if search:
-            query = query.filter((ArticleSuggestion.title.ilike(f"%{search}%")))
+            query = query.filter(ArticleSuggestion.title.ilike(f"%{search}%"))
 
         # Apply sorting
         query = query.order_by(
