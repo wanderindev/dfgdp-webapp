@@ -208,6 +208,12 @@ class JobEnqueueResponse:
     message: str
 
 
+@strawberry.type
+class StateChangeResponse:
+    success: bool
+    message: str
+
+
 @strawberry.input
 class MediaMetadataInput:
     title: Optional[str] = strawberry.field(default=None)
@@ -839,6 +845,34 @@ class Mutation:
 
         db.session.commit()
         return article
+
+    @strawberry.mutation
+    def update_article_publish_state(self, id: int, state: str) -> StateChangeResponse:
+        """Update the publishing state of an article."""
+        from content.models import Article as ArticleModel
+
+        success = False
+
+        article = db.session.query(ArticleModel).get(id)
+        if not article:
+            return StateChangeResponse(
+                success=success, message=f"Article with id {id} not found"
+            )
+
+        if state == "publish":
+            article.published_at = datetime.now(timezone.utc)
+            success = True
+            message = f"Article published successfully"
+        elif state == "unpublish":
+            article.published_at = None
+            success = True
+            message = f"Article unpublished successfully"
+        else:
+            message = f"Unknown state {state}"
+
+        db.session.commit()
+
+        return StateChangeResponse(success=success, message=message)
 
     @strawberry.mutation
     def generate_story_promotion(self, article_id: int) -> JobEnqueueResponse:

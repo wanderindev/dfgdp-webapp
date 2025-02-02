@@ -133,6 +133,34 @@ export const WriterPage = () => {
     }
   };
 
+  const handlePublishState = async (id, state) => {
+    try {
+      const { success, message } = await contentService.updateArticlePublishState(id, state);
+      if (success) {
+        toast({
+          title: "Success",
+          description: `Article ${state === "publish" ? "published" : "unpublished"} successfully.`,
+        });
+      } else {
+        console.log("Error updating publish state:", message);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: message,
+        });
+      }
+      // Refresh the articles list.
+      await fetchArticles();
+    } catch (error) {
+      console.error("Error updating publish state:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update publish state. Please try again.",
+      });
+    }
+  };
+
   // Handler for generating a story promotion
   const handleGenerateStory = async (articleId) => {
     try {
@@ -198,6 +226,7 @@ export const WriterPage = () => {
   };
 
   // Define the row-level actions for articles
+  // noinspection JSUnresolvedReference
   const articleActions = [
     {
       label: "Review Article",
@@ -222,7 +251,8 @@ export const WriterPage = () => {
           "Are you sure you want to reject this article?",
           () => handleUpdateStatus(article.id, 'REJECTED')
         ),
-      shouldShow: (article) => article.status !== 'REJECTED',
+      // Show Reject if the article is not rejected and not published.
+      shouldShow: (article) => article.status !== 'REJECTED' && !article.publishedAt,
     },
     {
       label: "Make Pending",
@@ -232,8 +262,31 @@ export const WriterPage = () => {
           "Are you sure you want to set this article back to pending status?",
           () => handleUpdateStatus(article.id, 'PENDING')
         ),
+      // Show Make Pending if the article is neither approved nor rejected, and is not published.
       shouldShow: (article) =>
-        article.status === 'APPROVED' || article.status === 'REJECTED',
+        article.status !== 'PENDING' && !article.publishedAt,
+    },
+    {
+      label: "Publish",
+      onClick: (article) =>
+        showConfirmDialog(
+          "Publish Article",
+          "Are you sure you want to publish this article?",
+          () => handlePublishState(article.id, 'publish')
+        ),
+      // Show Publish if the article is approved and not yet published.
+      shouldShow: (article) => article.status === 'APPROVED' && !article.publishedAt,
+    },
+    {
+      label: "Unpublish",
+      onClick: (article) =>
+        showConfirmDialog(
+          "Unpublish Article",
+          "Are you sure you want to unpublish this article?",
+          () => handlePublishState(article.id, 'unpublish')
+        ),
+      // Show Unpublish if the article is published.
+      shouldShow: (article) => Boolean(article.publishedAt),
     },
     {
       label: "Generate Story",
@@ -243,7 +296,7 @@ export const WriterPage = () => {
           "Are you sure you want to generate a story promotion for this article?",
           () => handleGenerateStory(article.id)
         ),
-      shouldShow: (article) => article.status === 'APPROVED',
+      shouldShow: (article) => false, //article.status === 'APPROVED',
     },
     {
       label: "Generate DYK Posts",
@@ -251,7 +304,7 @@ export const WriterPage = () => {
         setSelectedArticleId(article.id);
         setDykDialogOpen(true);
       },
-      shouldShow: (article) => article.status === 'APPROVED',
+      shouldShow: (article) => false // article.status === 'APPROVED',
     },
   ];
 

@@ -462,6 +462,15 @@ const MUTATIONS = {
     }
   `,
 
+  UPDATE_ARTICLE_PUBLISH_STATE: `
+    mutation UpdateArticlePublishState($id: Int!, $state: String!) {
+      updateArticlePublishState(id: $id, state: $state) {
+        success
+        message
+      }
+    }
+  `,
+
   GENERATE_STORY_PROMOTION: `
     mutation GenerateStoryPromotion($articleId: Int!) {
       generateStoryPromotion(articleId: $articleId) {
@@ -747,6 +756,14 @@ export const contentService = {
       status
     });
     return data.updateArticleStatus;
+  },
+
+  async updateArticlePublishState(id, state) {
+    const data = await fetchGraphQL(MUTATIONS.UPDATE_ARTICLE_PUBLISH_STATE, {
+      id,
+      state
+    });
+    return data.updateArticlePublishState;
   },
 
   // Generate Instagram story promotion
