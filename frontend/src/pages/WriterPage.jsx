@@ -1,11 +1,14 @@
 import React from 'react';
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 import DataTable from '@/components/shared/DataTable';
 import ContentStatus from '@/components/shared/ContentStatus';
+import StepStatus from '@/components/shared/StepStatus';
 import ConfirmationDialog from '@/components/shared/ConfirmationDialog';
 import GenerationDialog from '@/components/shared/GenerationDialog';
 import { contentService } from '@/services/content';
 import { ArticleEditor, GenerateDYKDialog } from '@/components/WriterComponents.jsx';
+import { ArrowUpDown } from 'lucide-react';
 
 export const WriterPage = () => {
   const { toast } = useToast();
@@ -41,7 +44,7 @@ export const WriterPage = () => {
       setLoading(true);
       const sortParam = sorting[0]?.id || 'title';
       const direction = sorting[0]?.desc ? 'desc' : 'asc';
-      // Assumes contentService.getArticles now accepts these parameters
+
       const data = await contentService.getArticles(
         currentPage,
         pageSize,
@@ -50,7 +53,7 @@ export const WriterPage = () => {
         sortParam,
         direction
       );
-      // Assume the response is { articles: [...], pages: number }
+
       // noinspection JSUnresolvedReference
       setArticles(data.articles || []);
       setTotalPages(data.pages || 1);
@@ -75,7 +78,6 @@ export const WriterPage = () => {
       console.error("Error fetching tags:", error);
     }
   };
-
 
   // Re-fetch articles whenever any filter/sort/pagination state changes
   React.useEffect(() => {
@@ -254,7 +256,7 @@ export const WriterPage = () => {
   ];
 
   // Configure columns for DataTable.
-  const columnsOrder = ['title', 'status', 'tags'];
+  const columnsOrder = ['title', 'status', 'tagsAdded', 'published'];
   const columnsOverride = [
     {
       accessorKey: 'title',
@@ -266,27 +268,64 @@ export const WriterPage = () => {
       cell: ({ row }) => <ContentStatus status={row.getValue('status')} />,
     },
     {
-      accessorKey: 'tags',
-      header: 'Tags',
+      id: 'tagsAdded',
+      accessorKey: 'tagsAdded',
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === 'tagsAdded');
+              if (!existingSort) {
+                return [{ id: 'tagsAdded', desc: false }];
+              }
+              return [{ id: 'tagsAdded', desc: !existingSort.desc }];
+            })
+          }
+        >
+          Tags Added
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
       cell: ({ row }) => {
-        const tags = row.getValue('tags') || [];
-        return (
-          <div className="flex flex-wrap gap-1">
-            {tags.map(tag => (
-              <span
-                key={tag.id}
-                className="px-2 py-1 text-xs rounded-full bg-secondary text-secondary-foreground"
-              >
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        );
+        const done = row.original.tags && row.original.tags.length > 0;
+        return <StepStatus done={done} />;
+      },
+    },
+    {
+      id: 'published',
+      accessorKey: 'published',
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === 'published');
+              if (!existingSort) {
+                return [{ id: 'published', desc: false }];
+              }
+              return [{ id: 'published', desc: !existingSort.desc }];
+            })
+          }
+        >
+          Published
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        // Mark as done if published_at is not null.
+        // noinspection JSUnresolvedReference
+        const done = row.original.publishedAt !== null;
+        return <StepStatus done={done} />;
       },
     },
   ];
   const columnWidths = {
-    status: 'w-[500px]',
+    status: 'w-[250px]',
+    tagsAdded: 'w-[250px]',
+    published: 'w-[250px]',
     actions: 'w-[100px]',
   };
 

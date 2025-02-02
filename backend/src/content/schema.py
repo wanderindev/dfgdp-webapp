@@ -471,41 +471,49 @@ class Query:
         sort: str = "title",
         dir: str = "asc",
     ) -> PaginatedArticles:
-        from content.models import Article
+        from content.models import Article, Tag
+
+        # Build the base query.
+        query = db.session.query(Article)
+
+        # Outer join with tags to enable sorting on tags count.
+        query = query.outerjoin(Article.tags)
+
+        # Group by Article.id to aggregate tag counts.
+        query = query.group_by(Article.id)
 
         # Define valid columns for sorting.
         valid_columns = {
             "title": Article.title,
+            "tagsAdded": case((func.count(Tag.id) > 0, 1), else_=0),
+            "published": case((Article.published_at != None, 1), else_=0),
         }
         order_column = valid_columns.get(sort, Article.title)
 
-        # Build the query
-        query = db.session.query(Article)
-
-        # Apply status filter
+        # Apply status filter.
         if status:
             query = query.filter(Article.status == status)
 
-        # Apply search filter (searching in title and content)
+        # Apply search filter (searching in title and content).
         if search:
             query = query.filter(
                 Article.title.ilike(f"%{search}%")
                 | Article.content.ilike(f"%{search}%")
             )
 
-        # Eager load relationships
+        # Eager load relationships.
         query = query.options(
-            joinedload(Article.research),
-            joinedload(Article.category),
-            joinedload(Article.tags),
+            selectinload(Article.research),
+            selectinload(Article.category),
+            selectinload(Article.tags),
         )
 
-        # Apply sorting based on provided direction
+        # Apply sorting based on provided direction.
         query = query.order_by(
             desc(order_column) if dir.lower() == "desc" else asc(order_column)
         )
 
-        # Apply pagination
+        # Apply pagination.
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)
 
         return PaginatedArticles(
