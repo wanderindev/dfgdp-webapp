@@ -44,12 +44,6 @@ class BaseConfig:
     UPLOAD_FOLDER: str = os.path.join(BASE_DIR, "uploads")
     ALLOWED_IMAGE_EXTENSIONS: Set[str] = {"png", "jpg", "jpeg", "gif"}
 
-    # S3 Settings (for production)
-    S3_BUCKET: Optional[str] = os.getenv("S3_BUCKET")
-    AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
-
     # Site Settings
     BLOG_URL: str = os.getenv("BLOG_URL", "https://panamaincontext.com")
 

@@ -33,7 +33,12 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     # Configure CORS
     CORS(
         app,
-        origins=["http://localhost:5173", "https://panamaincontext.com"],
+        origins=[
+            "http://localhost:5173",
+            "https://panamaincontext.com",
+            "https://admin.panamaincontext.com",
+            "http://137.184.144.247",
+        ],
         supports_credentials=True,
         allow_headers=["Content-Type"],
     )
