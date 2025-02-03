@@ -142,4 +142,4 @@ uploads/
 # deployment files
 Dockerfile.prod
 docker-compose.prod.yml
-prod.tx
+backend/requirements/prod.txt
