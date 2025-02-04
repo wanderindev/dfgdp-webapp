@@ -122,22 +122,23 @@ export const SuggestionDialog = ({
   suggestion,
   isOpen,
   onClose,
-  onSave
+  onSave,
+  onChangeStatus,
 }) => {
   const [formData, setFormData] = React.useState({
-    title: '',
-    mainTopic: '',
-    pointOfView: '',
-    subTopics: '',
+    title: "",
+    mainTopic: "",
+    pointOfView: "",
+    subTopics: "",
   });
 
   React.useEffect(() => {
     if (suggestion) {
       setFormData({
-        title: suggestion.title || '',
-        mainTopic: suggestion.mainTopic || '',
-        pointOfView: suggestion.pointOfView || '',
-        subTopics: suggestion.subTopics?.join('\n') || '',
+        title: suggestion.title || "",
+        mainTopic: suggestion.mainTopic || "",
+        pointOfView: suggestion.pointOfView || "",
+        subTopics: suggestion.subTopics?.join("\n") || "",
       });
     }
   }, [suggestion]);
@@ -147,7 +148,7 @@ export const SuggestionDialog = ({
     onSave({
       id: suggestion?.id,
       ...formData,
-      subTopics: formData.subTopics.split('\n').filter(Boolean),
+      subTopics: formData.subTopics.split("\n").filter(Boolean),
     });
   };
 
@@ -157,16 +158,15 @@ export const SuggestionDialog = ({
         <DialogHeader>
           <DialogTitle>Edit Article Suggestion</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 flex-grow">
           <div className="space-y-2">
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                title: e.target.value
-              }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, title: e.target.value }))
+              }
               placeholder="Enter article title"
               required
             />
@@ -178,10 +178,9 @@ export const SuggestionDialog = ({
               id="mainTopic"
               className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.mainTopic}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                mainTopic: e.target.value
-              }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, mainTopic: e.target.value }))
+              }
               placeholder="Enter main topic"
             />
           </div>
@@ -192,10 +191,9 @@ export const SuggestionDialog = ({
               id="subTopics"
               className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.subTopics}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                subTopics: e.target.value
-              }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, subTopics: e.target.value }))
+              }
               placeholder="Enter sub topics (one per line)"
             />
           </div>
@@ -206,20 +204,53 @@ export const SuggestionDialog = ({
               id="pointOfView"
               className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formData.pointOfView}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                pointOfView: e.target.value
-              }))}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, pointOfView: e.target.value }))
+              }
               placeholder="Enter point of view"
               required
             />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Save</Button>
+          <DialogFooter className="flex sm:justify-between sm:items-center w-full">
+            {/* Left side: extra action buttons */}
+            <div className="flex space-x-2">
+              {suggestion?.status !== "APPROVED" && (
+                <Button
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => onChangeStatus(suggestion, "APPROVED")}
+                >
+                  Approve
+                </Button>
+              )}
+              {(suggestion?.status === "APPROVED" ||
+                suggestion?.status === "REJECTED") &&
+                !suggestion?.research && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => onChangeStatus(suggestion, "PENDING")}
+                  >
+                    Make Pending
+                  </Button>
+                )}
+              {suggestion?.status !== "REJECTED" && !suggestion?.research && (
+                <Button
+                  variant="destructive"
+                  onClick={() => onChangeStatus(suggestion, "REJECTED")}
+                >
+                  Reject
+                </Button>
+              )}
+            </div>
+
+            {/* Right side: Cancel and Save buttons */}
+            <div className="flex space-x-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="submit">Save</Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

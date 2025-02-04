@@ -143,7 +143,7 @@ export const TagsPage = () => {
       shouldShow: (tag) => tag.status !== 'REJECTED',
     },
     {
-      label: "Mark as Pending",
+      label: "Make Pending",
       onClick: (tag) => handleUpdateStatus(tag, 'PENDING'),
       shouldShow: (tag) =>
         tag.status === 'APPROVED' || tag.status === 'REJECTED',

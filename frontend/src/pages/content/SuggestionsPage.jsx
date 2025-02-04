@@ -268,10 +268,10 @@ export const SuggestionsPage = () => {
       shouldShow: (sug) => sug.status !== "REJECTED" && !sug.research,
     },
     {
-      label: "Mark as Pending",
+      label: "Make Pending",
       onClick: (sug) =>
         showConfirmDialog(
-          "Mark as Pending",
+          "Make Pending",
           `Mark "${sug.title}" as pending?`,
           () => handleUpdateStatus(sug, "PENDING")
         ),
@@ -395,6 +395,7 @@ export const SuggestionsPage = () => {
         isOpen={!!editingSuggestion}
         onClose={() => setEditingSuggestion(null)}
         onSave={handleUpdateSuggestion}
+        onChangeStatus={handleUpdateStatus}
       />
 
       {/* Confirmation Dialog */}
