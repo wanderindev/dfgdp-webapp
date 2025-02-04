@@ -82,10 +82,10 @@ class ProductionConfig(BaseConfig):
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")  # type: ignore
 
     # Production-specific settings
-    # PREFERRED_URL_SCHEME: str = "https"
-    # SESSION_COOKIE_SECURE: bool = True
-    # SESSION_COOKIE_HTTPONLY: bool = True
-    # SESSION_COOKIE_SAMESITE: str = "Lax"
+    PREFERRED_URL_SCHEME: str = "https"
+    SESSION_COOKIE_SECURE: bool = True
+    SESSION_COOKIE_HTTPONLY: bool = True
+    SESSION_COOKIE_SAMESITE: str = "Lax"
 
 
 config: Dict[str, Type[BaseConfig]] = {

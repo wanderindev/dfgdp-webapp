@@ -4,7 +4,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: docker/backend/Dockerfile.dev
+      dockerfile: ../docker/backend/Dockerfile.dev
     image: dfgdp-webapp-backend:latest
     ports:
       - "5073:5000"
@@ -56,7 +56,7 @@ services:
   worker:
     build:
       context: ./backend
-      dockerfile: docker/backend/Dockerfile.dev
+      dockerfile: ../docker/backend/Dockerfile.dev
     image: dfgdp-webapp-worker:latest
     depends_on:
       - redis
