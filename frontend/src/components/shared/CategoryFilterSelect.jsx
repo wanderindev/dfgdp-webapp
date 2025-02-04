@@ -14,9 +14,9 @@ import {
  *
  * @param {object} props
  * @param {Array} props.taxonomies - Array of taxonomies. Each taxonomy should include its categories.
- * @param {string} props.taxonomyFilter - The currently selected taxonomy ID.
+ * @param {(number|null)} props.taxonomyFilter - The currently selected taxonomy ID (or null if none).
  * @param {Function} props.setTaxonomyFilter - Callback to update the taxonomy selection.
- * @param {string} props.categoryFilter - The currently selected category ID.
+ * @param {(number|null)} props.categoryFilter - The currently selected category ID (or null if none).
  * @param {Function} props.setCategoryFilter - Callback to update the category selection.
  *
  * @returns {JSX.Element}
@@ -38,11 +38,14 @@ function CategoryFilterSelect({
     <div className="flex items-center space-x-2">
       {/* Taxonomy Select */}
       <Select
-        value={taxonomyFilter || ""}
+        // Convert the number to a string, or use an empty string if no value is selected.
+        value={taxonomyFilter != null ? taxonomyFilter.toString() : ""}
         onValueChange={(value) => {
-          setTaxonomyFilter(value);
+          // Convert the string value back to an integer (or null if no selection)
+          const newTaxonomy = value !== "" ? parseInt(value, 10) : null;
+          setTaxonomyFilter(newTaxonomy);
           // Reset the category selection when taxonomy changes.
-          setCategoryFilter("");
+          setCategoryFilter(null);
         }}
       >
         <SelectTrigger className="w-[180px]">
@@ -50,7 +53,7 @@ function CategoryFilterSelect({
         </SelectTrigger>
         <SelectContent>
           {taxonomies.map((taxonomy) => (
-            <SelectItem key={taxonomy.id} value={taxonomy.id}>
+            <SelectItem key={taxonomy.id} value={taxonomy.id.toString()}>
               {taxonomy.name}
             </SelectItem>
           ))}
@@ -59,8 +62,11 @@ function CategoryFilterSelect({
 
       {/* Category Select */}
       <Select
-        value={categoryFilter || ""}
-        onValueChange={setCategoryFilter}
+        value={categoryFilter != null ? categoryFilter.toString() : ""}
+        onValueChange={(value) => {
+          const newCategory = value !== "" ? parseInt(value, 10) : null;
+          setCategoryFilter(newCategory);
+        }}
         disabled={!taxonomyFilter}
       >
         <SelectTrigger className="w-[180px]">
@@ -68,7 +74,7 @@ function CategoryFilterSelect({
         </SelectTrigger>
         <SelectContent>
           {categories.map((category) => (
-            <SelectItem key={category.id} value={category.id}>
+            <SelectItem key={category.id} value={category.id.toString()}>
               {category.name}
             </SelectItem>
           ))}

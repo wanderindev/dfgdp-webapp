@@ -16,6 +16,7 @@ export const WriterPage = () => {
   // Data state
   const [articles, setArticles] = React.useState([]);
   const [tags, setTags] = React.useState([]);
+  const [taxonomies, setTaxonomies] = React.useState([]);
 
   // UI state
   const [loading, setLoading] = React.useState(true);
@@ -27,23 +28,26 @@ export const WriterPage = () => {
     description: '',
     action: null,
   });
+  // noinspection JSUnusedLocalSymbols
   const [selectedArticleId, setSelectedArticleId] = React.useState(null);
   const [dykDialogOpen, setDykDialogOpen] = React.useState(false);
 
   // Filtering, Sorting & Pagination state
+  const [taxonomyFilter, setTaxonomyFilter] = React.useState(null);
+  const [categoryFilter, setCategoryFilter] = React.useState(null);
   const [statusFilter, setStatusFilter] = React.useState('ALL');
   const [globalFilter, setGlobalFilter] = React.useState('');
   const [sorting, setSorting] = React.useState([]); // e.g. [{ id: 'title', desc: false }]
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
-  const pageSize = 12;
+  const pageSize = 10;
 
   // Fetch articles with pagination, sorting, filtering
   const fetchArticles = async () => {
     try {
       setLoading(true);
-      const sortParam = sorting[0]?.id || 'title';
-      const direction = sorting[0]?.desc ? 'desc' : 'asc';
+      const sortParam = sorting[0]?.id || 'researchId';
+      const direction = sorting[0]?.desc ? 'asc' : 'desc';
 
       const data = await contentService.getArticles(
         currentPage,
@@ -51,11 +55,19 @@ export const WriterPage = () => {
         statusFilter === 'ALL' ? null : statusFilter,
         globalFilter,
         sortParam,
-        direction
+        direction,
+        categoryFilter,
       );
 
+      // Transform each article record to add a `researchId` field equal to research.id.
       // noinspection JSUnresolvedReference
-      setArticles(data.articles || []);
+      const transformedArticle = (data.articles || []).map(item => ({
+        ...item,
+        researchId: item.research?.id || '',
+      }));
+
+      // noinspection JSUnresolvedReference
+      setArticles(transformedArticle || []);
       setTotalPages(data.pages || 1);
     } catch (error) {
       console.error("Error fetching articles:", error);
@@ -66,6 +78,15 @@ export const WriterPage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTaxonomies = async () => {
+    try {
+      const data = await contentService.getTaxonomies();
+      setTaxonomies(data || []);
+    } catch (error) {
+      console.error("Error fetching taxonomies:", error);
     }
   };
 
@@ -82,9 +103,19 @@ export const WriterPage = () => {
   // Re-fetch articles whenever any filter/sort/pagination state changes
   React.useEffect(() => {
     (async () => {
-      await fetchArticles();
+      try {
+        await fetchArticles();
+      } catch (err) {
+        console.error("Error fetching articles:", err);
+      }
+
+      try {
+        await fetchTaxonomies();
+      } catch (err) {
+        console.error("Error fetching taxonomies:", err);
+      }
     })();
-  }, [globalFilter, statusFilter, sorting, currentPage]);
+  }, [globalFilter, statusFilter, sorting, currentPage, categoryFilter]);
 
   // Fetch tags on mount
   React.useEffect(() => {
@@ -291,11 +322,32 @@ export const WriterPage = () => {
   ];
 
   // Configure columns for DataTable.
-  const columnsOrder = ['title', 'status', 'tagsAdded', 'published'];
+  const columnsOrder = ['title', 'researchId', 'status', 'tagsAdded', 'published'];
   const columnsOverride = [
     {
       accessorKey: 'title',
       header: 'Title',
+    },
+    {
+      accessorKey: 'researchId',
+      header: () => (
+        <Button
+          variant="ghost"
+          className="hover:bg-transparent focus:bg-transparent px-0"
+          onClick={() =>
+            setSorting((prev) => {
+              const existingSort = prev.find((s) => s.id === 'researchId');
+              if (!existingSort) {
+                return [{ id: 'researchId', desc: false }];
+              }
+              return [{ id: 'researchId', desc: !existingSort.desc }];
+            })
+          }
+        >
+          Research Id
+          <ArrowUpDown className="ml-2 h-4 w-4 transition-transform hover:scale-110" />
+        </Button>
+      ),
     },
     {
       accessorKey: 'status',
@@ -386,6 +438,12 @@ export const WriterPage = () => {
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
         showStatusFilter={true}
+        showCategoryFilter={true}
+        taxonomies={taxonomies}
+        taxonomyFilter={taxonomyFilter}
+        setTaxonomyFilter={setTaxonomyFilter}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
         // Column configuration
         columnsOrder={columnsOrder}
         columnsOverride={columnsOverride}

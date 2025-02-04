@@ -480,11 +480,11 @@ class Query:
         page_size: int = 10,
         status: Optional["ContentStatus"] = None,
         search: Optional[str] = None,
-        sort: str = "title",
-        dir: str = "asc",
+        sort: str = "researchId",
+        dir: str = "desc",
         category_filter: Optional[int] = None,
     ) -> PaginatedArticles:
-        from content.models import Article, Tag
+        from content.models import Article, Tag, Research
 
         # Build the base query.
         query = db.session.query(Article)
@@ -495,24 +495,31 @@ class Query:
         # Group by Article.id to aggregate tag counts.
         query = query.group_by(Article.id)
 
+        # Join Research to allow sorting by researchId
+        query = query.outerjoin(Article.research)
+
+        # Group by Article.id to aggregate tag counts.
+        query = query.group_by(Article.id, Research.id)
+
         # Define valid columns for sorting.
         valid_columns = {
             "title": Article.title,
             "tagsAdded": case((func.count(Tag.id) > 0, 1), else_=0),
             "published": case((Article.published_at != None, 1), else_=0),
+            "researchId": Research.id,
         }
-        order_column = valid_columns.get(sort, Article.title)
+        order_column = valid_columns.get(sort, Research.id)
 
-        # Apply status filter.
+        # Apply filters.
         if status:
             query = query.filter(Article.status == status)
-
-        # Apply search filter (searching in title and content).
         if search:
             query = query.filter(
                 Article.title.ilike(f"%{search}%")
                 | Article.content.ilike(f"%{search}%")
             )
+        if category_filter:
+            query = query.filter(Article.category.has(id=category_filter))
 
         # Eager load relationships.
         query = query.options(

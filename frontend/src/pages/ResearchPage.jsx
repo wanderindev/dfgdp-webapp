@@ -33,12 +33,12 @@ export const ResearchPage = () => {
   // Filtering, Sorting & Pagination state
   const [statusFilter, setStatusFilter] = React.useState('ALL');
   const [globalFilter, setGlobalFilter] = React.useState('');
-  const [taxonomyFilter, setTaxonomyFilter] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("")
+  const [taxonomyFilter, setTaxonomyFilter] = React.useState(null);
+  const [categoryFilter, setCategoryFilter] = React.useState(null)
   const [sorting, setSorting] = React.useState([]); // e.g. [{ id: 'suggestion.title', desc: false }]
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
-  const pageSize = 12;
+  const pageSize = 10;
 
   const fetchTaxonomies = async () => {
     try {

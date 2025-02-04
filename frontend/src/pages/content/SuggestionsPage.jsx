@@ -38,12 +38,12 @@ export const SuggestionsPage = () => {
   // Filter / Sorting / Pagination
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("ALL");
-  const [taxonomyFilter, setTaxonomyFilter] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("");
+  const [taxonomyFilter, setTaxonomyFilter] = React.useState(null);
+  const [categoryFilter, setCategoryFilter] = React.useState(null);
   const [sorting, setSorting] = React.useState([]); // e.g. [ {id: 'title', desc: false} ]
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
-  const pageSize = 12;
+  const pageSize = 10;
   const showStatusFilter = true;
 
   // Confirmation dialog
