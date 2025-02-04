@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_login import UserMixin
 
@@ -27,20 +27,26 @@ def create_app(config_name: Optional[str] = None) -> Flask:
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-    CORS(app)
     login_manager.init_app(app)
 
     # Configure CORS
     CORS(
         app,
-        origins=[
-            "http://localhost:5173",
-            "https://panamaincontext.com",
-            "https://admin.panamaincontext.com",
-            "http://137.184.144.247",
-        ],
-        supports_credentials=True,
-        allow_headers=["Content-Type"],
+        resources={
+            r"/*": {
+                "origins": [
+                    "http://panamaincontext.com",
+                    "http://admin.panamaincontext.com",
+                    "http://backend.panamaincontext.com",
+                    "https://panamaincontext.com",
+                    "https://admin.panamaincontext.com",
+                    "https://backend.panamaincontext.com",
+                    "http://137.184.144.247",
+                    "http://localhost:5173",
+                ],
+                "supports_credentials": True,
+            }
+        },
     )
 
     # Initialize Redis
@@ -57,6 +63,10 @@ def create_app(config_name: Optional[str] = None) -> Flask:
         from auth.models import User
 
         return db.session.query(User).get(int(user_id))
+
+    @login_manager.unauthorized_handler
+    def unauthorized_callback():
+        return jsonify({"error": "Unauthorized"}), 401
 
     # Register blueprints
     from agents import agents_bp
