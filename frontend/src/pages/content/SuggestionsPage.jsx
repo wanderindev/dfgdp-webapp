@@ -20,6 +20,7 @@ import StepStatus from "@/components/shared/StepStatus";
 import GenerationDialog from "@/components/shared/GenerationDialog";
 import { contentService } from "@/services/content";
 import { RecordStatus } from "@/components/shared/RecordStatus";
+import { api } from "@/services/api";
 
 export const SuggestionsPage = () => {
   const { toast } = useToast();
@@ -182,6 +183,11 @@ export const SuggestionsPage = () => {
       const { success, message } = await contentService.generateResearch(
         suggestion.id
       );
+      toast({
+        variant: "success",
+        title: "Research generation started",
+        description: message,
+      });
       if (!success) {
         toast({
           variant: "destructive",
@@ -201,22 +207,21 @@ export const SuggestionsPage = () => {
 
   const handleBulkGenerateArticles = async () => {
     try {
-      const { success, message } = await contentService.bulkGenerateArticles();
-      if (!success) {
-        console.log("Error bulk generating articles:", message);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: message,
-        });
-      }
+      const { status, job_id, queue_position } = await api.bulkGenerateArticles();
+
+      toast({
+        variant: "success",
+        title: "Bulk generation started",
+        description: `Job ID: ${job_id}, Position: ${queue_position}`,
+      });
+
       await fetchSuggestions();
     } catch (error) {
       console.error("Error bulk generating articles:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to bulk generate articles. Please try again.",
+        description: error.message || "Failed to bulk generate articles. Please try again.",
       });
     }
   };

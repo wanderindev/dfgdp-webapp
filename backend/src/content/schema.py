@@ -10,7 +10,6 @@ from sqlalchemy.orm import contains_eager, joinedload, selectinload
 from extensions import db
 from tasks.config import default_queue
 from tasks.tasks import (
-    bulk_generation_task,
     generate_article_task,
     generate_research_task,
     generate_suggestions_task,
@@ -677,7 +676,13 @@ class Mutation:
     def generate_suggestions(self, category_id: int, count: int) -> JobEnqueueResponse:
         """Generate new article suggestions."""
         try:
-            default_queue.enqueue(generate_suggestions_task, category_id, count)
+            default_queue.enqueue(
+                generate_suggestions_task,
+                category_id,
+                count,
+                job_timeout="5m",
+                result_ttl=86400,
+            )
             return JobEnqueueResponse(success=True, message="Job created successfully")
         except Exception as e:
             return JobEnqueueResponse(
@@ -721,17 +726,6 @@ class Mutation:
         return suggestion
 
     @strawberry.mutation
-    def bulk_generate_articles(self) -> JobEnqueueResponse:
-        """Bulk generate articles for an approved article suggestion."""
-        try:
-            default_queue.enqueue(bulk_generation_task)
-            return JobEnqueueResponse(success=True, message="Job created successfully")
-        except Exception as e:
-            return JobEnqueueResponse(
-                success=False, message=f"Failed to create job: {str(e)}"
-            )
-
-    @strawberry.mutation
     def generate_research(self, suggestion_id: int) -> JobEnqueueResponse:
         """Generate research for an approved article suggestion."""
         from content.models import ArticleSuggestion, ContentStatus
@@ -741,7 +735,12 @@ class Mutation:
             raise ValueError("Can only generate research for approved suggestions")
 
         try:
-            default_queue.enqueue(generate_research_task, suggestion_id)
+            default_queue.enqueue(
+                generate_research_task,
+                suggestion_id,
+                job_timeout="20m",
+                result_ttl=86400,
+            )
             return JobEnqueueResponse(success=True, message="Job created successfully")
         except Exception as e:
             return JobEnqueueResponse(
@@ -786,7 +785,9 @@ class Mutation:
             raise ValueError("Can only generate articles from approved research")
 
         try:
-            default_queue.enqueue(generate_article_task, research_id)
+            default_queue.enqueue(
+                generate_article_task, research_id, job_timeout="20m", result_ttl=86400
+            )
             return JobEnqueueResponse(success=True, message="Job created successfully")
         except Exception as e:
             return JobEnqueueResponse(

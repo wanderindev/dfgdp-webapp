@@ -90,5 +90,20 @@ export const api = {
     }
 
     return response.json();
-  }
+  },
+
+  async bulkGenerateArticles() {
+    const response = await fetch(`${API_BASE_URL}/tasks/bulk-generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to enqueue bulk article generation');
+    }
+
+    return response.json();
+  },
 };

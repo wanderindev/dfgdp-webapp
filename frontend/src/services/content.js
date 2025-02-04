@@ -104,15 +104,6 @@ const QUERIES = {
     }
   `,
 
-  BULK_GENERATE_ARTICLES: `
-    mutation BulkGenerateArticles() {
-      bulkGenerateArticles() {
-        success
-        message
-      }
-    }
-  `,
-
   GET_RESEARCH: `
     query GetResearch(
       $page: Int,
@@ -695,11 +686,6 @@ export const contentService = {
   async updateSuggestionStatus(id, status) {
     const data = await fetchGraphQL(MUTATIONS.UPDATE_SUGGESTION_STATUS, { id, status });
     return data.updateSuggestionStatus;
-  },
-
-  async bulkGenerateArticles() {
-    const data = await fetchGraphQL(MUTATIONS.BULK_GENERATE_ARTICLES);
-    return data.bulkGenerateArticles;
   },
 
   // Generate research for a suggestion
