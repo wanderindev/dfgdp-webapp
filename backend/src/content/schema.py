@@ -357,7 +357,7 @@ class Query:
         page: int = 1,
         page_size: int = 10,
         search: Optional[str] = None,
-        sort: str = "created_at",
+        sort: str = "id",
         dir: str = "desc",
     ) -> PaginatedArticleSuggestions:
         """Get paginated article suggestions with optional filtering and sorting."""
@@ -365,10 +365,11 @@ class Query:
 
         # Define valid columns for sorting.
         valid_columns = {
+            "id": ArticleSuggestion.id,
             "title": ArticleSuggestion.title,
             "researchCompleted": case((ArticleSuggestion.research != None, 1), else_=0),
         }
-        order_column = valid_columns.get(sort, ArticleSuggestion.title)
+        order_column = valid_columns.get(sort, ArticleSuggestion.id)
 
         # Build query
         query = db.session.query(ArticleSuggestion)
@@ -389,6 +390,7 @@ class Query:
             joinedload(ArticleSuggestion.research),
             joinedload(ArticleSuggestion.category),
         )
+        print(query)
 
         # Apply pagination
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)

@@ -70,8 +70,8 @@ export const SuggestionsPage = () => {
   async function fetchSuggestions() {
     try {
       setLoading(true);
-      const sortParam = sorting[0]?.id || "title";
-      const direction = sorting[0]?.desc ? "desc" : "asc";
+      const sortParam = sorting[0]?.id || "id";
+      const direction = sorting[0]?.asc ? "asc" : "desc";
 
       const data = await contentService.getSuggestions(
         currentPage,
@@ -281,7 +281,7 @@ export const SuggestionsPage = () => {
   ];
 
   // Custom cell renderer for the status column
-  const columnsOrder = ["title", "status", "researchCompleted"];
+  const columnsOrder = ["id", "title", "status", "researchCompleted"];
   const columnsOverride = [
     {
       accessorKey: "status",
@@ -318,6 +318,7 @@ export const SuggestionsPage = () => {
     },
   ];
   const columnWidths = {
+    id: "w-[100px]",
     status: "w-[250px]",
     researchCompleted: "w-[250px]",
     actions: "w-[100px]",
