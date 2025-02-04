@@ -38,6 +38,8 @@ export const SuggestionsPage = () => {
   // Filter / Sorting / Pagination
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("ALL");
+  const [taxonomyFilter, setTaxonomyFilter] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("");
   const [sorting, setSorting] = React.useState([]); // e.g. [ {id: 'title', desc: false} ]
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
@@ -66,12 +68,13 @@ export const SuggestionsPage = () => {
         console.error("Error fetching taxonomies:", err);
       }
     })();
-  }, [globalFilter, statusFilter, sorting, currentPage]);
+  }, [globalFilter, statusFilter, sorting, currentPage, categoryFilter]);
 
   async function fetchSuggestions() {
     try {
       setLoading(true);
       const sortParam = sorting[0]?.id || "id";
+      // noinspection JSUnresolvedReference
       const direction = sorting[0]?.asc ? "asc" : "desc";
 
       const data = await contentService.getSuggestions(
@@ -80,7 +83,8 @@ export const SuggestionsPage = () => {
         statusFilter === "ALL" ? null : statusFilter,
         globalFilter,
         sortParam,
-        direction
+        direction,
+        categoryFilter,
       );
 
       setSuggestions(data.suggestions || []);
@@ -212,7 +216,7 @@ export const SuggestionsPage = () => {
       toast({
         variant: "success",
         title: "Bulk generation started",
-        description: `Job ID: ${job_id}, Position: ${queue_position}`,
+        description: `Job ID: ${job_id}, Position: ${queue_position}, Status: ${status}`,
       });
 
       await fetchSuggestions();
@@ -378,6 +382,12 @@ export const SuggestionsPage = () => {
         setGlobalFilter={setGlobalFilter}
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
+        showCategoryFilter={true}
+        taxonomies={taxonomies}
+        taxonomyFilter={taxonomyFilter}
+        setTaxonomyFilter={setTaxonomyFilter}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
         // optional overrides
         columnsOrder={columnsOrder}
         columnsOverride={columnsOverride}

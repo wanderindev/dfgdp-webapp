@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import StatusFilterSelect from "@/components/shared/StatusFilterSelect.jsx";
+import CategoryFilterSelect from "@/components/shared/CategoryFilterSelect.jsx";
+
 
 
 // Helper to append an "actions" column if actions are provided
@@ -136,6 +138,14 @@ const DataTable = ({
   statusFilter = "ALL",
   setStatusFilter = (value) => {return value},
   showStatusFilter = false,
+
+  // Category filter props:
+  showCategoryFilter = false,
+  taxonomies = [],
+  taxonomyFilter = "",
+  setTaxonomyFilter = (value) => {return value},
+  categoryFilter = "",
+  setCategoryFilter = (value) => {return value},
 
   // Control buttons
   controlButtons = [],
@@ -277,11 +287,22 @@ const DataTable = ({
             className="max-w-sm"
           />
 
-          {/* STATUS FILTER - Only Show If `statusFilter` Exists */}
+          {/* STATUS FILTER */}
           {showStatusFilter && (
             <StatusFilterSelect
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
+            />
+          )}
+
+          {/* CATEGORY FILTER */}
+          {showCategoryFilter && (
+            <CategoryFilterSelect
+              taxonomies={taxonomies}
+              taxonomyFilter={taxonomyFilter}
+              setTaxonomyFilter={setTaxonomyFilter}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
             />
           )}
         </div>

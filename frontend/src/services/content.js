@@ -71,7 +71,8 @@ const QUERIES = {
       $status: ContentStatus, 
       $search: String, 
       $sort: String, 
-      $dir: String
+      $dir: String,
+      $categoryFilter: Int
     ) {
       articleSuggestions(
         page: $page, 
@@ -80,6 +81,7 @@ const QUERIES = {
         search: $search, 
         sort: $sort, 
         dir: $dir
+        categoryFilter: $categoryFilter
       ) {
         suggestions {
           id
@@ -653,8 +655,8 @@ export const contentService = {
   },
 
   // Get article suggestions
-  async getSuggestions(page, pageSize, status, search, sort, dir) {
-    const variables = { page, pageSize, status, search, sort, dir };
+  async getSuggestions(page, pageSize, status, search, sort, dir, categoryFilter) {
+    const variables = { page, pageSize, status, search, sort, dir, categoryFilter };
 
     const data = await fetchGraphQL(QUERIES.GET_SUGGESTIONS, variables);
     // noinspection JSUnresolvedReference

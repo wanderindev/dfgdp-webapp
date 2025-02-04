@@ -358,6 +358,7 @@ class Query:
         search: Optional[str] = None,
         sort: str = "id",
         dir: str = "desc",
+        category_filter: Optional[int] = None,
     ) -> PaginatedArticleSuggestions:
         """Get paginated article suggestions with optional filtering and sorting."""
         from content.models import ArticleSuggestion
@@ -378,6 +379,8 @@ class Query:
             query = query.filter_by(status=status)
         if search:
             query = query.filter(ArticleSuggestion.title.ilike(f"%{search}%"))
+        if category_filter:
+            query = query.filter(ArticleSuggestion.category.has(id=category_filter))
 
         # Apply sorting
         query = query.order_by(
@@ -389,7 +392,6 @@ class Query:
             joinedload(ArticleSuggestion.research),
             joinedload(ArticleSuggestion.category),
         )
-        print(query)
 
         # Apply pagination
         pagination = query.paginate(page=page, per_page=page_size, error_out=False)
