@@ -412,6 +412,7 @@ class Query:
         search: Optional[str] = None,
         sort: str = "suggestion.title",
         dir: str = "asc",
+        category_filter: Optional[int] = None,
     ) -> PaginatedResearch:
         from content.models import Research, ArticleSuggestion, Article, MediaSuggestion
 
@@ -439,6 +440,8 @@ class Query:
                 (Research.content.ilike(f"%{search}%"))
                 | (ArticleSuggestion.title.ilike(f"%{search}%"))
             )
+        if category_filter:
+            query = query.filter(ArticleSuggestion.category.has(id=category_filter))
 
         # Eager load relationships.
         # Use contains_eager for suggestion (used in sorting/filtering) and selectinload for collections.
@@ -479,6 +482,7 @@ class Query:
         search: Optional[str] = None,
         sort: str = "title",
         dir: str = "asc",
+        category_filter: Optional[int] = None,
     ) -> PaginatedArticles:
         from content.models import Article, Tag
 

@@ -17,6 +17,7 @@ export const ResearchPage = () => {
   // Data state
   const [research, setResearch] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [taxonomies, setTaxonomies] = React.useState([]);
 
   // UI states
   const [reviewingResearch, setReviewingResearch] = React.useState(null);
@@ -32,10 +33,21 @@ export const ResearchPage = () => {
   // Filtering, Sorting & Pagination state
   const [statusFilter, setStatusFilter] = React.useState('ALL');
   const [globalFilter, setGlobalFilter] = React.useState('');
+  const [taxonomyFilter, setTaxonomyFilter] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("")
   const [sorting, setSorting] = React.useState([]); // e.g. [{ id: 'suggestion.title', desc: false }]
   const [currentPage, setCurrentPage] = React.useState(1);
   const [totalPages, setTotalPages] = React.useState(1);
   const pageSize = 12;
+
+  const fetchTaxonomies = async () => {
+    try {
+      const data = await contentService.getTaxonomies();
+      setTaxonomies(data || []);
+    } catch (error) {
+      console.error("Error fetching taxonomies:", error);
+    }
+  };
 
   // Fetch research items from the backend with server‑side pagination, sorting, and filtering.
   const fetchResearch = async () => {
@@ -51,7 +63,8 @@ export const ResearchPage = () => {
         statusFilter === 'ALL' ? null : statusFilter,
         globalFilter,
         sortParam,
-        direction
+        direction,
+        categoryFilter,
       );
 
       // Transform each research record to add a `title` field equal to suggestion.title.
@@ -77,9 +90,19 @@ export const ResearchPage = () => {
 
   React.useEffect(() => {
     (async () => {
-      await fetchResearch();
+      try {
+        await fetchResearch();
+      } catch (err) {
+        console.error("Error fetching research:", err);
+      }
+
+      try {
+        await fetchTaxonomies();
+      } catch (err) {
+        console.error("Error fetching taxonomies:", err);
+      }
     })();
-  }, [globalFilter, statusFilter, sorting, currentPage]);
+  }, [globalFilter, statusFilter, sorting, currentPage, categoryFilter]);
 
   // Save (update) research content changes.
   const handleSaveResearch = async (researchData) => {
@@ -199,6 +222,7 @@ export const ResearchPage = () => {
       label: 'Review Research',
       onClick: (item) => {
         setReviewingResearch(item);
+        // noinspection JSUnresolvedReference
         setHasArticle(item.articles && item.articles.length > 0);
       },
       shouldShow: () => true,
@@ -360,6 +384,12 @@ export const ResearchPage = () => {
         statusFilter={statusFilter}
         setStatusFilter={setStatusFilter}
         showStatusFilter={true}
+        showCategoryFilter={true}
+        taxonomies={taxonomies}
+        taxonomyFilter={taxonomyFilter}
+        setTaxonomyFilter={setTaxonomyFilter}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
         // Column configuration
         columnsOrder={columnsOrder}
         columnsOverride={columnsOverride}

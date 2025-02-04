@@ -113,7 +113,8 @@ const QUERIES = {
       $status: ContentStatus,
       $search: String,
       $sort: String,
-      $dir: String
+      $dir: String,
+      $categoryFilter: Int
     ) {
       research(
         page: $page,
@@ -121,7 +122,8 @@ const QUERIES = {
         status: $status,
         search: $search,
         sort: $sort,
-        dir: $dir
+        dir: $dir,
+        categoryFilter: $categoryFilter
       ) {
         research {
           id
@@ -697,8 +699,8 @@ export const contentService = {
   },
 
    // Research operations
-  async getResearch(page, pageSize, status, search, sort, dir) {
-    const variables = { page, pageSize, status, search, sort, dir };
+  async getResearch(page, pageSize, status, search, sort, dir, categoryFilter) {
+    const variables = { page, pageSize, status, search, sort, dir, categoryFilter };
     const data = await fetchGraphQL(QUERIES.GET_RESEARCH, variables);
     return data.research;
   },
